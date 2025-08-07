@@ -66,4 +66,19 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+
+    implementation(libs.secp256k1.kmp.jni.android)
+    implementation(libs.scala.parser.combinators.x.x1)
+    implementation(libs.scodec.core.x.x1)
+    implementation(libs.akka.actor.x.x1)
+    implementation(libs.quicklens.x.x1)
+    implementation(libs.rxscala.x.x1)
+
+    implementation(libs.spray.json.x.x1)
+    implementation(libs.json4s.native.x.x1)
+    implementation(libs.bcprov.jdk15to18)
+    implementation(libs.commons.codec)
+    implementation(libs.netty.all)
+    implementation(libs.okhttp)
+    implementation(libs.guava)
 }
