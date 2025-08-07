@@ -1,4 +1,3 @@
-
 plugins {
     id("org.barfuin.gradle.taskinfo") version "2.2.0"
     alias(libs.plugins.androidApplication)
@@ -21,6 +20,19 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
+
+        ndk {
+            abiFilters.add("armeabi-v7a")
+            abiFilters.add("arm64-v8a")
+            abiFilters.add("x86_64")
+            abiFilters.add("x86")
+        }
     }
 
     buildTypes {
@@ -29,9 +41,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             )
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("CMakeLists.txt")
         }
     }
 
