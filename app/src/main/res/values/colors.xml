@@ -1,34 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#282B30</color>
-    <color name="colorAccent">#FAFAFA</color>
-
-    <color name="paymentAwait">#E08f04</color>
-    <color name="paymentDone">#99CC00</color>
-    <color name="btcLogo">#E08f04</color>
-
-    <color name="paymentPassiveBorder">#555555</color>
-    <color name="cardBitcoinSigning">#E08f04</color>
-
-    <color name="buttonGreenRipple">#8BD670</color>
-    <color name="buttonGreenBorder">#5B8F36</color>
-    <color name="buttonGreenPale">#33517D2B</color>
-    <color name="buttonGreen">#517D2B</color>
-
-    <color name="buttonRedRipple">#F0473E</color>
-    <color name="buttonRedBorder">#D1231E</color>
-    <color name="buttonRed">#AF1212</color>
-
-    <color name="buttonGrayRipple">#868899</color>
-    <color name="buttonGrayBorder">#494949</color>
-
-    <color name="cardOutText">#88FF88</color>
-    <color name="cardZeroText">#888888</color>
-    <color name="signCardZeroText">#fBB945</color>
-
-    <!-- nachos -->
-
-    <color name="chip_default_text_color">#DE000000</color>
-    <color name="chip_default_icon_background_color">#517FA4</color>
-    <color name="chip_material_background">#F0F0F0</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
 </resources>

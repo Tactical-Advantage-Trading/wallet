@@ -1,16 +1,4 @@
-Simple Bitcoin Wallet (aka SBW) is a non-custodial Bitcoin wallet for Android.
-
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://play.google.com/store/apps/details?id=com.btcontract.wallet">
-          <img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/images/apps/en-play-badge.png" height="50pt"/>
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
+Key Wallet
 
 ## Contributing
 

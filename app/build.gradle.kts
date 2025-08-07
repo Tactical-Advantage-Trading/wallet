@@ -1,73 +1,52 @@
+
 plugins {
+    id("org.barfuin.gradle.taskinfo") version "2.2.0"
     alias(libs.plugins.androidApplication)
+    alias(libs.plugins.scalaAndroid)
 }
 
-apply(plugin = "com.soundcorset.scala-android")
+scala.scalaVersion = "2.11.12"
 
 android {
-    namespace = "com.btcontract.wallet"
-    compileSdk = 35
+    namespace = "trading.tacticaladvantage"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.btcontract.wallet"
-        versionName = "2.5.9"
-        versionCode = 111
-        targetSdk = 35
+        applicationId = "trading.tacticaladvantage"
+        versionName = "1.0"
+        versionCode = 1
         minSdk = 28
+        targetSdk
+
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-        }
+            signingConfig = signingConfigs.getByName("debug")
 
-        debug {
-            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     packaging {
         resources {
-            excludes += "META-INF/**"
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
 
 dependencies {
-    compileOnly (
-        fileTree(layout.buildDirectory) {
-            include("**/R.jar")
-        }
-    )
-
-    // Android-specific
-    implementation(libs.material)
-    implementation(libs.appcompat)
-    implementation(libs.currencyedittext)
-    implementation(libs.zxing.android.embedded)
-    implementation(libs.google.auth)
-    implementation(libs.multidex)
-    implementation(libs.review)
-
-    // Immortan
-    implementation(libs.scala.library)
-    implementation(libs.secp256k1.kmp.jni.android)
-    implementation(libs.scala.parser.combinators.x.x1)
-    implementation(libs.scodec.core.x.x1)
-    implementation(libs.akka.actor.x.x1)
-    implementation(libs.quicklens.x.x1)
-    implementation(libs.rxscala.x.x1)
-
-    implementation(libs.spray.json.x.x1)
-    implementation(libs.json4s.native.x.x1)
-    implementation(libs.bcprov.jdk15to18)
-    implementation(libs.commons.codec)
-    implementation(libs.netty.all)
-    implementation(libs.okhttp)
-    implementation(libs.guava)
+    implementation(libs.androidx.core.ktx)
 }
