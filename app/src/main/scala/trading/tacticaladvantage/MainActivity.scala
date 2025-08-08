@@ -2,6 +2,7 @@ package trading.tacticaladvantage
 
 import android.app.Activity
 import android.os.Bundle
+import TaProtocol._
 
 object MainActivity {
   System.loadLibrary("native-lib")
