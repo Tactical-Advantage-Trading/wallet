@@ -165,14 +165,6 @@ public class ECKey {
     }
 
     /**
-     * Construct an ECKey from an ASN.1 encoded private key. These are produced by OpenSSL and stored by Bitcoin
-     * Core in its wallet. Note that this is slow because it requires an EC point multiply.
-     */
-    public static ECKey fromASN1(byte[] asn1privkey) {
-        return extractKeyFromASN1(asn1privkey);
-    }
-
-    /**
      * Creates an ECKey given the private key only. The public key is calculated from it (this is slow). The resulting
      * public key is compressed.
      */
@@ -480,65 +472,6 @@ public class ECKey {
             return false;
         else
             throw new IllegalArgumentException(Hex.toHexString(encoded));
-    }
-
-    private static ECKey extractKeyFromASN1(byte[] asn1privkey) {
-        // To understand this code, see the definition of the ASN.1 format for EC private keys in the OpenSSL source
-        // code in ec_asn1.c:
-        //
-        // ASN1_SEQUENCE(EC_PRIVATEKEY) = {
-        //   ASN1_SIMPLE(EC_PRIVATEKEY, version, LONG),
-        //   ASN1_SIMPLE(EC_PRIVATEKEY, privateKey, ASN1_OCTET_STRING),
-        //   ASN1_EXP_OPT(EC_PRIVATEKEY, parameters, ECPKPARAMETERS, 0),
-        //   ASN1_EXP_OPT(EC_PRIVATEKEY, publicKey, ASN1_BIT_STRING, 1)
-        // } ASN1_SEQUENCE_END(EC_PRIVATEKEY)
-        //
-        try {
-            ASN1InputStream decoder = new ASN1InputStream(asn1privkey);
-            DLSequence seq = (DLSequence)decoder.readObject();
-            if(decoder.readObject() != null) {
-                throw new IllegalArgumentException("Input contains extra bytes");
-            }
-            decoder.close();
-
-            if(seq.size() != 4) {
-                throw new IllegalArgumentException("Input does not appear to be an ASN.1 OpenSSL EC private key");
-            }
-
-            if(!((ASN1Integer) seq.getObjectAt(0)).getValue().equals(BigInteger.ONE)) {
-                throw new IllegalArgumentException("Input is of wrong version");
-            }
-
-            byte[] privbits = ((ASN1OctetString) seq.getObjectAt(1)).getOctets();
-            BigInteger privkey = new BigInteger(1, privbits);
-
-            ASN1TaggedObject pubkey = (ASN1TaggedObject) seq.getObjectAt(3);
-            if(pubkey.getTagNo() != 1) {
-                throw new IllegalArgumentException("Input has 'publicKey' with bad tag number");
-            }
-
-            byte[] pubbits = ((DERBitString)pubkey.getObject()).getBytes();
-            if(pubbits.length != 33 && pubbits.length != 65) {
-                throw new IllegalArgumentException("Input has 'publicKey' with invalid length");
-            };
-
-            int encoding = pubbits[0] & 0xFF;
-            // Only allow compressed(2,3) and uncompressed(4), not infinity(0) or hybrid(6,7)
-            if(encoding < 2 || encoding > 4) {
-                throw new IllegalArgumentException("Input has 'publicKey' with invalid encoding");
-            }
-
-            // Now sanity check to ensure the pubkey bytes match the privkey.
-            boolean compressed = isPubKeyCompressed(pubbits);
-            ECKey key = new ECKey(privkey, null, compressed);
-            if(!Arrays.equals(key.getPubKey(), pubbits)) {
-                throw new IllegalArgumentException("Public key in ASN.1 structure does not match private key.");
-            }
-
-            return key;
-        } catch (IOException e) {
-            throw new RuntimeException(e);  // Cannot happen, reading from memory stream.
-        }
     }
 
     /**

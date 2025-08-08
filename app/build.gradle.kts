@@ -66,16 +66,20 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.zxing.android.embedded)
+    implementation(libs.currencyedittext)
+    implementation(libs.recyclerview)
+    implementation(libs.appcompat)
+    implementation(libs.multidex)
 
     implementation(libs.secp256k1.kmp.jni.android)
-    implementation(libs.scala.parser.combinators.x.x1)
-    implementation(libs.scodec.core.x.x1)
-    implementation(libs.akka.actor.x.x1)
-    implementation(libs.quicklens.x.x1)
-    implementation(libs.rxscala.x.x1)
+    implementation(libs.scala.parser.combinators)
+    implementation(libs.scodec.core)
+    implementation(libs.akka.actor)
+    implementation(libs.quicklens)
 
-    implementation(libs.spray.json.x.x1)
-    implementation(libs.json4s.native.x.x1)
+    implementation(libs.spray.json)
+    implementation(libs.json4s.native)
     implementation(libs.bcprov.jdk15to18)
     implementation(libs.commons.codec)
     implementation(libs.netty.all)

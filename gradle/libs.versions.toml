@@ -1,35 +1,43 @@
 [versions]
 agp = "8.12.0"
 coreKtx = "1.16.0"
-akkaActor_xX1 = "2.3.14"
-bcprovJdk15to18 = "1.68"
-commonsCodec = "1.15"
-guava = "29.0-android"
-json4sNative_xX1 = "3.6.7"
+akkaActor = "2.3.14"
+bcprovJdk15to18 = "1.81"
+commonsCodec = "1.19.0"
+guava = "33.4.8-android"
+json4sNative = "4.0.6"
 nettyAll = "4.1.42.Final"
-okhttp = "4.9.1"
-quicklens_xX1 = "1.7.5"
-rxscala_xX1 = "0.27.0"
-scalaParserCombinators_xX1 = "2.1.0"
-scodecCore_xX1 = "1.11.4"
-secp256k1KmpJniAndroid = "0.5.2"
-sprayJson_xX1 = "1.3.6"
+okhttp = "5.1.0"
+quicklens = "1.9.12"
+scalaParserCombinators = "2.2.0"
+scodecCore = "1.11.4"
+secp256k1KmpJniAndroid = "0.18.0"
+sprayJson = "1.3.6"
+recyclerview = "1.4.0"
+appcompat = "1.7.1"
+currencyedittext = "1.0.0"
+zxingAndroidEmbedded = "4.3.0"
+multidex = "2.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-akka-actor_x-x1 = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akkaActor_xX1" }
+akka-actor = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akkaActor" }
 bcprov-jdk15to18 = { module = "org.bouncycastle:bcprov-jdk15to18", version.ref = "bcprovJdk15to18" }
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-json4s-native_x-x1 = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative_xX1" }
+json4s-native = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative" }
 netty-all = { module = "io.netty:netty-all", version.ref = "nettyAll" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-quicklens_x-x1 = { module = "com.softwaremill.quicklens:quicklens_2.11", version.ref = "quicklens_xX1" }
-rxscala_x-x1 = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala_xX1" }
-scala-parser-combinators_x-x1 = { module = "org.scala-lang.modules:scala-parser-combinators_2.11", version.ref = "scalaParserCombinators_xX1" }
-scodec-core_x-x1 = { module = "org.scodec:scodec-core_2.11", version.ref = "scodecCore_xX1" }
+quicklens = { module = "com.softwaremill.quicklens:quicklens_2.11", version.ref = "quicklens" }
+scala-parser-combinators = { module = "org.scala-lang.modules:scala-parser-combinators_2.11", version.ref = "scalaParserCombinators" }
+scodec-core = { module = "org.scodec:scodec-core_2.11", version.ref = "scodecCore" }
 secp256k1-kmp-jni-android = { module = "fr.acinq.secp256k1:secp256k1-kmp-jni-android", version.ref = "secp256k1KmpJniAndroid" }
-spray-json_x-x1 = { module = "io.spray:spray-json_2.11", version.ref = "sprayJson_xX1" }
+spray-json = { module = "io.spray:spray-json_2.11", version.ref = "sprayJson" }
+recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+currencyedittext = { module = "com.cottacush:CurrencyEditText", version.ref = "currencyedittext" }
+zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
+multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
