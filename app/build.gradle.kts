@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.scodec.core)
     implementation(libs.akka.actor)
     implementation(libs.quicklens)
+    implementation(libs.rxscala)
 
     implementation(libs.spray.json)
     implementation(libs.json4s.native)

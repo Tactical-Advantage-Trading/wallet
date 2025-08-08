@@ -17,6 +17,7 @@ recyclerview = "1.4.0"
 appcompat = "1.7.1"
 currencyedittext = "1.0.0"
 zxingAndroidEmbedded = "4.3.0"
+rxscala = "0.27.0"
 multidex = "2.0.1"
 
 [libraries]
@@ -38,6 +39,7 @@ appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "a
 currencyedittext = { module = "com.cottacush:CurrencyEditText", version.ref = "currencyedittext" }
 zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
+rxscala = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
