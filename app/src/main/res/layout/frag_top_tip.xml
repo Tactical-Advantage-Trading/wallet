@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    style="@style/StandardXYMarginLinearLayout"
+    xmlns:f="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <TextView
+        style="@style/FillingView"
+        android:textColor="@color/colorAccent"
+        android:id="@+id/tipTitle"/>
+
+    <org.apmem.tools.layouts.FlowLayout
+        android:id="@+id/tipExtraTags"
+        style="@style/FillingView"
+        android:visibility="gone"
+        android:paddingTop="15dp"
+        f:layout_newLine="true"/>
+
+</LinearLayout>

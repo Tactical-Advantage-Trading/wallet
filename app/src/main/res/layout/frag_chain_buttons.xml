@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    android:paddingEnd="15dp"
+    android:paddingStart="15dp"
+    android:layout_marginTop="15dp"
+    android:layout_marginBottom="5dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <TextView
+        style="@style/BoundedView"
+        android:id="@+id/chainText"
+        android:layout_centerVertical="true"/>
+
+    <com.ornach.nobobutton.NoboButton
+        app:nb_text="@string/dialog_ok"
+        app:nb_textColor="@android:color/white"
+        android:layout_centerVertical="true"
+        android:id="@+id/chainNextButton"
+        style="@style/GreenButton"/>
+
+    <com.ornach.nobobutton.NoboButton
+        app:nb_drawableResource="@drawable/outline_edit_20_24"
+        android:layout_toStartOf="@id/chainCancelButton"
+        android:layout_centerVertical="true"
+        android:id="@+id/chainEditButton"
+        style="@style/GrayButton"/>
+
+    <com.ornach.nobobutton.NoboButton
+        android:layout_marginStart="5dp"
+        android:id="@+id/chainCancelButton"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        app:nb_text="@string/dialog_cancel"
+        style="@style/GrayButton"/>
+
+</RelativeLayout>

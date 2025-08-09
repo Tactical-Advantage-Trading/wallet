@@ -17,8 +17,10 @@ recyclerview = "1.4.0"
 appcompat = "1.7.1"
 currencyedittext = "1.0.0"
 zxingAndroidEmbedded = "4.3.0"
+google-play-services-auth = "21.4.0"
 rxscala = "0.27.0"
 multidex = "2.0.1"
+material = "1.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -37,9 +39,11 @@ spray-json = { module = "io.spray:spray-json_2.11", version.ref = "sprayJson" }
 recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 currencyedittext = { module = "com.cottacush:CurrencyEditText", version.ref = "currencyedittext" }
+google-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "google-play-services-auth" }
 zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 rxscala = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

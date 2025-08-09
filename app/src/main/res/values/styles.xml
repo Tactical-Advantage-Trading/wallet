@@ -33,6 +33,17 @@
         <item name="android:background">#33999999</item>
     </style>
 
+    <style name="StandardLinearLayout">
+        <item name="android:layout_height">fill_parent</item>
+        <item name="android:layout_width">fill_parent</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">top</item>
+    </style>
+
+    <style name="StandardXYMarginLinearLayout" parent="StandardLinearLayout">
+        <item name="android:padding">15dp</item>
+    </style>
+
     <!-- view styles -->
 
     <style name="InputHintView">

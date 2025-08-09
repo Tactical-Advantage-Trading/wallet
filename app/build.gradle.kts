@@ -69,8 +69,10 @@ dependencies {
     implementation(libs.zxing.android.embedded)
     implementation(libs.currencyedittext)
     implementation(libs.recyclerview)
+    implementation(libs.google.auth)
     implementation(libs.appcompat)
     implementation(libs.multidex)
+    implementation(libs.material)
 
     implementation(libs.secp256k1.kmp.jni.android)
     implementation(libs.scala.parser.combinators)

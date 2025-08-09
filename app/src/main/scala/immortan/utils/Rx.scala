@@ -2,9 +2,7 @@ package immortan.utils
 
 import rx.lang.scala.Observable
 import rx.lang.scala.schedulers.IOScheduler
-
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 
 
 object Rx {

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    style="@style/StandardLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:background="?attr/selectableItemBackground"
+    android:paddingBottom="25dp"
+    android:paddingStart="15dp"
+    android:paddingTop="25dp"
+    android:paddingEnd="15dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <LinearLayout
+        style="@style/FillingView"
+        android:orientation="vertical"
+        android:layout_toStartOf="@id/settingsCheck"
+        android:layout_centerVertical="true">
+
+        <TextView
+            style="@style/BoundedView"
+            android:id="@+id/settingsTitle"
+            android:textStyle="bold"/>
+
+        <TextView
+            style="@style/BoundedView"
+            android:id="@+id/settingsInfo"
+            android:textColor="@color/colorAccent"
+            android:paddingTop="5dp"
+            android:textSize="16sp"/>
+
+    </LinearLayout>
+
+    <CheckBox
+        android:clickable="false"
+        android:focusable="false"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:id="@+id/settingsCheck"/>
+
+</RelativeLayout>

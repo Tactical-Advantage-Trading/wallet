@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    style="@style/StandardLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Fiat and hint -->
+
+    <FrameLayout style="@style/FillingView">
+        <com.cottacush.android.currencyedittext.CurrencyEditText
+            style="@style/XSmallMarginFillingView"
+            android:focusableInTouchMode="true"
+            android:id="@+id/fiatInputAmount"
+            app:maxNumberOfDecimalDigits="2"
+            android:imeOptions="actionDone"
+            android:layout_marginTop="15dp"
+            android:textStyle="bold"
+            android:textSize="24sp"/>
+
+        <TextView
+            style="@style/InputHintView"
+            android:layout_marginEnd="15dp"
+            android:id="@+id/fiatInputAmountHint"/>
+
+    </FrameLayout>
+
+    <TextView
+        style="@style/XMarginFillingView"
+        android:layout_marginBottom="25dp"
+        android:layout_width="fill_parent"
+        android:id="@+id/hintFiatDenom"/>
+
+    <!-- Bitcoin and hint -->
+
+    <FrameLayout style="@style/FillingView">
+        <com.cottacush.android.currencyedittext.CurrencyEditText
+            style="@style/XSmallMarginFillingView"
+            app:maxNumberOfDecimalDigits="8"
+            android:imeOptions="actionDone"
+            android:id="@+id/inputAmount"
+            android:textStyle="bold"
+            android:textSize="24sp"/>
+
+        <TextView
+            style="@style/InputHintView"
+            android:layout_marginEnd="15dp"
+            android:id="@+id/inputAmountHint"/>
+
+    </FrameLayout>
+
+    <TextView
+        style="@style/XMarginFillingView"
+        android:id="@+id/hintDenom"/>
+
+    <!-- Extra input -->
+
+    <include layout="@layout/frag_hint_input"/>
+
+    <TextView
+        style="@style/XMarginFillingView"
+        android:id="@+id/extraInputOption"
+        android:layout_marginTop="25dp"
+        android:textStyle="bold"/>
+
+    <TextView
+        style="@style/XMarginFillingView"
+        android:id="@+id/extraInputVisibility"/>
+
+    <View
+        android:layout_marginTop="25dp"
+        style="@style/GrayDivider"/>
+
+</LinearLayout>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    style="@style/FillingView">
+
+    <!-- Transaction view -->
+
+    <TextView
+        style="@style/BoundedView"
+        android:background="@color/bg"
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="15dp"
+        android:id="@+id/txLabelOrId"/>
+
+    <!-- Utxo view -->
+
+    <androidx.cardview.widget.CardView
+        card_view:cardCornerRadius="@dimen/corner_radius"
+        android:id="@+id/utxoCardContainer"
+        android:layout_marginStart="15dp"
+        android:layout_marginEnd="15dp"
+        android:layout_marginTop="5dp"
+        style="@style/Card">
+
+        <RelativeLayout
+            style="@style/FillingView"
+            android:id="@+id/utxoWrap"
+            android:orientation="horizontal"
+            android:paddingBottom="10dp"
+            android:paddingStart="5dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="15dp"
+            android:gravity="center">
+
+            <CheckBox
+                android:clickable="false"
+                android:focusable="false"
+                android:id="@+id/utxoIncluded"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"/>
+
+            <TextView
+                style="@style/BoundedView"
+                android:id="@+id/utxoHaikuName"
+                android:layout_toEndOf="@+id/utxoIncluded"
+                android:layout_centerVertical="true"
+                android:layout_marginStart="6dp"/>
+
+            <TextView
+                style="@style/BoundedView"
+                android:id="@+id/utxoAmount"
+                android:layout_centerVertical="true"
+                android:layout_alignParentEnd="true"/>
+
+        </RelativeLayout>
+    </androidx.cardview.widget.CardView>
+</LinearLayout>

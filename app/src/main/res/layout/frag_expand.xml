@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    style="@style/FillingView">
+
+    <ImageButton
+        android:id="@+id/expand"
+        android:layout_margin="15dp"
+        android:background="?android:selectableItemBackground"
+        android:src="@drawable/expand_more_24px"
+        style="@style/FillingView"
+        android:padding="15dp"/>
+
+</LinearLayout>
