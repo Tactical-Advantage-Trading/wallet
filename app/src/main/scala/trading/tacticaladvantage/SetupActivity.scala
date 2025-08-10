@@ -6,9 +6,10 @@ import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
-import immortan.crypto.Tools.{SEPARATOR, StringList, none}
+import immortan.crypto.Tools.{Bytes, SEPARATOR, StringList, none}
 import immortan.{LightningNodeKeys, WalletSecret}
 import trading.tacticaladvantage.R.string._
+import java.io.File
 
 
 abstract class SettingsHolder(host: BaseActivity) {
@@ -75,6 +76,12 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
     val keys = LightningNodeKeys.fromSeed(walletSeed.toArray)
     val secret = WalletSecret(keys, mnemonic, walletSeed)
+
+    // Enable local Biconomy bundle
+    assetToInternal("biconomy.js")
+    assetToInternal(".env")
+
+    // Consider this wallet initialized
     WalletApp.extDataBag.putSecret(secret)
     WalletApp.makeOperational(secret)
 
@@ -95,5 +102,25 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
   def showMnemonicPopup(view: View): Unit = {
     showMnemonicInput(action_recovery_phrase_title)(proceedWithMnemonics)
+  }
+
+  def assetToInternal(assetName: String): Unit = {
+    val destFile = new File(me.getFilesDir, assetName)
+    val outStream = new java.io.FileOutputStream(destFile)
+    val inStream = me.getAssets.open(assetName)
+
+    try {
+      val buffer = new Bytes(2048)
+      var bytesRead = inStream.read(buffer)
+      destFile.getParentFile.mkdirs
+
+      while (bytesRead != -1) {
+        outStream.write(buffer, 0, bytesRead)
+        bytesRead = inStream.read(buffer)
+      }
+    } finally {
+      inStream.close
+      outStream.close
+    }
   }
 }

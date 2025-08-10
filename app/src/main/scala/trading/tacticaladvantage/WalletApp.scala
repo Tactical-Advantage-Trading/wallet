@@ -33,6 +33,7 @@ object WalletApp {
   var chainWalletBag: SQLiteChainWallet = _
   var extDataBag: SQLiteData = _
   var txDataBag: SQLiteTx = _
+  var biconomy: Biconomy = _
   var app: WalletApp = _
 
   val seenTxInfos = mutable.Map.empty[ByteVector32, TxInfo]
@@ -43,8 +44,14 @@ object WalletApp {
 
   def denom: Denomination = BtcDenomination
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
-  def isAlive: Boolean = null != txDataBag && null != chainWalletBag && null != extDataBag && null != app
-  def isOperational: Boolean = null != ElectrumWallet.chainHash && null != secret && null != ElectrumWallet.connectionProvider && null != fiatRates && null != feeRates
+
+  def isAlive: Boolean =
+    null != txDataBag && null != chainWalletBag &&
+      null != extDataBag && null != app
+
+  def isOperational: Boolean =
+    null != ElectrumWallet.chainHash && null != secret && null != fiatRates &&
+      null != feeRates && null != ElectrumWallet.connectionProvider && biconomy != null
 
   def freePossiblyUsedRuntimeResouces: Unit = {
     try ElectrumWallet.becomeShutDown catch none
@@ -70,6 +77,7 @@ object WalletApp {
     require(isAlive, "Halted, application is not alive yet")
     ElectrumWallet.params = WalletParameters(extDataBag, chainWalletBag, txDataBag, dustLimit = 546L.sat)
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
+    biconomy = new Biconomy(ElectrumWallet.connectionProvider)
     secret = sec
 
     extDataBag.db txWrap {

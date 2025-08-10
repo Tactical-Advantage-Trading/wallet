@@ -6,17 +6,16 @@ import immortan.utils.ImplicitJsonFormats._
 object TaProtocol {
   sealed trait FailureCode { def code: Int }
   case object INVALID_JSON extends FailureCode { val code = 10 }
-  case object INVALID_OAUTH extends FailureCode { val code = 20 }
+  case object NOT_LOGGED_IN extends FailureCode { val code = 20 }
   case object NOT_AUTHORIZED extends FailureCode { val code = 30 }
   case object INVALID_REQUEST extends FailureCode { val code = 40 }
   case object UPDATE_CLIENT_APP extends FailureCode { val code = 50 }
   case object USD_INFRA_FAIL extends FailureCode { val code = 60 }
   case object ACCOUNT_BANNED extends FailureCode { val code = 70 }
-  case object RATE_LIMIT extends FailureCode { val code = 80 }
 
   val failureCodes: Seq[FailureCode] = Seq(
-    INVALID_JSON, INVALID_OAUTH, NOT_AUTHORIZED, INVALID_REQUEST,
-    UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED, RATE_LIMIT
+    INVALID_JSON, NOT_LOGGED_IN, NOT_AUTHORIZED, INVALID_REQUEST,
+    UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED
   )
 
   def fromCode(code: Int): Option[FailureCode] =
@@ -53,7 +52,7 @@ object TaProtocol {
   //
 
   sealed trait RequestArguments { val tag: String }
-  case class Authorize(userIdToken: String) extends RequestArguments { val tag = "Authorize" }
+  case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
   case class UsdSubscribe(addresses: List[String], afterBlock: Long) extends RequestArguments { val tag = "UsdSubscribe" }
   case class WithdrawReq(address: String, requested: Double, asset: Asset) extends RequestArguments { val tag = "WithdrawReq" }
   case class DepositSig(bip322: String, asset: Asset) extends RequestArguments { val tag = "DepositSig" }
@@ -61,7 +60,7 @@ object TaProtocol {
   case object GetHistory extends RequestArguments { val tag = "GetHistory" }
   case object LogOut extends RequestArguments { val tag = "LogOut" }
 
-  implicit val authorizeFormat: JsonFormat[Authorize] = taggedJsonFmt(jsonFormat1(Authorize), "Authorize")
+  implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat2(Login), "Login")
   implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat2(UsdSubscribe), "UsdSubscribe")
   implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat3(WithdrawReq), "Withdraw")
   implicit val depositSigFormat: JsonFormat[DepositSig] = taggedJsonFmt(jsonFormat2(DepositSig), "DepositSig")
@@ -71,7 +70,7 @@ object TaProtocol {
 
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def write(obj: RequestArguments): JsValue = obj match {
-      case request: Authorize => authorizeFormat.write(request)
+      case request: Login => loginFormat.write(request)
       case request: CancelWithdraw => cancelWithdrawFormat.write(request)
       case request: UsdSubscribe => usdSubscribeFormat.write(request)
       case request: WithdrawReq => withdrawReqFormat.write(request)
