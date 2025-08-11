@@ -122,8 +122,8 @@ object DeterministicWallet {
    * @param seed random seed
    * @return a "master" private key
    */
-  def generate(seed: ByteVector): ExtendedPrivateKey = {
-    val I = Crypto.hmac512(ByteVector.view("Bitcoin seed".getBytes("UTF-8")), seed)
+  def generate(seed: ByteVector, tag: String): ExtendedPrivateKey = {
+    val I = Crypto.hmac512(ByteVector.view(tag getBytes "UTF-8"), seed)
     val IL = ByteVector32(I.take(32))
     val IR = ByteVector32(I.takeRight(32))
     ExtendedPrivateKey(IL, IR, depth = 0, path = List.empty[Long], parent = 0L)

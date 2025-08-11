@@ -7,8 +7,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
 import immortan.crypto.Tools.{Bytes, SEPARATOR, StringList, none}
-import immortan.{LightningNodeKeys, WalletSecret}
+import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.R.string._
+
 import java.io.File
 
 
@@ -74,8 +75,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
-    val keys = LightningNodeKeys.fromSeed(walletSeed.toArray)
-    val secret = WalletSecret(keys, mnemonic, walletSeed)
+    val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
 
     // Enable local Biconomy bundle
     assetToInternal("biconomy.js")

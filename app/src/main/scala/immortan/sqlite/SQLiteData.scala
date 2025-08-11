@@ -9,7 +9,7 @@ import immortan.crypto.Tools.Bytes
 import immortan.sqlite.SQLiteData._
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{FeeRatesInfo, FiatRatesInfo}
-import immortan.wire.ExtCodecs.walletSecretCodec
+import immortan.MasterKeys.walletSecretCodec
 import scodec.bits.ByteVector
 import spray.json._
 

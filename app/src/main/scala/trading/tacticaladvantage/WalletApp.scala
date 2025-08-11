@@ -114,7 +114,7 @@ object WalletApp {
 
     chainWalletBag.listWallets collect {
       case CompleteChainWalletInfo(core: SigningWallet, persistentData, lastBalance, label, false) =>
-        val ewt = ElectrumWalletType.makeSigningType(core.walletType, core.attachedMaster.getOrElse(secret.keys.master), chainHash)
+        val ewt = ElectrumWalletType.makeSigningType(core.walletType, core.attachedMaster.getOrElse(secret.keys.bitcoinMaster), chainHash)
         val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance, label)
         ElectrumWallet.specs.update(ewt.xPub, spec)
         spec.walletRef ! persistentData
@@ -123,7 +123,7 @@ object WalletApp {
     if (ElectrumWallet.specs.isEmpty) {
       val label = app.getString(bitcoin_wallet)
       val core = SigningWallet(ElectrumWallet.BIP84)
-      val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.master, chainHash)
+      val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, chainHash)
       val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, Satoshi(0L), label)
       ElectrumWallet.addWallet(spec)
     }
