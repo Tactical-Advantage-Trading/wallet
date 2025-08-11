@@ -22,8 +22,6 @@ import Colors._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
 import com.cottacush.android.currencyedittext.CurrencyEditText
-import com.google.android.gms.auth.api.signin.{GoogleSignIn, GoogleSignInClient, GoogleSignInOptions}
-import com.google.android.gms.common.api.ApiException
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.{BaseTransientBottomBar, Snackbar}
 import com.google.android.material.textfield.TextInputLayout
@@ -584,32 +582,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     chooser.update(spendable)
     chooser.unPadCards
     def onOk: Unit
-  }
-
-  // Google Auth
-
-  final val AuthRequestCode = 102
-
-  lazy val googleAuthClient: GoogleSignInClient = {
-    val serverToken = "923958205109-25u1rfr9p72s9crbjpj4uiaksu4uuku8.apps.googleusercontent.com"
-    val gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestIdToken(serverToken)
-    GoogleSignIn.getClient(this, gso.requestEmail.build)
-  }
-
-  override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent): Unit = {
-    super.onActivityResult(requestCode, resultCode, data)
-
-    requestCode match {
-      case AuthRequestCode => Try {
-        val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-        val account = task getResult classOf[ApiException]
-      }
-    }
-  }
-
-  def signIn(view: View): Unit = {
-    val signInIntent = googleAuthClient.getSignInIntent
-    startActivityForResult(signInIntent, AuthRequestCode)
   }
 }
 

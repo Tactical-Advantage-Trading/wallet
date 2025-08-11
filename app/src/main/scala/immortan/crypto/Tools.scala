@@ -1,6 +1,9 @@
 package immortan.crypto
 
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
+
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.language.implicitConversions
 
 
@@ -44,4 +47,19 @@ object Tools {
 
 trait CanBeShutDown {
   def becomeShutDown: Unit
+}
+
+abstract class StateMachine[T] { me =>
+  def become(freshData: T, freshState: Int): StateMachine[T] = {
+    // Update state, data and return itself for easy chaining operations
+    state = freshState
+    data = freshData
+    me
+  }
+
+  implicit val context: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor)
+  def !(changeMessage: Any): Unit = scala.concurrent.Future(me !! changeMessage)
+  def !!(change: Any): Unit
+  var state: Int = -1
+  var data: T = _
 }

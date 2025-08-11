@@ -1,9 +1,21 @@
 package trading.tacticaladvantage
 
-import spray.json._
+import com.neovisionaries.ws.client._
+import immortan.crypto.{CanBeShutDown, StateMachine}
+import immortan.crypto.Tools.{ThrowableOps, none}
 import immortan.utils.ImplicitJsonFormats._
+import immortan.utils.Rx
+import spray.json._
+import trading.tacticaladvantage.TaLink._
+import scala.util.Try
 
-object TaProtocol {
+object TaLink {
+  type JavaList = java.util.List[String]
+  type JavaMap = java.util.Map[String, JavaList]
+
+  val GLOBAL: String = "global"
+  val VERSION: Char = '1'
+
   sealed trait FailureCode { def code: Int }
   case object INVALID_JSON extends FailureCode { val code = 10 }
   case object NOT_LOGGED_IN extends FailureCode { val code = 20 }
@@ -52,6 +64,7 @@ object TaProtocol {
   //
 
   sealed trait RequestArguments { val tag: String }
+  case class GetLoanAd(asset: Asset) extends RequestArguments { val tag = "GetLoanAd" }
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
   case class UsdSubscribe(addresses: List[String], afterBlock: Long) extends RequestArguments { val tag = "UsdSubscribe" }
   case class WithdrawReq(address: String, requested: Double, asset: Asset) extends RequestArguments { val tag = "WithdrawReq" }
@@ -61,6 +74,7 @@ object TaProtocol {
   case object LogOut extends RequestArguments { val tag = "LogOut" }
 
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat2(Login), "Login")
+  implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat1(GetLoanAd), "GetLoanAd")
   implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat2(UsdSubscribe), "UsdSubscribe")
   implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat3(WithdrawReq), "Withdraw")
   implicit val depositSigFormat: JsonFormat[DepositSig] = taggedJsonFmt(jsonFormat2(DepositSig), "DepositSig")
@@ -71,6 +85,7 @@ object TaProtocol {
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def write(obj: RequestArguments): JsValue = obj match {
       case request: Login => loginFormat.write(request)
+      case request: GetLoanAd => getLoanAddFormat.write(request)
       case request: CancelWithdraw => cancelWithdrawFormat.write(request)
       case request: UsdSubscribe => usdSubscribeFormat.write(request)
       case request: WithdrawReq => withdrawReqFormat.write(request)
@@ -85,7 +100,7 @@ object TaProtocol {
 
   //
 
-  case class TotalFunds(balance: Double, withdrawable: Double)
+  case class TotalFunds(balance: Double, withdrawable: Double, asset: Asset)
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: Double, amount: Double, asset: Asset)
   case class Deposit(txid: String, address: String, amount: Double, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
   case class Withdraw(txid: Option[String], id: String, address: String, amount: Double, requested: Double, created: Long, fee: Double, asset: Asset)
@@ -94,7 +109,7 @@ object TaProtocol {
   implicit val depositFormat: JsonFormat[Deposit] = jsonFormat7(Deposit)
   implicit val withdrawFormat: JsonFormat[Withdraw] = jsonFormat8(Withdraw)
   implicit val activeLoanFormat: JsonFormat[ActiveLoan] = jsonFormat7(ActiveLoan)
-  implicit val totalFundsFormat: JsonFormat[TotalFunds] = jsonFormat2(TotalFunds)
+  implicit val totalFundsFormat: JsonFormat[TotalFunds] = jsonFormat3(TotalFunds)
   implicit val usdTransferFormat: JsonFormat[UsdTransfer] = jsonFormat7(UsdTransfer)
 
   sealed trait ResponseArguments { def tag: String }
@@ -127,11 +142,85 @@ object TaProtocol {
       throw new RuntimeException
   }
 
-  //
+  // State machine
 
-  case class Request(version: Int, arguments: RequestArguments, sessionSecret: Option[String], id: String)
+  case class Request(arguments: RequestArguments, sessionSecret: Option[String], id: String)
   case class Response(arguments: Option[ResponseArguments], newSessionSecret: Option[String], id: String)
 
-  implicit val requestFormat : JsonFormat[Request] = jsonFormat4(Request)
+  final val DISABLED = 0
+  final val DISCONNECTED = 1
+  final val CONNECTED = 2
+
+  case object CmdConnect
+  case object CmdConnected
+  case object CmdDisconnected
+  case class CmdRemove(listener: Listener)
+
+  case class TaDataWrap(data: TaData, persist: Boolean)
+  case class TaData(userStatus: Option[UserStatus], sessionSecret: String) {
+    def withNewSecret(token: String): TaData = copy(sessionSecret = token)
+  }
+
+  class Listener(val id: String) {
+    def onResponse(args: Option[ResponseArguments] = None): Unit = none
+    def onDisconnected: Unit = none
+    def onConnected: Unit = none
+  }
+
+  implicit val requestFormat : JsonFormat[Request] = jsonFormat3(Request)
   implicit val responseFormat: JsonFormat[Response] = jsonFormat3(Response)
+  implicit val taDataFormat: JsonFormat[TaData] = jsonFormat2(TaData)
+}
+
+abstract class TaLink(host: String) extends StateMachine[TaData] with CanBeShutDown { me =>
+  var listeners = Set.empty[Listener]
+  var ws: WebSocket = _
+
+  def becomeShutDown: Unit = {
+    state = DISABLED
+    ws.disconnect
+  }
+
+  def !!(change: Any): Unit = (change, state) match {
+    case (listener: Listener, _) => listeners += listener
+    case (CmdRemove(listener), _) => listeners -= listener
+
+    case (wrap: TaDataWrap, _) =>
+      become(freshData = wrap.data, state)
+      if (wrap.persist) saveData(wrap.data)
+
+    case (CmdConnect, DISCONNECTED) =>
+      ws = (new WebSocketFactory).setConnectionTimeout(20000).createSocket(host, 443) addListener new WebSocketAdapter {
+        override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = me ! CmdDisconnected
+        override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = me ! CmdDisconnected
+        override def onConnected(ws: WebSocket, headers: JavaMap): Unit = me ! CmdConnected
+
+        override def onTextMessage(ws: WebSocket, message: String): Unit =
+          tryTo[Response](message).map(me ! _).recover { case exception =>
+            println(exception.stackTraceAsString)
+            ws.disconnect
+          }
+      }
+
+    case (Response(arguments, newSessionSecret, id), CONNECTED) =>
+      listeners.filter(_.id == id).foreach(_ onResponse arguments)
+      val dataOpt = newSessionSecret.map(data.withNewSecret)
+      for (data1 <- dataOpt) become(data1, CONNECTED)
+      for (data1 <- dataOpt) saveData(data1)
+
+    case (CmdDisconnected, CONNECTED) =>
+      Rx.delay(5000).foreach(_ => me ! CmdConnect)
+      listeners.foreach(_.onDisconnected)
+
+    case (CmdConnected, DISCONNECTED) =>
+      listeners.foreach(_.onConnected)
+
+    case otherwise =>
+      println(otherwise)
+  }
+
+  def loadData: Try[TaData]
+  def saveData(data: TaData): Unit
+  data = TaData(None, new String)
+  state = DISCONNECTED
 }

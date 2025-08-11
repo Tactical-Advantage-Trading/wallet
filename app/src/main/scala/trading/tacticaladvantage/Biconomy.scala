@@ -27,7 +27,8 @@ object Biconomy {
 class Biconomy(cp: ConnectionProvider) {
   final val waitUntilNodeOnlineMsec = 2000
   final val endpoint = "http://localhost:3000"
-  final val polygonContract = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  // This is USDT contract on Polygon mainnet network
+  final val contract = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   @native def startNodeWithArguments(arguments: Array[String] = Array.empty): Integer
 
   // Node takes some time to get the local server up, depending on phone specs
@@ -37,7 +38,7 @@ class Biconomy(cp: ConnectionProvider) {
       case _: Throwable if left > 0 =>
         Thread.sleep(waitUntilNodeOnlineMsec)
         attempt(left - 1)(action)
-      case _ =>
+      case _: Throwable =>
         None
     }
 

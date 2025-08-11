@@ -13,8 +13,10 @@ object Rx {
     val futureProtectedStartMillis = if (startMillis > System.currentTimeMillis) 0L else startMillis
     val adjustedTimeout = futureProtectedStartMillis + timeoutMillis - System.currentTimeMillis
     val delayLeft = if (adjustedTimeout <= 0L) 0L else adjustedTimeout
-    Observable.just(null).delay(delayLeft.millis).flatMap(_ => next)
+    delay(delayLeft).flatMap(_ => next)
   }
+
+  def delay(millis: Long) = Observable.just(null).delay(millis.millis)
 
   def retry[T](obs: Observable[T], pick: (Throwable, Int) => Duration, times: Range): Observable[T] =
     obs.retryWhen(_.zipWith(Observable from times)(pick) flatMap Observable.timer)

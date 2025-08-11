@@ -2,7 +2,7 @@ package trading.tacticaladvantage
 
 import android.app.Activity
 import android.os.Bundle
-import TaProtocol._
+import TaLink._
 import immortan.{ClearnetConnectionProvider, ConnectionProvider}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -15,7 +15,7 @@ class MainActivity extends Activity {
         val biconomy = new Biconomy(cp)
 
 
-        biconomy.getSmartAccountAddress(Biconomy.AccountAddressRequest("0x1111111111111111111111111111111111111111111111111111111111111111"))
+//        biconomy.getSmartAccountAddress(Biconomy.AccountAddressRequest("0x1111111111111111111111111111111111111111111111111111111111111111"))
 
         //("0x1111111111111111111111111111111111111111111111111111111111111111")
         //biconomy.startNodeWithArguments(Array("12"))

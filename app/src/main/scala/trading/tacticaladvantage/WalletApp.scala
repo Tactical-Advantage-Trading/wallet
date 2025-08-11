@@ -15,9 +15,11 @@ import fr.acinq.eclair.blockchain.electrum.db.{CompleteChainWalletInfo, SigningW
 import immortan._
 import immortan.crypto.Tools._
 import immortan.sqlite._
+import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
-import trading.tacticaladvantage.sqlite._
+import spray.json._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.sqlite._
 
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
@@ -34,6 +36,7 @@ object WalletApp {
   var extDataBag: SQLiteData = _
   var txDataBag: SQLiteTx = _
   var biconomy: Biconomy = _
+  var taLink: TaLink = _
   var app: WalletApp = _
 
   val seenTxInfos = mutable.Map.empty[ByteVector32, TxInfo]
@@ -51,13 +54,15 @@ object WalletApp {
 
   def isOperational: Boolean =
     null != ElectrumWallet.chainHash && null != secret && null != fiatRates &&
-      null != feeRates && null != ElectrumWallet.connectionProvider && biconomy != null
+      null != feeRates && null != ElectrumWallet.connectionProvider &&
+      biconomy != null && taLink != null
 
   def freePossiblyUsedRuntimeResouces: Unit = {
     try ElectrumWallet.becomeShutDown catch none
     try fiatRates.becomeShutDown catch none
     try feeRates.becomeShutDown catch none
-    // Make non-alive and non-operational
+    try taLink.becomeShutDown catch none
+    // non-alive and non-operational
     txDataBag = null
     secret = null
   }
@@ -75,10 +80,16 @@ object WalletApp {
 
   def makeOperational(sec: WalletSecret): Unit = {
     require(isAlive, "Halted, application is not alive yet")
+    secret = sec
+
     ElectrumWallet.params = WalletParameters(extDataBag, chainWalletBag, txDataBag, dustLimit = 546L.sat)
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
     biconomy = new Biconomy(ElectrumWallet.connectionProvider)
-    secret = sec
+
+    taLink = new TaLink("wss://localhost") {
+      def loadData: Try[TaLink.TaData] = extDataBag.tryGet("ta-data").map(SQLiteData.byteVecToString) map to[TaLink.TaData]
+      def saveData(data: TaLink.TaData): Unit = extDataBag.put("ta-data", data.toJson.compactPrint getBytes "UTF-8")
+    }
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -113,7 +124,7 @@ object WalletApp {
       val label = app.getString(bitcoin_wallet)
       val core = SigningWallet(ElectrumWallet.BIP84)
       val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.master, chainHash)
-      val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, 0L.sat, label)
+      val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, Satoshi(0L), label)
       ElectrumWallet.addWallet(spec)
     }
 

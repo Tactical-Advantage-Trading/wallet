@@ -40,22 +40,6 @@ trait Denomination {
   val sign: String
 }
 
-object SatDenomination extends Denomination { me =>
-  val fmt: DecimalFormat = new DecimalFormat("###,###,###")
-  fmt.setDecimalFormatSymbols(Denomination.symbols)
-  val factor = 1000L
-  val sign = "sat"
-
-  def parsedWithSignTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>\u00A0" + sign
-
-  def parsedWithSign(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "0" else parsed(msat, mainColor, zeroColor) + "\u00A0" + sign
-
-  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    s"<font color=$mainColor>" + fmt.format(me fromMsat msat) + "</font>"
-}
-
 object BtcDenomination extends Denomination { me =>
   val fmt: DecimalFormat = new DecimalFormat("##0.00000000")
   fmt.setDecimalFormatSymbols(Denomination.symbols)

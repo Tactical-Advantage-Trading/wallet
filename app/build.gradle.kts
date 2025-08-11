@@ -15,7 +15,6 @@ android {
         versionName = "1.0"
         versionCode = 1
         minSdk = 28
-        targetSdk
 
         vectorDrawables {
             useSupportLibrary = true
@@ -69,7 +68,6 @@ dependencies {
     implementation(libs.zxing.android.embedded)
     implementation(libs.currencyedittext)
     implementation(libs.recyclerview)
-    implementation(libs.google.auth)
     implementation(libs.appcompat)
     implementation(libs.multidex)
     implementation(libs.material)
@@ -79,6 +77,7 @@ dependencies {
     implementation(libs.scodec.core)
     implementation(libs.akka.actor)
     implementation(libs.quicklens)
+    implementation(libs.websocket)
     implementation(libs.rxscala)
 
     implementation(libs.spray.json)
