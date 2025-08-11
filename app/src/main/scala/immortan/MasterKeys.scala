@@ -12,13 +12,13 @@ import scodec.codecs._
 object MasterKeys {
   def fromSeed(seed: Bytes): MasterKeys = {
     val bitcoinMaster = DeterministicWallet.generate(ByteVector.view(seed), "Bitcoin seed")
-    val usdtMaster = DeterministicWallet.generate(ByteVector.view(seed), "USDT seed")
-    MasterKeys(bitcoinMaster, usdtMaster)
+    val tokenMaster = DeterministicWallet.generate(ByteVector.view(seed), "Token seed")
+    MasterKeys(bitcoinMaster, tokenMaster)
   }
 
   val masterKeysCodec: Codec[MasterKeys] = {
     (extendedPrivateKeyCodec withContext "bitcoinMaster") ::
-      (extendedPrivateKeyCodec withContext "usdtMaster")
+      (extendedPrivateKeyCodec withContext "tokenMaster")
   }.as[MasterKeys]
 
   val walletSecretCodec: Codec[WalletSecret] = {
@@ -28,5 +28,5 @@ object MasterKeys {
   }.as[WalletSecret]
 }
 
-case class MasterKeys(bitcoinMaster: ExtendedPrivateKey, usdtMaster: ExtendedPrivateKey)
+case class MasterKeys(bitcoinMaster: ExtendedPrivateKey, tokenMaster: ExtendedPrivateKey)
 case class WalletSecret(keys: MasterKeys, mnemonic: StringList, seed: ByteVector)
