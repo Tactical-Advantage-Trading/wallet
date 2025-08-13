@@ -10,8 +10,8 @@ import androidx.multidex.MultiDex
 import fr.acinq.bitcoin.{Block, ByteVector32, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
+import fr.acinq.eclair.blockchain.electrum.db.SigningWallet
 import fr.acinq.eclair.blockchain.electrum._
-import fr.acinq.eclair.blockchain.electrum.db.{CompleteChainWalletInfo, SigningWallet}
 import immortan._
 import immortan.crypto.Tools._
 import immortan.sqlite._
@@ -27,29 +27,32 @@ import java.util.Date
 import scala.collection.mutable
 import scala.util.Try
 
-
 object WalletApp {
+  var extDataBag: SQLiteData = _
+  var btcTxDataBag: SQLiteBtcTx = _
+  var btcWalletBag: SQLiteBtcWallet = _
+
+  var usdtTxDataBag: SQLiteUsdtTx = _
+  var usdtWalletBag: SQLiteUsdtWallet = _
+
   var feeRates: FeeRates = _
   var fiatRates: FiatRates = _
   var secret: WalletSecret = _
-  var chainWalletBag: SQLiteChainWallet = _
-  var extDataBag: SQLiteData = _
-  var txDataBag: SQLiteTx = _
   var biconomy: Biconomy = _
   var taLink: TaLink = _
   var app: WalletApp = _
 
-  val seenTxInfos = mutable.Map.empty[ByteVector32, TxInfo]
-  val pendingTxInfos = mutable.Map.empty[ByteVector32, TxInfo]
-  var currentChainNode = Option.empty[InetSocketAddress]
+  val seenBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
+  val pendingBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
+  var currentBtcNode = Option.empty[InetSocketAddress]
 
   final val FIAT_CODE = "fiatCode"
-
-  def denom: Denomination = BtcDenomination
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
+  def denom: Denomination = BtcDenomination
 
   def isAlive: Boolean =
-    null != txDataBag && null != chainWalletBag &&
+    null != btcTxDataBag && null != btcWalletBag &&
+      null != usdtTxDataBag && null != usdtWalletBag &&
       null != extDataBag && null != app
 
   def isOperational: Boolean =
@@ -63,18 +66,21 @@ object WalletApp {
     try feeRates.becomeShutDown catch none
     try taLink.becomeShutDown catch none
     // non-alive and non-operational
-    txDataBag = null
+    btcTxDataBag = null
     secret = null
   }
 
   def makeAlive: Unit = {
     ElectrumWallet.chainHash = Block.LivenetGenesisBlock.hash
-    val miscInterface = new DBInterfaceSQLiteAndroidMisc(app, "misc.db")
+    val interface = new DBInterfaceSQLiteAndroid(app, "misc.db")
 
-    miscInterface txWrap {
-      chainWalletBag = new SQLiteChainWallet(miscInterface)
-      extDataBag = new SQLiteData(miscInterface)
-      txDataBag = new SQLiteTx(miscInterface)
+    interface txWrap {
+      extDataBag = new SQLiteData(interface)
+      btcTxDataBag = new SQLiteBtcTx(interface)
+      btcWalletBag = new SQLiteBtcWallet(interface)
+
+      usdtTxDataBag = new SQLiteUsdtTx(interface)
+      usdtWalletBag = new SQLiteUsdtWallet(interface)
     }
   }
 
@@ -82,7 +88,7 @@ object WalletApp {
     require(isAlive, "Halted, application is not alive yet")
     secret = sec
 
-    ElectrumWallet.params = WalletParameters(extDataBag, chainWalletBag, txDataBag, dustLimit = 546L.sat)
+    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
     biconomy = new Biconomy(ElectrumWallet.connectionProvider)
 
@@ -112,8 +118,8 @@ object WalletApp {
     ElectrumWallet.sync = ElectrumWallet.system.actorOf(Props(classOf[ElectrumChainSync], ElectrumWallet.pool, ElectrumWallet.params.headerDb, ElectrumWallet.chainHash), "sync")
     ElectrumWallet.catcher = ElectrumWallet.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
-    chainWalletBag.listWallets collect {
-      case CompleteChainWalletInfo(core: SigningWallet, persistentData, lastBalance, label, false) =>
+    btcWalletBag.listWallets collect {
+      case CompleteBtcWalletInfo(core: SigningWallet, persistentData, lastBalance, label, false) =>
         val ewt = ElectrumWalletType.makeSigningType(core.walletType, core.attachedMaster.getOrElse(secret.keys.bitcoinMaster), chainHash)
         val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance, label)
         ElectrumWallet.specs.update(ewt.xPub, spec)
@@ -139,21 +145,21 @@ object WalletApp {
     }
 
     ElectrumWallet.catcher ! new WalletEventsListener {
-      override def onChainDisconnected: Unit = currentChainNode = Option.empty[InetSocketAddress]
-      override def onChainMasterSelected(event: InetSocketAddress): Unit = currentChainNode = event.asSome
+      override def onChainDisconnected: Unit = currentBtcNode = Option.empty[InetSocketAddress]
+      override def onChainMasterSelected(event: InetSocketAddress): Unit = currentBtcNode = event.asSome
 
       override def onTransactionReceived(event: TransactionReceived): Unit = {
-        def addChainTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: TxDescription, isIncoming: Long): Unit = txDataBag.db txWrap {
-          txDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
-          txDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
+        def addChainTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
+          btcTxDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
+          btcTxDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
           if (event.depth == 1) Vibrator.vibrate
         }
 
-        pendingTxInfos.remove(event.tx.txid)
-        seenTxInfos.get(event.tx.txid) match {
+        pendingBtcInfos.remove(event.tx.txid)
+        seenBtcInfos.get(event.tx.txid) match {
           case Some(seen) => addChainTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
-          case None if event.received > event.sent => addChainTx(event.received - event.sent, event.sent, Satoshi(0L), PlainTxDescription(event.addresses), isIncoming = 1L)
-          case None => addChainTx(event.received, event.sent - event.received, Satoshi(0L), PlainTxDescription(event.addresses), isIncoming = 0L)
+          case None if event.received > event.sent => addChainTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
+          case None => addChainTx(event.received, event.sent - event.received, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 0L)
         }
       }
     }

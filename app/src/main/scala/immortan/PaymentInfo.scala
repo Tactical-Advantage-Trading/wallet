@@ -1,15 +1,13 @@
 package immortan
 
 import java.util.Date
-
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWalletType
-import fr.acinq.eclair.blockchain.electrum.db.CompleteChainWalletInfo
 import immortan.crypto.Tools.{Any2Some, ExtPubKeys, Fiat2Btc, SEPARATOR, StringList}
+import immortan.sqlite.CompleteBtcWalletInfo
 import immortan.utils.ImplicitJsonFormats._
-
 
 case class SemanticOrder(id: String, order: Long)
 case class RBFParams(ofTxid: ByteVector32, mode: Long)
@@ -48,51 +46,25 @@ sealed trait ItemDetails {
   val identity: String
 }
 
-// Address descriptions
+// BTC Address
 
-case class AddressDescription(label: Option[String] = None) extends ItemDescription {
+case class BtcAddressDescription(label: Option[String] = None) extends ItemDescription {
   val semanticOrder: Option[SemanticOrder] = None
 }
 
-case class AddressInfo(ewt: ElectrumWalletType, core: CompleteChainWalletInfo, pubKey: ExtendedPublicKey, description: AddressDescription) extends ItemDetails {
+case class BtcAddressInfo(ewt: ElectrumWalletType, core: CompleteBtcWalletInfo, pubKey: ExtendedPublicKey, description: BtcAddressDescription) extends ItemDetails {
   override val identity: String = ewt.textAddress(pubKey)
   override def updatedAt: Long = 0L
   override def seenAt: Long = 0L
 }
 
-// Tx descriptions
+// BTC tx
 
-case class TxInfo(txString: String, txidString: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
-                  feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: TxDescription, balanceSnapshot: MilliSatoshi,
-                  fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
-
-  override val identity: String = txidString
-
-  lazy val isIncoming: Boolean = 1L == incoming
-
-  lazy val isDoubleSpent: Boolean = 1L == doubleSpent
-
-  lazy val isConfirmed: Boolean = depth > 0
-
-  lazy val fiatRateSnapshot: Fiat2Btc = to[Fiat2Btc](fiatRatesString)
-
-  lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
-
-  lazy val txid: ByteVector32 = ByteVector32.fromValidHex(txidString)
-
-  lazy val tx: Transaction = Transaction.read(txString)
-
-  lazy val relatedTxids: Set[ByteVector32] = {
-    val rbfTxidSet = description.rbf.map(_.ofTxid).toSet
-    rbfTxidSet ++ description.cpfpBy ++ description.cpfpOf + txid
-  }
-}
-
-sealed trait TxDescription extends ItemDescription {
+sealed trait BtcDescription extends ItemDescription {
   def canBeCPFPd: Boolean = cpfpBy.isEmpty && cpfpOf.isEmpty
-  def withNewOrderCond(order: Option[SemanticOrder] = None): TxDescription
-  def withNewLabel(label1: Option[String] = None): TxDescription
-  def withNewCPFPBy(txid: ByteVector32): TxDescription
+  def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription
+  def withNewLabel(label1: Option[String] = None): BtcDescription
+  def withNewCPFPBy(txid: ByteVector32): BtcDescription
 
   def addresses: StringList
   def queryText(txid: ByteVector32): String
@@ -101,29 +73,70 @@ sealed trait TxDescription extends ItemDescription {
   val rbf: Option[RBFParams]
 }
 
-object TxDescription {
+object BtcDescription {
   final val RBF_CANCEL = 1
   final val RBF_BOOST = 2
 }
 
-case class PlainTxDescription(addresses: StringList,
-                              label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
-                              cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
-                              rbf: Option[RBFParams] = None) extends TxDescription { me =>
-
+case class PlainBtcDescription(addresses: StringList,
+                               label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
+                               cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
+                               rbf: Option[RBFParams] = None) extends BtcDescription { me =>
   override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
-  override def withNewOrderCond(order: Option[SemanticOrder] = None): TxDescription = if (semanticOrder.isDefined) me else copy(semanticOrder = order)
-  override def withNewLabel(label1: Option[String] = None): TxDescription = copy(label = label1)
-  override def withNewCPFPBy(txid: ByteVector32): TxDescription = copy(cpfpBy = txid.asSome)
+  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) me else copy(semanticOrder = order)
+  override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
+  override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
 }
 
-case class FallbackTxDescription(label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
-                                 cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
-                                 rbf: Option[RBFParams] = None) extends TxDescription { me =>
-
+// We do not know addresses here
+case class FallbackBtcDescription(label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
+                                  cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
+                                  rbf: Option[RBFParams] = None) extends BtcDescription {
   override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + label.getOrElse(new String)
-  override def withNewOrderCond(order: Option[SemanticOrder] = None): TxDescription = copy(semanticOrder = order)
-  override def withNewLabel(label1: Option[String] = None): TxDescription = copy(label = label1)
-  override def withNewCPFPBy(txid: ByteVector32): TxDescription = copy(cpfpBy = txid.asSome)
+  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = copy(semanticOrder = order)
+  override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
+  override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
   def addresses: StringList = Nil
+}
+
+case class BtcInfo(txString: String, txidString: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
+                   feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: BtcDescription, balanceSnapshot: MilliSatoshi,
+                   fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
+  override val identity: String = txidString
+  lazy val isIncoming: Boolean = 1L == incoming
+  lazy val isDoubleSpent: Boolean = 1L == doubleSpent
+  lazy val isConfirmed: Boolean = depth > 0
+
+  lazy val fiatRateSnapshot: Fiat2Btc = to[Fiat2Btc](fiatRatesString)
+  lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
+  lazy val txid: ByteVector32 = ByteVector32.fromValidHex(txidString)
+  lazy val tx: Transaction = Transaction.read(txString)
+
+  lazy val relatedTxids: Set[ByteVector32] = {
+    val rbfTxidSet = description.rbf.map(_.ofTxid).toSet
+    rbfTxidSet ++ description.cpfpBy ++ description.cpfpOf + txid
+  }
+}
+
+// USDT tx
+
+object UsdtDescription {
+  final val ETHEREUM = 1
+  final val POLYGON = 2
+}
+
+sealed trait UsdtDescription extends ItemDescription {
+  val semanticOrder: Option[SemanticOrder] = None
+}
+
+case class PlainUsdtDescription(fromAddrString: String, toAddrString: String, label: Option[String] = None) extends UsdtDescription {
+  def queryText(hash: ByteVector32): String = hash.toHex + SEPARATOR + fromAddrString + SEPARATOR + toAddrString + label.getOrElse(new String)
+}
+
+case class UsdtInfo(hashString: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,
+                    feeUsdtString: String, seenAt: Long, updatedAt: Long, description: UsdtDescription, balanceUsdt: Long,
+                    incoming: Long, doubleSpent: Long) extends ItemDetails {
+  override val identity: String = hashString
+  lazy val isIncoming: Boolean = 1L == incoming
+  lazy val isDoubleSpent: Boolean = 1L == doubleSpent
 }

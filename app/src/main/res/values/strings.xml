@@ -14,10 +14,10 @@
     <string name="emergency_mode">Something went wrong</string>
     <string name="error_log">Export error logs</string>
 
-    <string name="setup_create_new">Create new wallets</string>
-    <string name="setup_restore_existing">Restore existing wallets</string>
+    <string name="setup_create_new">Create new wallet</string>
+    <string name="setup_restore_existing">Restore existing wallet</string>
 
-    <string name="setup_create_new_hint">New, empty Bitcoin and USDT wallets with a fresh recovery phrase will be generated from scratch.</string>
+    <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
     <string name="share_chain_tx" translatable="false">Bitcoin transaction hex\n\n%1$s</string>
 
     <string name="action_recovery_phrase_title">Wallet recovery phrase</string>

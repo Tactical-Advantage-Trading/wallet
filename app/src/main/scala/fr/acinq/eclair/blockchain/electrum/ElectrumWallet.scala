@@ -1,7 +1,6 @@
 package fr.acinq.eclair.blockchain.electrum
 
 import java.util.concurrent.ConcurrentHashMap
-
 import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -16,7 +15,7 @@ import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
 import immortan.ConnectionProvider
 import immortan.crypto.CanBeShutDown
 import immortan.crypto.Tools._
-import immortan.sqlite.SQLiteTx
+import immortan.sqlite.{CompleteBtcWalletInfo, SQLiteBtcTx, SQLiteBtcWallet}
 import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
@@ -281,21 +280,21 @@ object ElectrumWallet extends CanBeShutDown {
   // Wallet management API
 
   def makeSigningWalletParts(core: SigningWallet, ewt: ElectrumWalletType, lastBalance: Satoshi, label: String): WalletSpec = {
-    val info = CompleteChainWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
+    val info = CompleteBtcWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
     val walletRef = system.actorOf(Props(classOf[ElectrumWallet], pool, sync, ewt), ewt.xPub.publicKey.toString)
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 
   def makeWatchingWallet84Parts(core: WatchingWallet, lastBalance: Satoshi, label: String): WalletSpec = {
     val ewt: ElectrumWallet84 = new ElectrumWallet84(secrets = None, xPub = core.xPub, chainHash = chainHash)
-    val info = CompleteChainWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
+    val info = CompleteBtcWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
     val walletRef = system.actorOf(Props(classOf[ElectrumWallet], pool, sync, ewt), ewt.xPub.publicKey.toString)
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 
   def addWallet(spec: WalletSpec): Unit = {
     // All further db writes will be updates which expect an initial record to be present already
-    params.walletDb.addChainWallet(spec.info, params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    params.walletDb.addWallet(spec.info, params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     specs.update(key = spec.data.keys.ewt.xPub, value = spec)
     spec.walletRef ! params.emptyPersistentDataBytes
     sync ! ChainFor(spec.walletRef)
@@ -503,13 +502,13 @@ case class AccountAndXPrivKey(xPriv: ExtendedPrivateKey, master: ExtendedPrivate
 case class TransactionDelta(spentUtxos: Seq[Utxo], received: Satoshi, sent: Satoshi)
 case class Utxo(key: ExtendedPublicKey, item: ElectrumClient.UnspentItem, ewt: ElectrumWalletType)
 
-case class WalletSpec(info: CompleteChainWalletInfo, data: ElectrumData, walletRef: ActorRef) {
+case class WalletSpec(info: CompleteBtcWalletInfo, data: ElectrumData, walletRef: ActorRef) {
   def withNewLabel(label: String): WalletSpec = WalletSpec(info.copy(label = label), data, walletRef)
   def usable: Boolean = data.keys.ewt.secrets.nonEmpty || info.core.masterFingerprint.nonEmpty
   def spendable: Boolean = info.lastBalance > 0L.sat
 }
 
-case class WalletParameters(headerDb: HeaderDb, walletDb: WalletDb, txDb: SQLiteTx, dustLimit: Satoshi) {
+case class WalletParameters(headerDb: HeaderDb, walletDb: SQLiteBtcWallet, txDb: SQLiteBtcTx, dustLimit: Satoshi) {
   val emptyPersistentData: PersistentData = PersistentData(ElectrumWallet.MAX_RECEIVE_ADDRESSES, ElectrumWallet.MAX_RECEIVE_ADDRESSES)
   val emptyPersistentDataBytes: ByteVector = persistentDataCodec.encode(emptyPersistentData).require.toByteVector
 }

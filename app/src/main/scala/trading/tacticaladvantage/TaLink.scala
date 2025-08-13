@@ -67,7 +67,7 @@ object TaLink {
   case class GetLoanAd(asset: Asset) extends RequestArguments { val tag = "GetLoanAd" }
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
   case class UsdSubscribe(addresses: List[String], afterBlock: Long) extends RequestArguments { val tag = "UsdSubscribe" }
-  case class WithdrawReq(address: String, requested: Double, asset: Asset) extends RequestArguments { val tag = "WithdrawReq" }
+  case class WithdrawReq(address: String, asset: Asset, requested: Option[Double] = None) extends RequestArguments { val tag = "WithdrawReq" }
   case class DepositSig(bip322: String, asset: Asset) extends RequestArguments { val tag = "DepositSig" }
   case class CancelWithdraw(asset: Asset) extends RequestArguments { val tag = "CancelWithdraw" }
   case object GetHistory extends RequestArguments { val tag = "GetHistory" }
@@ -115,7 +115,7 @@ object TaLink {
   sealed trait ResponseArguments { def tag: String }
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
   case class UsdTransfers(transfers: List[UsdTransfer], chainTip: Long) extends ResponseArguments { val tag = "UsdTransfers" }
-  case class UsdBalanceNonce(address: String, balance: String, nonce: String) extends ResponseArguments { val tag = "UsdBalanceNonce" }
+  case class UsdBalanceNonce(address: String, balance: String, nonce: String, chainTip: Long) extends ResponseArguments { val tag = "UsdBalanceNonce" }
   case class LoanAd(durationDays: Long, minDeposit: Double, maxDeposit: Double, address: Option[String], challenge: String, roi: Double, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
   case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds], email: String) extends ResponseArguments { val tag = "UserStatus" }
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
@@ -123,7 +123,7 @@ object TaLink {
   implicit val loanAdFormat: JsonFormat[LoanAd] = taggedJsonFmt(jsonFormat7(LoanAd), "LoanAd")
   implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat1(Failure), "Failure")
   implicit val usdTransfersFormat: JsonFormat[UsdTransfers] = taggedJsonFmt(jsonFormat2(UsdTransfers), "UsdTransfers")
-  implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat3(UsdBalanceNonce), "UsdBalanceNonce")
+  implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat4(UsdBalanceNonce), "UsdBalanceNonce")
   implicit val userStatusFormat: JsonFormat[UserStatus] = taggedJsonFmt(jsonFormat4(UserStatus), "UserStatus")
   implicit val historyFormat: JsonFormat[History] = taggedJsonFmt(jsonFormat3(History), "History")
 

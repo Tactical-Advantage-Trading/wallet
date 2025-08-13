@@ -4,7 +4,7 @@ import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
 import fr.acinq.bitcoin.{ByteVector32, Satoshi}
 import fr.acinq.eclair.MilliSatoshi
-import fr.acinq.eclair.blockchain.electrum.db.{ChainWalletInfo, SigningWallet, WatchingWallet}
+import fr.acinq.eclair.blockchain.electrum.db.{BtcWalletInfo, SigningWallet, WatchingWallet}
 import fr.acinq.eclair.blockchain.fee._
 import fr.acinq.eclair.wire.CommonCodecs._
 import immortan._
@@ -15,14 +15,13 @@ import spray.json._
 
 import scala.util.Try
 
-
 object ImplicitJsonFormats extends DefaultJsonProtocol {
   val json2String: JsValue => String = value => value.convertTo[String]
   def json2BitVec(json: JsValue): Option[BitVector] = BitVector fromHex json2String(json)
 
   final val TAG = "tag"
 
-  def writeExt[T](ext: (String, JsValue), base: JsValue): JsObject = JsObject(base.asJsObject.fields + ext)
+  def writeExt(ext: (String, JsValue), base: JsValue): JsObject = JsObject(base.asJsObject.fields + ext)
 
   def to[T : JsonFormat](raw: String): T = raw.parseJson.convertTo[T]
 
@@ -52,16 +51,16 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   implicit val extendedPrivateKeyFmt: JsonFormat[ExtendedPrivateKey] = sCodecJsonFmt(extendedPrivateKeyCodec)
 
-  // Chain wallet types
+  // Btc wallet types
 
-  implicit object ChainWalletInfoFmt extends JsonFormat[ChainWalletInfo] {
-    def read(raw: JsValue): ChainWalletInfo = raw.asJsObject.fields(TAG) match {
+  implicit object BtcWalletInfoFmt extends JsonFormat[BtcWalletInfo] {
+    def read(raw: JsValue): BtcWalletInfo = raw.asJsObject.fields(TAG) match {
       case JsString("WatchingWallet") => raw.convertTo[WatchingWallet]
       case JsString("SigningWallet") => raw.convertTo[SigningWallet]
       case _ => throw new Exception
     }
 
-    def write(internal: ChainWalletInfo): JsValue = internal match {
+    def write(internal: BtcWalletInfo): JsValue = internal match {
       case walletInfo: WatchingWallet => walletInfo.toJson
       case walletInfo: SigningWallet => walletInfo.toJson
       case _ => throw new Exception
@@ -74,32 +73,47 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit val watchingWalletFmt: JsonFormat[WatchingWallet] = taggedJsonFmt(jsonFormat[String, Option[Long], ExtendedPublicKey,
       WatchingWallet](WatchingWallet.apply, "walletType", "masterFingerprint", "xPub"), tag = "WatchingWallet")
 
-  // PaymentInfo stuff
+  // BTC description
 
   implicit val semanticOrderFmt: JsonFormat[SemanticOrder] = jsonFormat[String, Long, SemanticOrder](SemanticOrder.apply, "id", "order")
+  implicit val rbfParams: JsonFormat[RBFParams] = jsonFormat[ByteVector32, Long, RBFParams](RBFParams.apply, "ofTxid", "mode")
 
-  implicit object TxDescriptionFmt extends JsonFormat[TxDescription] {
-    def read(raw: JsValue): TxDescription = raw.asJsObject.fields(TAG) match {
-      case JsString("PlainTxDescription") => raw.convertTo[PlainTxDescription]
-      case _ => raw.convertTo[FallbackTxDescription]
+  implicit object BtcDescriptionFmt extends JsonFormat[BtcDescription] {
+    def read(raw: JsValue): BtcDescription = raw.asJsObject.fields(TAG) match {
+      case JsString("PlainBtcDescription") => raw.convertTo[PlainBtcDescription]
+      case _ => raw.convertTo[FallbackBtcDescription]
     }
 
-    def write(internal: TxDescription): JsValue = internal match {
-      case txDescription: PlainTxDescription => txDescription.toJson
-      case txDescription: FallbackTxDescription => txDescription.toJson
+    def write(internal: BtcDescription): JsValue = internal match {
+      case btcDescription: PlainBtcDescription => btcDescription.toJson
+      case btcDescription: FallbackBtcDescription => btcDescription.toJson
       case _ => throw new Exception
     }
   }
 
-  implicit val rbfParams: JsonFormat[RBFParams] = jsonFormat[ByteVector32, Long, RBFParams](RBFParams.apply, "ofTxid", "mode")
-
-  implicit val plainTxDescriptionFmt: JsonFormat[PlainTxDescription] =
+  implicit val plainBtcDescriptionFmt: JsonFormat[PlainBtcDescription] =
     taggedJsonFmt(jsonFormat[StringList, Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams],
-      PlainTxDescription](PlainTxDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "PlainTxDescription")
+      PlainBtcDescription](PlainBtcDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "PlainBtcDescription")
 
-  implicit val fallbackTxDescriptionFmt: JsonFormat[FallbackTxDescription] =
+  implicit val fallbackBtcDescriptionFmt: JsonFormat[FallbackBtcDescription] =
     taggedJsonFmt(jsonFormat[Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams],
-      FallbackTxDescription](FallbackTxDescription.apply, "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "FallbackTxDescription")
+      FallbackBtcDescription](FallbackBtcDescription.apply, "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "FallbackBtcDescription")
+
+  // USDT description
+
+  implicit object UsdtDescriptionFmt extends JsonFormat[UsdtDescription] {
+    def read(raw: JsValue): UsdtDescription = raw.asJsObject.fields(TAG) match {
+      case JsString("PlainUsdtDescription") => raw.convertTo[PlainUsdtDescription]
+    }
+
+    def write(internal: UsdtDescription): JsValue = internal match {
+      case usdtDescription: PlainUsdtDescription => usdtDescription.toJson
+      case _ => throw new Exception
+    }
+  }
+
+  implicit val plainUsdtDescriptionFmt: JsonFormat[PlainUsdtDescription] = taggedJsonFmt(jsonFormat[String, String, Option[String],
+    PlainUsdtDescription](PlainUsdtDescription.apply, "fromAddrString", "toAddrString", "label"), tag = "PlainUsdtDescription")
 
   // Fiat feerates
 

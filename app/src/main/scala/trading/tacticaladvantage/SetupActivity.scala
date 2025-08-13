@@ -12,20 +12,6 @@ import trading.tacticaladvantage.R.string._
 
 import java.io.File
 
-
-abstract class SettingsHolder(host: BaseActivity) {
-  val view: RelativeLayout = host.getLayoutInflater.inflate(R.layout.frag_switch, null, false).asInstanceOf[RelativeLayout]
-  val settingsCheck: CheckBox = view.findViewById(R.id.settingsCheck).asInstanceOf[CheckBox]
-  val settingsTitle: TextView = view.findViewById(R.id.settingsTitle).asInstanceOf[TextView]
-  val settingsInfo: TextView = view.findViewById(R.id.settingsInfo).asInstanceOf[TextView]
-  def updateView: Unit
-
-  def putBoolAndUpdateView(key: String, value: Boolean): Unit = {
-    WalletApp.app.prefs.edit.putBoolean(key, value).commit
-    updateView
-  }
-}
-
 trait MnemonicActivity { me: BaseActivity =>
   val activityContainer: LinearLayout
   val notifyRestart: Int => Unit

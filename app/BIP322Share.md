@@ -11,5 +11,3 @@ The second one is `BIP322Verify` which includes all the required parts to verify
 and like this if message itself is not included:  
 `bip322verify<Bitcoin address>|<BIP322 message hash>|<signature in base64>|-`.  
 Upon receiving this response a verifier wallet should do the verification and present results appropriately.
-
-[Implementation](https://github.com/akumaigorodski/wallet/blob/d41b2b704916a8fee161449a3b4642a8b38c7ab3/app/src/main/java/com/btcontract/wallet/utils/InputParser.scala#L66-L89)

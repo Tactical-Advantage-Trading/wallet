@@ -22,7 +22,7 @@ object Crypto {
   val zero = BigInteger.valueOf(0)
   val one = BigInteger.valueOf(1)
 
-  private lazy val nativeSecp256k1: Option[Secp256k1] = Some(Secp256k1JvmKt.getSecpk256k1)
+  private lazy val h: Secp256k1 = Secp256k1JvmKt.getSecpk256k1
 
   def fixSize(data: ByteVector): ByteVector32 = ByteVector32(data.padLeft(32))
 
@@ -33,23 +33,11 @@ object Crypto {
    * @param value value to initialize this key with
    */
   case class PrivateKey(value: ByteVector32) {
-    def add(that: PrivateKey): PrivateKey = nativeSecp256k1.map { h =>
-      PrivateKey(ByteVector.view(h.privKeyTweakAdd(value.toArray, that.value.toArray)))
-    } getOrElse {
-      PrivateKey(bigInt.add(that.bigInt).mod(Crypto.curve.getN))
-    }
+    def add(that: PrivateKey): PrivateKey = PrivateKey(ByteVector.view(h.privKeyTweakAdd(value.toArray, that.value.toArray)))
 
-    def subtract(that: PrivateKey): PrivateKey = nativeSecp256k1.map { h =>
-      PrivateKey(ByteVector.view(h.privKeyTweakAdd(value.toArray, h.privKeyNegate(that.value.toArray))))
-    } getOrElse {
-      PrivateKey(bigInt.subtract(that.bigInt).mod(Crypto.curve.getN))
-    }
+    def subtract(that: PrivateKey): PrivateKey = PrivateKey(ByteVector.view(h.privKeyTweakAdd(value.toArray, h.privKeyNegate(that.value.toArray))))
 
-    def multiply(that: PrivateKey): PrivateKey = nativeSecp256k1.map { h =>
-      PrivateKey(ByteVector.view(h.privKeyTweakMul(value.toArray, that.value.toArray)))
-    } getOrElse {
-      PrivateKey(bigInt.multiply(that.bigInt).mod(Crypto.curve.getN))
-    }
+    def multiply(that: PrivateKey): PrivateKey = PrivateKey(ByteVector.view(h.privKeyTweakMul(value.toArray, that.value.toArray)))
 
     def +(that: PrivateKey): PrivateKey = add(that)
 
@@ -62,11 +50,7 @@ object Crypto {
     // used only if secp256k1 is not available
     lazy val bigInt = new BigInteger(1, value.toArray)
 
-    def publicKey: PublicKey = nativeSecp256k1.map { h =>
-      PublicKey.fromBin(ByteVector.view(h.pubkeyCreate(value.toArray)))
-    } getOrElse {
-      PublicKey(ByteVector.view(params.getG().multiply(bigInt).getEncoded(true)))
-    }
+    def publicKey: PublicKey = PublicKey.fromBin(ByteVector.view(h.pubkeyCreate(value.toArray)))
 
     /**
      *
@@ -113,46 +97,17 @@ object Crypto {
     require(value.length == 33)
     require(isPubKeyValidLax(value))
 
-
     def hash160: ByteVector = Crypto.hash160(value)
 
     def isValid: Boolean = isPubKeyValidStrict(this.value)
 
-    def add(that: PublicKey): PublicKey = nativeSecp256k1.map { h =>
-      PublicKey.fromBin(ByteVector.view(h.pubKeyTweakAdd(value.toArray, that.value.toArray)))
-    } getOrElse {
-      PublicKey(ecpoint.add(that.ecpoint).normalize())
-    }
+    def add(that: PublicKey): PublicKey = PublicKey.fromBin(ByteVector.view(h.pubKeyCombine(Array(value.toArray, that.value.toArray))))
 
-    def add(that: PrivateKey): PublicKey = nativeSecp256k1.map { h =>
-      PublicKey.fromBin(ByteVector.view(h.privKeyTweakAdd(value.toArray, that.value.toArray)))
-    } getOrElse {
-      add(that.publicKey)
-    }
+    def add(that: PrivateKey): PublicKey = PublicKey.fromBin(ByteVector.view(h.privKeyTweakAdd(value.toArray, that.value.toArray)))
 
-    def subtract(that: PublicKey): PublicKey = nativeSecp256k1.map { h =>
-      PublicKey.fromBin(ByteVector.view(h.pubKeyTweakAdd(value.toArray, h.pubKeyNegate(that.value.toArray))))
-    } getOrElse {
-      PublicKey(ecpoint.subtract(that.ecpoint).normalize())
-    }
-
-    def multiply(that: PrivateKey): PublicKey = nativeSecp256k1.map { h =>
-      PublicKey.fromBin(ByteVector.view(h.pubKeyTweakMul(value.toArray, that.value.toArray)))
-    } getOrElse {
-      PublicKey(ecpoint.multiply(that.bigInt).normalize())
-    }
-
-    def +(that: PublicKey): PublicKey = add(that)
-
-    def -(that: PublicKey): PublicKey = subtract(that)
+    def multiply(that: PrivateKey): PublicKey = PublicKey.fromBin(ByteVector.view(h.pubKeyTweakMul(value.toArray, that.value.toArray)))
 
     def *(that: PrivateKey): PublicKey = multiply(that)
-
-    def toUncompressedBin: ByteVector = nativeSecp256k1.map { h =>
-      ByteVector.view(h.pubkeyParse(value.toArray))
-    } getOrElse {
-      ByteVector.view(ecpoint.getEncoded(false))
-    }
 
     override def toString = value.toHex
 
@@ -211,13 +166,7 @@ object Crypto {
    * @param pub  public value
    * @return ecdh(priv, pub) as computed by libsecp256k1
    */
-  def ecdh(priv: PrivateKey, pub: PublicKey): ByteVector32 = {
-    nativeSecp256k1.map { h =>
-      ByteVector32(ByteVector.view(h.ecdh(priv.value.toArray, pub.value.toArray)))
-    } getOrElse {
-      Crypto.sha256(ByteVector.view(pub.multiply(priv).ecpoint.getEncoded(true)))
-    }
-  }
+  def ecdh(priv: PrivateKey, pub: PublicKey): ByteVector32 = ByteVector32(ByteVector.view(h.ecdh(priv.value.toArray, pub.value.toArray)))
 
   def hmac512(key: ByteVector, data: ByteVector): ByteVector = {
     val mac = new HMac(new SHA512Digest())
@@ -374,13 +323,7 @@ object Crypto {
    * @return true if the key is valid. This check is much more expensive than its lax version since here we check that
    *         the public key is a valid point on the secp256k1 curve
    */
-  def isPubKeyValidStrict(key: ByteVector): Boolean = isPubKeyValidLax(key) && {
-    nativeSecp256k1.map { h =>
-      h.pubkeyParse(key.toArray).length == 65
-    } getOrElse {
-      curve.getCurve.decodePoint(key.toArray).normalize().isValid
-    }
-  }
+  def isPubKeyValidStrict(key: ByteVector): Boolean = isPubKeyValidLax(key) && h.pubkeyParse(key.toArray).length == 65
 
   def isPubKeyCompressedOrUncompressed(key: ByteVector): Boolean = key.length match {
     case 65 if key(0) == 4 => true
@@ -469,22 +412,7 @@ object Crypto {
    * @param publicKey public key
    * @return true is signature is valid for this data with this public key
    */
-  def verifySignature(data: ByteVector, signature: ByteVector64, publicKey: PublicKey): Boolean = {
-    nativeSecp256k1.map { h =>
-      h.verify(signature.toArray, data.toArray, publicKey.value.toArray)
-    } getOrElse {
-      val (r, s) = decodeSignatureCompact(signature)
-      require(r.compareTo(one) >= 0, "r must be >= 1")
-      require(r.compareTo(curve.getN) < 0, "r must be < N")
-      require(s.compareTo(one) >= 0, "s must be >= 1")
-      require(s.compareTo(curve.getN) < 0, "s must be < N")
-
-      val signer = new ECDSASigner
-      val params = new ECPublicKeyParameters(publicKey.ecpoint, curve)
-      signer.init(false, params)
-      signer.verifySignature(data.toArray, r, s)
-    }
-  }
+  def verifySignature(data: ByteVector, signature: ByteVector64, publicKey: PublicKey): Boolean = h.verify(signature.toArray, data.toArray, publicKey.value.toArray)
 
   /**
    *
@@ -502,21 +430,8 @@ object Crypto {
    * @return a signature in compact format (64 bytes)
    */
   def sign(data: Array[Byte], privateKey: PrivateKey): ByteVector64 = {
-    nativeSecp256k1.map { h =>
-      val bin = h.sign(data, privateKey.value.toArray)
-      ByteVector64(ByteVector.view(bin))
-    } getOrElse {
-      val signer = new ECDSASigner(new HMacDSAKCalculator(new SHA256Digest))
-      val privateKeyParameters = new ECPrivateKeyParameters(privateKey.bigInt, curve)
-      signer.init(true, privateKeyParameters)
-      val Array(r, s) = signer.generateSignature(data)
-      val (r1, s1) = if (s.compareTo(halfCurveOrder) > 0) {
-        (r, curve.getN().subtract(s)) // if s > N/2 then s = N - s
-      } else {
-        (r, s)
-      }
-      encodeSignatureCompact(r1, s1)
-    }
+    val bin = h.sign(data, privateKey.value.toArray)
+    ByteVector64(ByteVector.view(bin))
   }
 
   def sign(data: ByteVector, privateKey: PrivateKey): ByteVector64 = sign(data.toArray, privateKey)
@@ -546,13 +461,8 @@ object Crypto {
    * @return a recovered public key
    */
   def recoverPublicKey(signature: ByteVector64, message: ByteVector, recoveryId: Int): PublicKey = {
-    nativeSecp256k1.map { h =>
-      val bin = h.ecdsaRecover(signature.toArray, message.toArray, recoveryId)
-      PublicKey.fromBin(ByteVector.view(bin))
-    } getOrElse {
-      val (pub0, pub1) = recoverPublicKey(signature, message)
-      if (recoveryId % 2 == 0) pub0 else pub1
-    }
+    val bin = h.ecdsaRecover(signature.toArray, message.toArray, recoveryId)
+    PublicKey.fromBin(ByteVector.view(bin))
   }
 
   def recoverPublicKey(signature: ByteVector64, message: ByteVector): (PublicKey, PublicKey) = {
