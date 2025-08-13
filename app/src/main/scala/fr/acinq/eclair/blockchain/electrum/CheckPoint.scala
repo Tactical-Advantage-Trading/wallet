@@ -17,12 +17,10 @@
 package fr.acinq.eclair.blockchain.electrum
 
 import java.io.InputStream
-
 import fr.acinq.bitcoin.{Block, ByteVector32, encodeCompact}
-import fr.acinq.eclair.blockchain.electrum.db.HeaderDb
+import immortan.sqlite.SQLiteData
 import org.json4s.JsonAST.{JArray, JInt, JString}
 import org.json4s.native.JsonMethods
-
 
 case class CheckPoint(hash: ByteVector32, nextBits: Long)
 
@@ -44,7 +42,7 @@ object CheckPoint {
     checkpoints.toVector
   }
 
-  def load(chainHash: ByteVector32, headerDb: HeaderDb): Vector[CheckPoint] = {
+  def load(chainHash: ByteVector32, headerDb: SQLiteData): Vector[CheckPoint] = {
     val checkpoints = CheckPoint.loadFromChainHash(chainHash)
     val checkpoints1 = headerDb.getTip match {
       case Some((height, _)) =>

@@ -10,7 +10,6 @@ import androidx.multidex.MultiDex
 import fr.acinq.bitcoin.{Block, ByteVector32, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
-import fr.acinq.eclair.blockchain.electrum.db.SigningWallet
 import fr.acinq.eclair.blockchain.electrum._
 import immortan._
 import immortan.crypto.Tools._
@@ -118,19 +117,16 @@ object WalletApp {
     ElectrumWallet.sync = ElectrumWallet.system.actorOf(Props(classOf[ElectrumChainSync], ElectrumWallet.pool, ElectrumWallet.params.headerDb, ElectrumWallet.chainHash), "sync")
     ElectrumWallet.catcher = ElectrumWallet.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
-    btcWalletBag.listWallets collect {
-      case CompleteBtcWalletInfo(core: SigningWallet, persistentData, lastBalance, label, false) =>
-        val ewt = ElectrumWalletType.makeSigningType(core.walletType, core.attachedMaster.getOrElse(secret.keys.bitcoinMaster), chainHash)
-        val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance, label)
-        ElectrumWallet.specs.update(ewt.xPub, spec)
-        spec.walletRef ! persistentData
-    }
+    // Fill online wallet map with persisted wallets, it will be empty if we have none
+    val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
+    for (info \ ord <- native.zipWithIndex) startFromInfo(info, ord)
+    for (info <- attached) startFromInfo(info, ord = 0L)
 
     if (ElectrumWallet.specs.isEmpty) {
       val label = app.getString(bitcoin_wallet)
       val core = SigningWallet(ElectrumWallet.BIP84)
-      val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, chainHash)
-      val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, Satoshi(0L), label)
+      val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, chainHash, ord = 0L)
+      val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label)
       ElectrumWallet.addWallet(spec)
     }
 
@@ -178,6 +174,14 @@ object WalletApp {
       val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
       fiatRepeat.foreach(fiatRates.updateInfo, none)
     }
+  }
+
+  def startFromInfo(info: CompleteBtcWalletInfo, ord: Long): Unit = {
+    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
+    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
+    ElectrumWallet.specs.update(ewt.xPub, spec)
+    spec.walletRef ! info.initData
   }
 
   // Fiat conversion

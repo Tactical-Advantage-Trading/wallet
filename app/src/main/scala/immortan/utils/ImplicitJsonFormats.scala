@@ -4,11 +4,11 @@ import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
 import fr.acinq.bitcoin.{ByteVector32, Satoshi}
 import fr.acinq.eclair.MilliSatoshi
-import fr.acinq.eclair.blockchain.electrum.db.{BtcWalletInfo, SigningWallet, WatchingWallet}
 import fr.acinq.eclair.blockchain.fee._
 import fr.acinq.eclair.wire.CommonCodecs._
 import immortan._
 import immortan.crypto.Tools.{Fiat2Btc, StringList}
+import immortan.sqlite.SigningWallet
 import immortan.utils.FiatRates.CoinGeckoItemMap
 import scodec.bits.BitVector
 import spray.json._
@@ -51,29 +51,10 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   implicit val extendedPrivateKeyFmt: JsonFormat[ExtendedPrivateKey] = sCodecJsonFmt(extendedPrivateKeyCodec)
 
-  // Btc wallet types
-
-  implicit object BtcWalletInfoFmt extends JsonFormat[BtcWalletInfo] {
-    def read(raw: JsValue): BtcWalletInfo = raw.asJsObject.fields(TAG) match {
-      case JsString("WatchingWallet") => raw.convertTo[WatchingWallet]
-      case JsString("SigningWallet") => raw.convertTo[SigningWallet]
-      case _ => throw new Exception
-    }
-
-    def write(internal: BtcWalletInfo): JsValue = internal match {
-      case walletInfo: WatchingWallet => walletInfo.toJson
-      case walletInfo: SigningWallet => walletInfo.toJson
-      case _ => throw new Exception
-    }
-  }
-
-  implicit val signingWalletFmt: JsonFormat[SigningWallet] = taggedJsonFmt(jsonFormat[String, Option[ExtendedPrivateKey],
-      SigningWallet](SigningWallet.apply, "walletType", "attachedMaster"), tag = "SigningWallet")
-
-  implicit val watchingWalletFmt: JsonFormat[WatchingWallet] = taggedJsonFmt(jsonFormat[String, Option[Long], ExtendedPublicKey,
-      WatchingWallet](WatchingWallet.apply, "walletType", "masterFingerprint", "xPub"), tag = "WatchingWallet")
-
   // BTC description
+
+  implicit val signingWalletFmt: JsonFormat[SigningWallet] = taggedJsonFmt(jsonFormat[String, Option[ExtendedPrivateKey], Option[Long],
+    SigningWallet](SigningWallet.apply, "walletType", "attachedMaster", "masterFingerprint"), tag = "SigningWallet")
 
   implicit val semanticOrderFmt: JsonFormat[SemanticOrder] = jsonFormat[String, Long, SemanticOrder](SemanticOrder.apply, "id", "order")
   implicit val rbfParams: JsonFormat[RBFParams] = jsonFormat[ByteVector32, Long, RBFParams](RBFParams.apply, "ofTxid", "mode")
@@ -104,6 +85,7 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit object UsdtDescriptionFmt extends JsonFormat[UsdtDescription] {
     def read(raw: JsValue): UsdtDescription = raw.asJsObject.fields(TAG) match {
       case JsString("PlainUsdtDescription") => raw.convertTo[PlainUsdtDescription]
+      case _ => throw new Exception
     }
 
     def write(internal: UsdtDescription): JsValue = internal match {

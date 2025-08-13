@@ -15,7 +15,7 @@ import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
 import immortan.ConnectionProvider
 import immortan.crypto.CanBeShutDown
 import immortan.crypto.Tools._
-import immortan.sqlite.{CompleteBtcWalletInfo, SQLiteBtcTx, SQLiteBtcWallet}
+import immortan.sqlite.{CompleteBtcWalletInfo, SQLiteBtcTx, SQLiteBtcWallet, SQLiteData, SigningWallet}
 import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
@@ -285,13 +285,6 @@ object ElectrumWallet extends CanBeShutDown {
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 
-  def makeWatchingWallet84Parts(core: WatchingWallet, lastBalance: Satoshi, label: String): WalletSpec = {
-    val ewt: ElectrumWallet84 = new ElectrumWallet84(secrets = None, xPub = core.xPub, chainHash = chainHash)
-    val info = CompleteBtcWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
-    val walletRef = system.actorOf(Props(classOf[ElectrumWallet], pool, sync, ewt), ewt.xPub.publicKey.toString)
-    WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
-  }
-
   def addWallet(spec: WalletSpec): Unit = {
     // All further db writes will be updates which expect an initial record to be present already
     params.walletDb.addWallet(spec.info, params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
@@ -508,7 +501,7 @@ case class WalletSpec(info: CompleteBtcWalletInfo, data: ElectrumData, walletRef
   def spendable: Boolean = info.lastBalance > 0L.sat
 }
 
-case class WalletParameters(headerDb: HeaderDb, walletDb: SQLiteBtcWallet, txDb: SQLiteBtcTx, dustLimit: Satoshi) {
+case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteBtcWallet, txDb: SQLiteBtcTx, dustLimit: Satoshi) {
   val emptyPersistentData: PersistentData = PersistentData(ElectrumWallet.MAX_RECEIVE_ADDRESSES, ElectrumWallet.MAX_RECEIVE_ADDRESSES)
   val emptyPersistentDataBytes: ByteVector = persistentDataCodec.encode(emptyPersistentData).require.toByteVector
 }
@@ -586,7 +579,7 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
 
   def changePubKey: ExtendedPublicKey = firstUnusedChangeKeys.headOption.getOrElse(keys.changeKeys.head)
 
-  def timestamp(txid: ByteVector32, headerDb: HeaderDb): Long = {
+  def timestamp(txid: ByteVector32, headerDb: SQLiteData): Long = {
     val blockHeight = proofs.get(txid).map(_.blockHeight).getOrElse(default = 0)
     val stampOpt = blockchain.getHeader(blockHeight) orElse headerDb.getHeader(blockHeight)
     stampOpt.map(_.time * 1000L).getOrElse(System.currentTimeMillis)

@@ -8,7 +8,6 @@ import scodec.Codec
 import scodec.bits.BitVector
 import scodec.codecs._
 
-
 object SqliteWalletDb {
   val proofCodec = {
     (bytes32 withContext "txid") ::
