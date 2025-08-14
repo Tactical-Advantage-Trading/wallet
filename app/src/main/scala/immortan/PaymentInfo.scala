@@ -125,12 +125,9 @@ object UsdtDescription {
   final val POLYGON = 2
 }
 
-sealed trait UsdtDescription extends ItemDescription {
+case class UsdtDescription(fromAddrString: String, toAddrString: String, label: Option[String] = None) extends ItemDescription {
+  def queryText(hash: String): String = hash + SEPARATOR + fromAddrString + SEPARATOR + toAddrString + label.getOrElse(new String)
   val semanticOrder: Option[SemanticOrder] = None
-}
-
-case class PlainUsdtDescription(fromAddrString: String, toAddrString: String, label: Option[String] = None) extends UsdtDescription {
-  def queryText(hash: ByteVector32): String = hash.toHex + SEPARATOR + fromAddrString + SEPARATOR + toAddrString + label.getOrElse(new String)
 }
 
 case class UsdtInfo(hashString: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,

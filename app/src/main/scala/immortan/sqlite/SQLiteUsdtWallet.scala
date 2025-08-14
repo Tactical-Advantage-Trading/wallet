@@ -5,8 +5,10 @@ import immortan.utils.ImplicitJsonFormats._
 import spray.json._
 
 object CompleteUsdtWalletInfo { val NOADDRESS = "noaddress" }
-
-case class CompleteUsdtWalletInfo(address: String, xPriv: ExtendedPrivateKey, label: String, lastBalance: String = "0", lastNonce: String = "0", chainTip: Long = 0)
+case class CompleteUsdtWalletInfo(address: String, xPriv: ExtendedPrivateKey, label: String, lastBalance: String = "0", lastNonce: String = "0", chainTip: Long = 0) {
+  override def equals(other: Any): Boolean = other match { case that: CompleteUsdtWalletInfo => xPriv == that.xPriv case _ => false }
+  override def hashCode: Int = xPriv.hashCode
+}
 
 class SQLiteUsdtWallet(val db: DBInterface) {
   def remove(master: ExtendedPrivateKey): Unit =
@@ -16,6 +18,7 @@ class SQLiteUsdtWallet(val db: DBInterface) {
     db.change(UsdtWalletTable.newSql, info.address, info.xPriv.toJson.compactPrint,
       info.lastBalance, info.lastNonce, info.chainTip: java.lang.Long, info.label)
 
+  // TODO: investigate why BTC wallet does not trigger stream on similar call and whether we should trigger it here
   def persist(lastBalance: String, lastNonce: String, chainTip: Long, address: String): Unit =
     db.change(UsdtWalletTable.updSql, lastBalance, lastNonce, chainTip: java.lang.Long, address)
 
@@ -24,9 +27,6 @@ class SQLiteUsdtWallet(val db: DBInterface) {
 
   def updateAddress(address: String, master: ExtendedPrivateKey): Unit =
     db.change(UsdtWalletTable.updAddressSql, address, master.toJson.compactPrint)
-
-  def updateTip(chainTip: Long): Unit =
-    db.change(UsdtWalletTable.updTipSql, chainTip: java.lang.Long)
 
   def listWallets: Iterable[CompleteUsdtWalletInfo] = db.select(UsdtWalletTable.selectSql).iterable { rc =>
     CompleteUsdtWalletInfo(rc string UsdtWalletTable.address, to[ExtendedPrivateKey](rc string UsdtWalletTable.xPriv),

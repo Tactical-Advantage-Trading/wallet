@@ -81,8 +81,8 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     val usdtLabel = getString(usdt_wallet)
     val aaxp = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord = 0L)
     val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv, usdtLabel)
+    WalletApp.usdt = WalletApp.usdt.withWalletAdded(info)
     WalletApp.usdtWalletBag.addWallet(info)
-    WalletApp.usdtWallets :+= info
 
     // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)

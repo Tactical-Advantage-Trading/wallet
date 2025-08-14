@@ -18,7 +18,6 @@ import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import spray.json._
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.TaLink._
 import trading.tacticaladvantage.sqlite._
 
 import java.net.InetSocketAddress
@@ -44,7 +43,10 @@ object WalletApp {
   var seenBtcInfos = Map.empty[ByteVector32, BtcInfo]
   var pendingBtcInfos = Map.empty[ByteVector32, BtcInfo]
   var currentBtcNode = Option.empty[InetSocketAddress]
-  var usdtWallets = List.empty[CompleteUsdtWalletInfo]
+
+  var seenUsdtInfos = Map.empty[String, UsdtInfo]
+  var pendingUsdtInfos = Map.empty[String, UsdtInfo]
+  var usdt = TaLink.UsdtWalletManager(Set.empty)
 
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
@@ -94,16 +96,22 @@ object WalletApp {
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
     biconomy = new Biconomy(ElectrumWallet.connectionProvider)
 
-    taLink = new TaLink("wss://localhost") {
-      private val nonPersistWrap = UserStatusWrap(_: UserStatus, persist = false)
-      def loadUserStatus: Try[UserStatusWrap] = extDataBag.tryGet("ta-user-status").map(SQLiteData.byteVecToString) map to[TaLink.UserStatus] map nonPersistWrap
-      def saveUserStatus(status: UserStatus): Unit = extDataBag.put("ta-user-status", status.toJson.compactPrint getBytes "UTF-8")
-    }
-
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
       fiatRates = new FiatRates(extDataBag)
     }
+
+    feeRates.listeners += new FeeRatesListener {
+      def onFeeRates(info: FeeRatesInfo): Unit =
+        extDataBag.putFeeRatesInfo(info)
+    }
+
+    fiatRates.listeners += new FiatRatesListener {
+      def onFiatRates(info: FiatRatesInfo): Unit =
+        extDataBag.putFiatRatesInfo(info)
+    }
+
+    // BTC
 
     ElectrumClientPool.loadFromChainHash = {
       case Block.LivenetGenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_mainnet.json")
@@ -121,32 +129,21 @@ object WalletApp {
     ElectrumWallet.sync = ElectrumWallet.system.actorOf(Props(classOf[ElectrumChainSync], ElectrumWallet.pool, ElectrumWallet.params.headerDb, ElectrumWallet.chainHash), "sync")
     ElectrumWallet.catcher = ElectrumWallet.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
-    feeRates.listeners += new FeeRatesListener {
-      def onFeeRates(info: FeeRatesInfo): Unit =
-        extDataBag.putFeeRatesInfo(info)
-    }
-
-    fiatRates.listeners += new FiatRatesListener {
-      def onFiatRates(info: FiatRatesInfo): Unit =
-        extDataBag.putFiatRatesInfo(info)
-    }
-
     ElectrumWallet.catcher ! new WalletEventsListener {
       override def onChainDisconnected: Unit = currentBtcNode = Option.empty[InetSocketAddress]
       override def onChainMasterSelected(event: InetSocketAddress): Unit = currentBtcNode = event.asSome
 
       override def onTransactionReceived(event: TransactionReceived): Unit = {
-        def addChainTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
+        def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
           btcTxDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
           btcTxDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
-          if (event.depth == 1) Vibrator.vibrate
+          pendingBtcInfos -= event.tx.txid
         }
 
-        pendingBtcInfos -= event.tx.txid
         seenBtcInfos.get(event.tx.txid) match {
-          case Some(seen) => addChainTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
-          case None if event.received > event.sent => addChainTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
-          case None => addChainTx(event.received, event.sent - event.received, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 0L)
+          case Some(seen) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
+          case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
+          case None => addTx(event.received, event.sent - event.received, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 0L)
         }
       }
     }
@@ -171,10 +168,44 @@ object WalletApp {
       val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
       for (btcWalletInfo \ ord <- native.zipWithIndex) startFromInfo(btcWalletInfo, ord)
       for (btcWalletInfo <- attached) startFromInfo(btcWalletInfo, ord = 0L)
-      usdtWallets = usdtWalletBag.listWallets.toList
+      usdt = usdtWalletBag.listWallets.foldLeft(usdt)(_ withWalletAdded _)
     }
 
-    if (usdtWallets.nonEmpty || showTaCard) {
+    // USDT
+
+    taLink = new TaLink("wss://localhost") {
+      private val nonPersistWrap: String => TaLink.UserStatusWrap = json => TaLink.UserStatusWrap(to[TaLink.UserStatus](json), persist = false)
+      def loadUserStatus: Try[TaLink.UserStatusWrap] = extDataBag.tryGet("ta-user-status").map(SQLiteData.byteVecToString) map nonPersistWrap
+      def saveUserStatus(status: TaLink.UserStatus): Unit = extDataBag.put("ta-user-status", status.toJson.compactPrint getBytes "UTF-8")
+    }
+
+    taLink ! new TaLink.Listener(TaLink.USDT_STATE_UPDATE) {
+      def doAddTx(tr: TaLink.UsdTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
+        usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, usdt.totalBalance.toString, tr.stamp)
+        usdtTxDataBag.addSearchableTransaction(desc.queryText(tr.hash), tr.hash)
+        pendingUsdtInfos -= tr.fromAddr
+        seenUsdtInfos -= tr.fromAddr
+      }
+
+      def addTx(tr: TaLink.UsdTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
+        case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
+        case None if usdt.myAddresses.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
+        case None => doAddTx(tr, desc = UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
+      }
+
+      override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
+        case upd: TaLink.UsdBalanceNonce => usdtWalletBag.persist(upd.balance, upd.nonce, upd.chainTip, upd.address)
+        case upd: TaLink.UsdTransfers => usdtTxDataBag.db.txWrap(upd.transfers foreach addTx)
+        case _ =>
+      }
+
+      override def onConnected(stateData: TaLink.TaLinkState): Unit = if (usdt.withRealAddress.nonEmpty) {
+        val sub = TaLink.UsdSubscribe(usdt.myAddresses.toList, usdt.withRealAddress.head.chainTip)
+        taLink ! TaLink.Request(sub, id)
+      }
+    }
+
+    if (usdt.wallets.nonEmpty || showTaCard) {
       taLink.loadUserStatus.foreach(taLink ! _)
       taLink ! TaLink.CmdConnect
     }
@@ -244,9 +275,4 @@ class WalletApp extends Application { me =>
     clipboardManager.setPrimaryClip(bufferContent)
     quickToast(copied_to_clipboard)
   }
-}
-
-object Vibrator {
-  private val vibrator = WalletApp.app.getSystemService(Context.VIBRATOR_SERVICE).asInstanceOf[android.os.Vibrator]
-  def vibrate: Unit = if (null != vibrator && vibrator.hasVibrator) vibrator.vibrate(Array(0L, 85, 200), -1)
 }

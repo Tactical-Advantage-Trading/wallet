@@ -33,7 +33,7 @@ object BtcTxTable extends Table {
     ("tsearch", "btc", "raw", "txid", "pub", "depth", "received", "sent", "fee", "seen", "updated", "desc", "balance", "fiatrates", "incoming", "doublespent")
 
   private val inserts = s"$rawTx, $txid, $pub, $depth, $receivedSat, $sentSat, $feeSat, $seenAt, $updatedAt, $description, $balanceMsat, $fiatRates, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR IGNORE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
   val newVirtualSql = s"INSERT INTO $fts$table ($search, $txid) VALUES (?, ?)"
 
@@ -73,8 +73,6 @@ object UsdtWalletTable extends Table {
 
   val updLabelSql = s"UPDATE $table SET $label = ? WHERE $xPriv = ?"
 
-  val updTipSql = s"UPDATE $table SET $lastTip = ?"
-
   val selectSql = s"SELECT * FROM $table ORDER BY $id ASC"
 
   val killSql = s"DELETE FROM $table WHERE $xPriv = ?"
@@ -92,7 +90,7 @@ object UsdtTxTable extends Table {
     ("tsearch", "usdt", "hash", "network", "block", "received", "sent", "fee", "seen", "updated", "desc", "balance", "incoming", "doublespent")
 
   private val inserts = s"$hash, $network, $block, $receivedUsdt, $sentUsdt, $feeUsdt, $seenAt, $updatedAt, $description, $balanceUsdt, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR IGNORE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
   val newVirtualSql = s"INSERT INTO $fts$table ($search, $hash) VALUES (?, ?)"
 
@@ -102,11 +100,7 @@ object UsdtTxTable extends Table {
 
   val searchSql = s"SELECT * FROM $table WHERE $hash IN (SELECT DISTINCT $hash FROM $fts$table WHERE $search MATCH ? LIMIT 10)"
 
-  val selectHighestBlockSql = s"SELECT $block FROM $table ORDER BY $block DESC LIMIT 1"
-
   // Updating
-
-  val updStatusSql = s"UPDATE $table SET $block = ?, $doubleSpent = ?, $updatedAt = ? WHERE $hash = ?"
 
   val updateDescriptionSql = s"UPDATE $table SET $description = ? WHERE $hash = ?"
 
@@ -114,12 +108,11 @@ object UsdtTxTable extends Table {
     val createTable = s"""CREATE TABLE IF NOT EXISTS $table(
       $IDAUTOINC, $hash TEXT NOT NULL $UNIQUE, $network INTEGER NOT NULL, $block INTEGER NOT NULL, $receivedUsdt TEXT NOT NULL,
       $sentUsdt TEXT NOT NULL, $feeUsdt TEXT NOT NULL, $seenAt INTEGER NOT NULL, $updatedAt INTEGER NOT NULL, $description TEXT NOT NULL,
-      $balanceUsdt INTEGER NOT NULL, $incoming INTEGER NOT NULL, $doubleSpent INTEGER NOT NULL
+      $balanceUsdt TEXT NOT NULL, $incoming INTEGER NOT NULL, $doubleSpent INTEGER NOT NULL
     )"""
 
     val addSearchTable = s"CREATE VIRTUAL TABLE IF NOT EXISTS $fts$table USING $fts($search, $hash)"
-    val addIndex1 = s"CREATE INDEX IF NOT EXISTS idx1$table ON $table ($block)"
-    createTable :: addIndex1 :: addSearchTable :: Nil
+    createTable :: addSearchTable :: Nil
   }
 }
 

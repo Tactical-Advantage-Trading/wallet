@@ -3,6 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import immortan.crypto.Tools.{ThrowableOps, none}
 import immortan.crypto.{CanBeShutDown, StateMachine}
+import immortan.sqlite.CompleteUsdtWalletInfo
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
@@ -18,6 +19,15 @@ object TaLink {
   val USER_STATUS_UPDATE: String = "user-status-update"
   val GENERAL_ERROR: String = "general-error"
   val VERSION: Char = '1'
+
+  case class UsdtWalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
+    def withWalletAdded(wallet: CompleteUsdtWalletInfo) = copy(wallets = wallets - wallet + wallet)
+    lazy val withRealAddress = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
+    lazy val totalBalance = withRealAddress.map(_.lastBalance.toDouble).sum
+    lazy val myAddresses = withRealAddress.map(_.address)
+  }
+
+  //
 
   sealed trait FailureCode { def code: Int }
   case object INVALID_JSON extends FailureCode { val code = 10 }
@@ -90,6 +100,7 @@ object TaLink {
     def write(obj: RequestArguments): JsValue = obj match {
       case request: Login => loginFormat.write(request)
       case request: GetLoanAd => getLoanAddFormat.write(request)
+      case request: GetUserStatus => getUserStatusFormat.write(request)
       case request: CancelWithdraw => cancelWithdrawFormat.write(request)
       case request: UsdSubscribe => usdSubscribeFormat.write(request)
       case request: WithdrawReq => withdrawReqFormat.write(request)
@@ -172,7 +183,8 @@ object TaLink {
 }
 
 abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
-  var listeners = Set.empty[Listener]
+  // Not using a set to ensure insertion order
+  var listeners = List.empty[Listener]
   var ws: WebSocket = _
 
   val wsListener = new WebSocketAdapter {
@@ -195,8 +207,8 @@ abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBe
   }
 
   def !!(change: Any): Unit = (change, state) match {
-    case (listener: Listener, _) => listeners += listener
-    case (CmdRemove(listener), _) => listeners -= listener
+    case (listener: Listener, _) => listeners = listeners :+ listener
+    case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
 
     case (wrap: UserStatusWrap, _) =>
       if (wrap.persist) saveUserStatus(wrap.userStatus)

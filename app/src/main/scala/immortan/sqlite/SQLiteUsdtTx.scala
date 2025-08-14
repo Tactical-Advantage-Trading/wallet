@@ -11,31 +11,26 @@ class SQLiteUsdtTx(val db: DBInterface) {
   def listRecentTxs(limit: Int): RichCursor = db.select(UsdtTxTable.selectRecentSql, limit.toString)
   def searchTransactions(rawSearchQuery: String): RichCursor = db.search(UsdtTxTable.searchSql, rawSearchQuery.toLowerCase)
 
-  def addSearchableTransaction(search: String, hash: ByteVector32): Unit = {
+  def addSearchableTransaction(search: String, hash: String): Unit = {
     val newVirtualSqlPQ = db.makePreparedQuery(UsdtTxTable.newVirtualSql)
-    db.change(newVirtualSqlPQ, search.toLowerCase, hash.toHex)
+    db.change(newVirtualSqlPQ, search.toLowerCase, hash)
     newVirtualSqlPQ.close
   }
 
-  def updDescription(description: UsdtDescription, hash: ByteVector32): Unit = db txWrap {
+  def updDescription(description: UsdtDescription, hash: String): Unit = db txWrap {
     val updateDescriptionSqlPQ = db.makePreparedQuery(UsdtTxTable.updateDescriptionSql)
-    db.change(updateDescriptionSqlPQ, description.toJson.compactPrint, hash.toHex)
+    db.change(updateDescriptionSqlPQ, description.toJson.compactPrint, hash)
     for (label <- description.label) addSearchableTransaction(label, hash)
     DbStreams.next(DbStreams.txDbStream)
     updateDescriptionSqlPQ.close
   }
 
-  def updStatus(hash: ByteVector32, block: Long, updatedStamp: Long, doubleSpent: Boolean): Unit = {
-    db.change(UsdtTxTable.updStatusSql, block: JLong, if (doubleSpent) 1L: JLong else 0L: JLong, updatedStamp: JLong, hash.toHex)
-    DbStreams.next(DbStreams.txDbStream)
-  }
-
   def addTx(network: Long, hash: String, block: Long, doubleSpent: Boolean, receivedUsdt: String,
             sentUsdt: String, feeUsdt: String, description: UsdtDescription, isIncoming: Long,
-            balanceSnapUsdt: Long, stamp: Long): Unit = {
+            balanceSnapUsdt: String, stamp: Long): Unit = {
     val newSqlPQ = db.makePreparedQuery(UsdtTxTable.newSql)
     db.change(newSqlPQ, hash, network: JLong, block: JLong, receivedUsdt, sentUsdt, feeUsdt, stamp: JLong /* SEEN */,
-      stamp: JLong /* UPDATED */, description.toJson.compactPrint, balanceSnapUsdt: JLong, isIncoming: JLong,
+      stamp: JLong /* UPDATED */, description.toJson.compactPrint, balanceSnapUsdt, isIncoming: JLong,
       if (doubleSpent) 1L: JLong else 0L: JLong /* NOT DOUBLE SPENT YET */)
     DbStreams.next(DbStreams.txDbStream)
     newSqlPQ.close

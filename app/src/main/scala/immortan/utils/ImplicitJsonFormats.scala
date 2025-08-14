@@ -82,20 +82,8 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   // USDT description
 
-  implicit object UsdtDescriptionFmt extends JsonFormat[UsdtDescription] {
-    def read(raw: JsValue): UsdtDescription = raw.asJsObject.fields(TAG) match {
-      case JsString("PlainUsdtDescription") => raw.convertTo[PlainUsdtDescription]
-      case _ => throw new Exception
-    }
-
-    def write(internal: UsdtDescription): JsValue = internal match {
-      case usdtDescription: PlainUsdtDescription => usdtDescription.toJson
-      case _ => throw new Exception
-    }
-  }
-
-  implicit val plainUsdtDescriptionFmt: JsonFormat[PlainUsdtDescription] = taggedJsonFmt(jsonFormat[String, String, Option[String],
-    PlainUsdtDescription](PlainUsdtDescription.apply, "fromAddrString", "toAddrString", "label"), tag = "PlainUsdtDescription")
+  implicit val usdtDescriptionFmt: JsonFormat[UsdtDescription] = taggedJsonFmt(jsonFormat[String, String, Option[String],
+    UsdtDescription](UsdtDescription.apply, "fromAddrString", "toAddrString", "label"), tag = "UsdtDescription")
 
   // Fiat feerates
 
