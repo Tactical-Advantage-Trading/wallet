@@ -5,16 +5,16 @@ import android.view.View
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
-import fr.acinq.bitcoin.MnemonicCode
+import fr.acinq.bitcoin.{MnemonicCode, Satoshi}
+import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, ElectrumWalletType}
 import immortan.crypto.Tools.{Bytes, SEPARATOR, StringList, none}
+import immortan.sqlite.{CompleteUsdtWalletInfo, SigningWallet}
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.R.string._
-
 import java.io.File
 
 trait MnemonicActivity { me: BaseActivity =>
   val activityContainer: LinearLayout
-  val notifyRestart: Int => Unit
 
   def showMnemonicInput(titleRes: Int)(proceedWithMnemonics: StringList => Unit): Unit = {
     val mnemonicWrap = getLayoutInflater.inflate(R.layout.frag_mnemonic, null).asInstanceOf[LinearLayout]
@@ -57,7 +57,6 @@ trait MnemonicActivity { me: BaseActivity =>
 
 class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   lazy val activityContainer = findViewById(R.id.activitySetupMain).asInstanceOf[LinearLayout]
-  val notifyRestart: Int => Unit = none
 
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
@@ -67,10 +66,25 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     assetToInternal("biconomy.js")
     assetToInternal(".env")
 
-    // Consider this wallet initialized
+    // Call before crating wallets
     WalletApp.extDataBag.putSecret(secret)
-    WalletApp.makeOperational(secret)
+    WalletApp.makeOperational(secret, loadWallets = false)
 
+    // Create BTC wallet
+    val btcLabel = getString(bitcoin_wallet)
+    val core = SigningWallet(ElectrumWallet.BIP84)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), btcLabel)
+    ElectrumWallet.addWallet(spec)
+
+    // Create USDT wallet
+    val usdtLabel = getString(usdt_wallet)
+    val aaxp = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord = 0L)
+    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv, usdtLabel)
+    WalletApp.usdtWalletBag.addWallet(info)
+    WalletApp.usdtWallets :+= info
+
+    // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)
     activityContainer.setVisibility(View.GONE)
     exitTo(ClassNames.mainActivityClass)
