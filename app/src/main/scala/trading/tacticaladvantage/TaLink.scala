@@ -1,32 +1,33 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
-import immortan.crypto.{CanBeShutDown, StateMachine}
 import immortan.crypto.Tools.{ThrowableOps, none}
+import immortan.crypto.{CanBeShutDown, StateMachine}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
 import trading.tacticaladvantage.TaLink._
+
 import scala.util.Try
 
 object TaLink {
   type JavaList = java.util.List[String]
   type JavaMap = java.util.Map[String, JavaList]
 
-  val GLOBAL: String = "global"
+  val USER_STATUS_UPDATE: String = "usu"
+  val GENERAL_ERROR: String = "ge"
   val VERSION: Char = '1'
 
   sealed trait FailureCode { def code: Int }
   case object INVALID_JSON extends FailureCode { val code = 10 }
-  case object NOT_LOGGED_IN extends FailureCode { val code = 20 }
-  case object NOT_AUTHORIZED extends FailureCode { val code = 30 }
-  case object INVALID_REQUEST extends FailureCode { val code = 40 }
-  case object UPDATE_CLIENT_APP extends FailureCode { val code = 50 }
-  case object USD_INFRA_FAIL extends FailureCode { val code = 60 }
-  case object ACCOUNT_BANNED extends FailureCode { val code = 70 }
+  case object NOT_AUTHORIZED extends FailureCode { val code = 20 }
+  case object INVALID_REQUEST extends FailureCode { val code = 30 }
+  case object UPDATE_CLIENT_APP extends FailureCode { val code = 40 }
+  case object USD_INFRA_FAIL extends FailureCode { val code = 50 }
+  case object ACCOUNT_BANNED extends FailureCode { val code = 60 }
 
   val failureCodes: Seq[FailureCode] = Seq(
-    INVALID_JSON, NOT_LOGGED_IN, NOT_AUTHORIZED, INVALID_REQUEST,
+    INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST,
     UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED
   )
 
@@ -65,6 +66,7 @@ object TaLink {
 
   sealed trait RequestArguments { val tag: String }
   case class GetLoanAd(asset: Asset) extends RequestArguments { val tag = "GetLoanAd" }
+  case class GetUserStatus(sessionToken: String) extends RequestArguments { val tag = "GetUserStatus" }
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
   case class UsdSubscribe(addresses: List[String], afterBlock: Long) extends RequestArguments { val tag = "UsdSubscribe" }
   case class WithdrawReq(address: String, asset: Asset, requested: Option[Double] = None) extends RequestArguments { val tag = "WithdrawReq" }
@@ -75,12 +77,13 @@ object TaLink {
 
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat2(Login), "Login")
   implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat1(GetLoanAd), "GetLoanAd")
-  implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat2(UsdSubscribe), "UsdSubscribe")
-  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat3(WithdrawReq), "Withdraw")
   implicit val depositSigFormat: JsonFormat[DepositSig] = taggedJsonFmt(jsonFormat2(DepositSig), "DepositSig")
+  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat3(WithdrawReq), "Withdraw")
+  implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat2(UsdSubscribe), "UsdSubscribe")
+  implicit val logOutFormat: JsonFormat[LogOut.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => LogOut), "LogOut")
+  implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat1(GetUserStatus), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat1(CancelWithdraw), "CancelWithdraw")
   implicit val getHistoryFormat: JsonFormat[GetHistory.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetHistory), "GetHistory")
-  implicit val logOutFormat: JsonFormat[LogOut.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => LogOut), "LogOut")
 
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def write(obj: RequestArguments): JsValue = obj match {
@@ -116,15 +119,20 @@ object TaLink {
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
   case class UsdTransfers(transfers: List[UsdTransfer], chainTip: Long) extends ResponseArguments { val tag = "UsdTransfers" }
   case class UsdBalanceNonce(address: String, balance: String, nonce: String, chainTip: Long) extends ResponseArguments { val tag = "UsdBalanceNonce" }
-  case class LoanAd(durationDays: Long, minDeposit: Double, maxDeposit: Double, address: Option[String], challenge: String, roi: Double, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
-  case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds], email: String) extends ResponseArguments { val tag = "UserStatus" }
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
+  case class LoanAd(durationDays: Long, minDeposit: Double, maxDeposit: Double, address: Option[String], challenge: String, roi: Double, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
+
+  sealed trait TaLinkState
+  case object LoggedOut extends TaLinkState
+  case class UserStatusWrap(userStatus: UserStatus, persist: Boolean)
+  case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
+                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
 
   implicit val loanAdFormat: JsonFormat[LoanAd] = taggedJsonFmt(jsonFormat7(LoanAd), "LoanAd")
   implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat1(Failure), "Failure")
   implicit val usdTransfersFormat: JsonFormat[UsdTransfers] = taggedJsonFmt(jsonFormat2(UsdTransfers), "UsdTransfers")
   implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat4(UsdBalanceNonce), "UsdBalanceNonce")
-  implicit val userStatusFormat: JsonFormat[UserStatus] = taggedJsonFmt(jsonFormat4(UserStatus), "UserStatus")
+  implicit val userStatusFormat: JsonFormat[UserStatus] = taggedJsonFmt(jsonFormat5(UserStatus), "UserStatus")
   implicit val historyFormat: JsonFormat[History] = taggedJsonFmt(jsonFormat3(History), "History")
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
@@ -144,8 +152,8 @@ object TaLink {
 
   // State machine
 
-  case class Request(arguments: RequestArguments, sessionSecret: Option[String], id: String)
-  case class Response(arguments: Option[ResponseArguments], newSessionSecret: Option[String], id: String)
+  case class Request(arguments: RequestArguments, id: String)
+  case class Response(arguments: Option[ResponseArguments], id: String)
 
   final val DISABLED = 0
   final val DISCONNECTED = 1
@@ -156,28 +164,23 @@ object TaLink {
   case object CmdDisconnected
   case class CmdRemove(listener: Listener)
 
-  case class TaDataWrap(data: TaData, persist: Boolean)
-  case class TaData(userStatus: Option[UserStatus], sessionSecret: String) {
-    def withNewSecret(token: String): TaData = copy(sessionSecret = token)
-  }
-
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
     def onDisconnected: Unit = none
     def onConnected: Unit = none
   }
 
-  implicit val requestFormat : JsonFormat[Request] = jsonFormat3(Request)
-  implicit val responseFormat: JsonFormat[Response] = jsonFormat3(Response)
-  implicit val taDataFormat: JsonFormat[TaData] = jsonFormat2(TaData)
+  implicit val requestFormat : JsonFormat[Request] = jsonFormat2(Request)
+  implicit val responseFormat: JsonFormat[Response] = jsonFormat2(Response)
 }
 
-abstract class TaLink(host: String) extends StateMachine[TaData] with CanBeShutDown { me =>
+abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
   var listeners = Set.empty[Listener]
   var ws: WebSocket = _
 
   def becomeShutDown: Unit = {
     state = DISABLED
+    data = LoggedOut
     ws.disconnect
   }
 
@@ -185,9 +188,9 @@ abstract class TaLink(host: String) extends StateMachine[TaData] with CanBeShutD
     case (listener: Listener, _) => listeners += listener
     case (CmdRemove(listener), _) => listeners -= listener
 
-    case (wrap: TaDataWrap, _) =>
-      become(freshData = wrap.data, state)
-      if (wrap.persist) saveData(wrap.data)
+    case (wrap: UserStatusWrap, _) =>
+      if (wrap.persist) saveUserStatus(wrap.userStatus)
+      become(freshData = wrap.userStatus, state)
 
     case (CmdConnect, DISCONNECTED) =>
       ws = (new WebSocketFactory).setConnectionTimeout(20000).createSocket(host, 443) addListener new WebSocketAdapter {
@@ -202,11 +205,8 @@ abstract class TaLink(host: String) extends StateMachine[TaData] with CanBeShutD
           }
       }
 
-    case (Response(arguments, newSessionSecret, id), CONNECTED) =>
+    case (Response(arguments, id), CONNECTED) =>
       listeners.filter(_.id == id).foreach(_ onResponse arguments)
-      val dataOpt = newSessionSecret.map(data.withNewSecret)
-      for (data1 <- dataOpt) become(data1, CONNECTED)
-      for (data1 <- dataOpt) saveData(data1)
 
     case (CmdDisconnected, CONNECTED) =>
       Rx.delay(5000).foreach(_ => me ! CmdConnect)
@@ -219,8 +219,8 @@ abstract class TaLink(host: String) extends StateMachine[TaData] with CanBeShutD
       println(otherwise)
   }
 
-  def loadData: Try[TaData]
-  def saveData(data: TaData): Unit
-  data = TaData(None, new String)
+  def loadUserStatus: Try[UserStatusWrap]
+  def saveUserStatus(status: UserStatus): Unit
   state = DISCONNECTED
+  data = LoggedOut
 }

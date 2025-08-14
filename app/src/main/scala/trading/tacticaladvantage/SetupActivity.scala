@@ -66,7 +66,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     assetToInternal("biconomy.js")
     assetToInternal(".env")
 
-    // Call before crating wallets
+    // Call before creating wallets
     WalletApp.extDataBag.putSecret(secret)
     WalletApp.makeOperational(secret, loadWallets = false)
 

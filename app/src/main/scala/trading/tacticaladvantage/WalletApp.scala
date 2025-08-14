@@ -18,6 +18,7 @@ import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import spray.json._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.TaLink._
 import trading.tacticaladvantage.sqlite._
 
 import java.net.InetSocketAddress
@@ -92,8 +93,9 @@ object WalletApp {
     biconomy = new Biconomy(ElectrumWallet.connectionProvider)
 
     taLink = new TaLink("wss://localhost") {
-      def loadData: Try[TaLink.TaData] = extDataBag.tryGet("ta-data").map(SQLiteData.byteVecToString) map to[TaLink.TaData]
-      def saveData(data: TaLink.TaData): Unit = extDataBag.put("ta-data", data.toJson.compactPrint getBytes "UTF-8")
+      private val nonPersistWrap = UserStatusWrap(_: UserStatus, persist = false)
+      def loadUserStatus: Try[UserStatusWrap] = extDataBag.tryGet("ta-user-status").map(SQLiteData.byteVecToString) map to[TaLink.UserStatus] map nonPersistWrap
+      def saveUserStatus(status: UserStatus): Unit = extDataBag.put("ta-user-status", status.toJson.compactPrint getBytes "UTF-8")
     }
 
     extDataBag.db txWrap {
