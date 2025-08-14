@@ -14,8 +14,9 @@ object TaLink {
   type JavaList = java.util.List[String]
   type JavaMap = java.util.Map[String, JavaList]
 
-  val USER_STATUS_UPDATE: String = "usu"
-  val GENERAL_ERROR: String = "ge"
+  val USDT_STATE_UPDATE: String = "usdt-state-update"
+  val USER_STATUS_UPDATE: String = "user-status-update"
+  val GENERAL_ERROR: String = "general-error"
   val VERSION: Char = '1'
 
   sealed trait FailureCode { def code: Int }
@@ -150,14 +151,13 @@ object TaLink {
       throw new RuntimeException
   }
 
-  // State machine
-
   case class Request(arguments: RequestArguments, id: String)
   case class Response(arguments: Option[ResponseArguments], id: String)
+  implicit val requestFormat : JsonFormat[Request] = jsonFormat2(Request)
+  implicit val responseFormat: JsonFormat[Response] = jsonFormat2(Response)
 
-  final val DISABLED = 0
-  final val DISCONNECTED = 1
-  final val CONNECTED = 2
+  final val DISCONNECTED = 0
+  final val CONNECTED = 1
 
   case object CmdConnect
   case object CmdConnected
@@ -166,20 +166,30 @@ object TaLink {
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
+    def onConnected(stateData: TaLinkState): Unit = none
     def onDisconnected: Unit = none
-    def onConnected: Unit = none
   }
-
-  implicit val requestFormat : JsonFormat[Request] = jsonFormat2(Request)
-  implicit val responseFormat: JsonFormat[Response] = jsonFormat2(Response)
 }
 
 abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
   var listeners = Set.empty[Listener]
   var ws: WebSocket = _
 
+  val wsListener = new WebSocketAdapter {
+    override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = me ! CmdDisconnected
+    override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = me ! CmdDisconnected
+    override def onConnected(ws: WebSocket, headers: JavaMap): Unit = me ! CmdConnected
+
+    override def onTextMessage(ws: WebSocket, message: String): Unit =
+      tryTo[Response](message).map(me ! _).recover { case exception =>
+        println(exception.stackTraceAsString)
+        ws.disconnect
+      }
+  }
+
   def becomeShutDown: Unit = {
-    state = DISABLED
+    ws.removeListener(wsListener)
+    state = DISCONNECTED
     data = LoggedOut
     ws.disconnect
   }
@@ -193,30 +203,22 @@ abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBe
       become(freshData = wrap.userStatus, state)
 
     case (CmdConnect, DISCONNECTED) =>
-      ws = (new WebSocketFactory).setConnectionTimeout(20000).createSocket(host, 443) addListener new WebSocketAdapter {
-        override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = me ! CmdDisconnected
-        override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = me ! CmdDisconnected
-        override def onConnected(ws: WebSocket, headers: JavaMap): Unit = me ! CmdConnected
-
-        override def onTextMessage(ws: WebSocket, message: String): Unit =
-          tryTo[Response](message).map(me ! _).recover { case exception =>
-            println(exception.stackTraceAsString)
-            ws.disconnect
-          }
-      }
-
-    case (Response(arguments, id), CONNECTED) =>
-      listeners.filter(_.id == id).foreach(_ onResponse arguments)
+      ws = (new WebSocketFactory).setConnectionTimeout(10000).createSocket(host, 443)
+      ws.addListener(wsListener).connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>
       Rx.delay(5000).foreach(_ => me ! CmdConnect)
       listeners.foreach(_.onDisconnected)
+      become(data, DISCONNECTED)
 
     case (CmdConnected, DISCONNECTED) =>
-      listeners.foreach(_.onConnected)
+      listeners.foreach(_ onConnected data)
+      become(data, CONNECTED)
 
-    case otherwise =>
-      println(otherwise)
+    case (req: Request, CONNECTED) => ws.sendText(s"$VERSION${req.toJson.compactPrint}")
+    case (req: Request, DISCONNECTED) => listeners.filter(_.id == req.id).foreach(_.onDisconnected)
+    case (Response(arguments, id), CONNECTED) => listeners.filter(_.id == id).foreach(_ onResponse arguments)
+    case otherwise => println(otherwise)
   }
 
   def loadUserStatus: Try[UserStatusWrap]

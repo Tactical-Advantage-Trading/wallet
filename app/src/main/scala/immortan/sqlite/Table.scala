@@ -33,7 +33,7 @@ object BtcTxTable extends Table {
     ("tsearch", "btc", "raw", "txid", "pub", "depth", "received", "sent", "fee", "seen", "updated", "desc", "balance", "fiatrates", "incoming", "doublespent")
 
   private val inserts = s"$rawTx, $txid, $pub, $depth, $receivedSat, $sentSat, $feeSat, $seenAt, $updatedAt, $description, $balanceMsat, $fiatRates, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val newSql = s"INSERT OR IGNORE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
   val newVirtualSql = s"INSERT INTO $fts$table ($search, $txid) VALUES (?, ?)"
 
@@ -92,7 +92,7 @@ object UsdtTxTable extends Table {
     ("tsearch", "usdt", "hash", "network", "block", "received", "sent", "fee", "seen", "updated", "desc", "balance", "incoming", "doublespent")
 
   private val inserts = s"$hash, $network, $block, $receivedUsdt, $sentUsdt, $feeUsdt, $seenAt, $updatedAt, $description, $balanceUsdt, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val newSql = s"INSERT OR IGNORE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
   val newVirtualSql = s"INSERT INTO $fts$table ($search, $hash) VALUES (?, ?)"
 

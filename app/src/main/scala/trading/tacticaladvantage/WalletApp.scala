@@ -47,7 +47,9 @@ object WalletApp {
   var usdtWallets = List.empty[CompleteUsdtWalletInfo]
 
   final val FIAT_CODE = "fiatCode"
+  final val SHOW_TA_CARD = "showTaCard"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
+  def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
   def denom: Denomination = BtcDenomination
 
   def isAlive: Boolean =
@@ -170,6 +172,11 @@ object WalletApp {
       for (btcWalletInfo \ ord <- native.zipWithIndex) startFromInfo(btcWalletInfo, ord)
       for (btcWalletInfo <- attached) startFromInfo(btcWalletInfo, ord = 0L)
       usdtWallets = usdtWalletBag.listWallets.toList
+    }
+
+    if (usdtWallets.nonEmpty || showTaCard) {
+      taLink.loadUserStatus.foreach(taLink ! _)
+      taLink ! TaLink.CmdConnect
     }
   }
 
