@@ -6,14 +6,14 @@ import spray.json._
 
 object CompleteUsdtWalletInfo { val NOADDRESS = "noaddress" }
 
-case class CompleteUsdtWalletInfo(address: String, master: ExtendedPrivateKey, lastBalance: String, lastNonce: String, chainTip: Long, label: String)
+case class CompleteUsdtWalletInfo(address: String, xPriv: ExtendedPrivateKey, label: String, lastBalance: String = "0", lastNonce: String = "0", chainTip: Long = 0)
 
 class SQLiteUsdtWallet(val db: DBInterface) {
   def remove(master: ExtendedPrivateKey): Unit =
     db.change(UsdtWalletTable.killSql, master.toJson.compactPrint)
 
   def addWallet(info: CompleteUsdtWalletInfo): Unit =
-    db.change(UsdtWalletTable.newSql, info.address, info.master.toJson.compactPrint,
+    db.change(UsdtWalletTable.newSql, info.address, info.xPriv.toJson.compactPrint,
       info.lastBalance, info.lastNonce, info.chainTip: java.lang.Long, info.label)
 
   def persist(lastBalance: String, lastNonce: String, chainTip: Long, address: String): Unit =
@@ -25,12 +25,12 @@ class SQLiteUsdtWallet(val db: DBInterface) {
   def updateAddress(address: String, master: ExtendedPrivateKey): Unit =
     db.change(UsdtWalletTable.updAddressSql, address, master.toJson.compactPrint)
 
-  def updateTip(chainTip: Long, address: String): Unit =
+  def updateTip(chainTip: Long): Unit =
     db.change(UsdtWalletTable.updTipSql, chainTip: java.lang.Long)
 
   def listWallets: Iterable[CompleteUsdtWalletInfo] = db.select(UsdtWalletTable.selectSql).iterable { rc =>
     CompleteUsdtWalletInfo(rc string UsdtWalletTable.address, to[ExtendedPrivateKey](rc string UsdtWalletTable.xPriv),
-      rc string UsdtWalletTable.lastBalance, rc string UsdtWalletTable.lastNonce, rc long UsdtWalletTable.lastTip,
-      rc string BtcWalletTable.label)
+      rc string BtcWalletTable.label, rc string UsdtWalletTable.lastBalance, rc string UsdtWalletTable.lastNonce,
+      rc long UsdtWalletTable.lastTip)
   }
 }

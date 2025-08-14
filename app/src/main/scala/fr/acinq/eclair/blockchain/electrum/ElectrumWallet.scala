@@ -26,7 +26,6 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.math.min
 import scala.util.Try
 
-
 object ElectrumWallet extends CanBeShutDown {
   type OkOrError = Option[fr.acinq.eclair.blockchain.bitcoind.rpc.Error]
   type TxHistoryItemList = List[TransactionHistoryItem]

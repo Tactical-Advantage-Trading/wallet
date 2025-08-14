@@ -23,7 +23,6 @@ import trading.tacticaladvantage.sqlite._
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.Date
-import scala.collection.mutable
 import scala.util.Try
 
 object WalletApp {
@@ -41,9 +40,11 @@ object WalletApp {
   var taLink: TaLink = _
   var app: WalletApp = _
 
-  val seenBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
-  val pendingBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
+  var seenBtcInfos = Map.empty[ByteVector32, BtcInfo]
+  var pendingBtcInfos = Map.empty[ByteVector32, BtcInfo]
   var currentBtcNode = Option.empty[InetSocketAddress]
+
+  var usdtWallets = List.empty[CompleteUsdtWalletInfo]
 
   final val FIAT_CODE = "fiatCode"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
@@ -117,10 +118,11 @@ object WalletApp {
     ElectrumWallet.sync = ElectrumWallet.system.actorOf(Props(classOf[ElectrumChainSync], ElectrumWallet.pool, ElectrumWallet.params.headerDb, ElectrumWallet.chainHash), "sync")
     ElectrumWallet.catcher = ElectrumWallet.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
-    // Fill online wallet map with persisted wallets, it will be empty if we have none
+    // BTC
+    // Fill online map with persisted BTC wallets
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-    for (info \ ord <- native.zipWithIndex) startFromInfo(info, ord)
-    for (info <- attached) startFromInfo(info, ord = 0L)
+    for (btcWalletInfo \ ord <- native.zipWithIndex) startFromInfo(btcWalletInfo, ord)
+    for (btcWalletInfo <- attached) startFromInfo(btcWalletInfo, ord = 0L)
 
     if (ElectrumWallet.specs.isEmpty) {
       val label = app.getString(bitcoin_wallet)
@@ -128,6 +130,18 @@ object WalletApp {
       val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, chainHash, ord = 0L)
       val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label)
       ElectrumWallet.addWallet(spec)
+    }
+
+    // USDT
+    // Fill online list with persisted USDT wallets
+    usdtWallets = usdtWalletBag.listWallets.toList
+
+    if (usdtWallets.isEmpty) {
+      val label = app.getString(usdt_wallet)
+      val aaxp = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, chainHash, ord = 0L)
+      val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv, label)
+      usdtWalletBag.addWallet(info)
+      usdtWallets :+= info
     }
 
     feeRates.listeners += new FeeRatesListener {
@@ -151,7 +165,7 @@ object WalletApp {
           if (event.depth == 1) Vibrator.vibrate
         }
 
-        pendingBtcInfos.remove(event.tx.txid)
+        pendingBtcInfos -= event.tx.txid
         seenBtcInfos.get(event.tx.txid) match {
           case Some(seen) => addChainTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
           case None if event.received > event.sent => addChainTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
