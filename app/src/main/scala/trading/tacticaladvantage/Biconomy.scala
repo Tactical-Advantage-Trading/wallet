@@ -32,7 +32,7 @@ class Biconomy(cp: ConnectionProvider, dir: String) {
 
   var isRunning = false
   def startNode: Unit = Future {
-    // We can not start a Node again while it runnig
+    // We can't start a Node again while it's runnig
     if (isRunning) return else isRunning = true
 
     // Safe to load multiple times
