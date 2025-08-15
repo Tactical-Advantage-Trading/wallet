@@ -174,9 +174,11 @@ object WalletApp {
     // USDT
 
     taLink = new TaLink("wss://localhost") {
-      private val nonPersistWrap: String => TaLink.UserStatusWrap = json => TaLink.UserStatusWrap(to[TaLink.UserStatus](json), persist = false)
-      def loadUserStatus: Try[TaLink.UserStatusWrap] = extDataBag.tryGet("ta-user-status").map(SQLiteData.byteVecToString) map nonPersistWrap
-      def saveUserStatus(status: TaLink.UserStatus): Unit = extDataBag.put("ta-user-status", status.toJson.compactPrint getBytes "UTF-8")
+      private val TA_USER_STATUS = "ta-user-status"
+      private val nonPersistWrap: String => TaLink.StateWrap = json => TaLink.StateWrap(to[TaLink.UserStatus](json), persist = false)
+      def loadUserStatus: Try[TaLink.StateWrap] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map nonPersistWrap
+      def saveUserStatus(status: TaLink.UserStatus): Unit = extDataBag.put(TA_USER_STATUS, status.toJson.compactPrint getBytes "UTF-8")
+      def removeUserStatus: Unit = extDataBag.delete(TA_USER_STATUS)
     }
 
     taLink ! new TaLink.Listener(TaLink.USDT_STATE_UPDATE) {
@@ -202,6 +204,18 @@ object WalletApp {
       override def onConnected(stateData: TaLink.TaLinkState): Unit = if (usdt.withRealAddress.nonEmpty) {
         val sub = TaLink.UsdSubscribe(usdt.myAddresses.toList, usdt.withRealAddress.head.chainTip)
         taLink ! TaLink.Request(sub, id)
+      }
+    }
+
+    taLink ! new TaLink.Listener(TaLink.USER_STATUS_UPDATE) {
+      override def onConnected(stateData: TaLink.TaLinkState): Unit = stateData match {
+        case data: TaLink.UserStatus => taLink ! TaLink.Request(TaLink.GetUserStatus(data.sessionToken), id)
+        case _ => // Not logged in, user can do it manually later
+      }
+
+      override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
+        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.StateWrap(TaLink.LoggedOut, persist = true)
+        case upd: TaLink.UserStatus => taLink ! TaLink.StateWrap(upd, persist = true)
       }
     }
 
