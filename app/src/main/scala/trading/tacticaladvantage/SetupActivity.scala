@@ -68,19 +68,10 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     WalletApp.extDataBag.putSecret(secret)
     WalletApp.makeOperational(secret, loadWallets = false)
 
-    // Create BTC wallet
-    val btcLabel = getString(bitcoin_wallet)
-    val core = SigningWallet(ElectrumWallet.BIP84)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), btcLabel)
-    ElectrumWallet.addWallet(spec)
-
-    // Create USDT wallet
-    val usdtLabel = getString(usdt_wallet)
-    val aaxp = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord = 0L)
-    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv.privateKey.toAccount, usdtLabel)
-    WalletApp.usdt = WalletApp.usdt.withWalletAdded(info)
-    WalletApp.usdtWalletBag.addWallet(info)
+    // Create wallets
+    WalletApp.createBtcWallet(ord = 0L)
+    WalletApp.createUsdtWallet(ord = 0L)
+    WalletApp.ensureUsdtAccounts
 
     // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)

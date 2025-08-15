@@ -23,8 +23,9 @@ object TaLink {
   case class UsdtWalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
     def withWalletAdded(wallet: CompleteUsdtWalletInfo) = copy(wallets = wallets - wallet + wallet)
     lazy val withRealAddress = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
-    lazy val totalBalance = withRealAddress.map(_.lastBalance.toDouble).sum
-    lazy val myAddresses = withRealAddress.map(_.address)
+    lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
+    lazy val myAddresses: Set[String] = withRealAddress.map(_.address)
+    lazy val withFakeAddress = wallets -- withRealAddress
   }
 
   //

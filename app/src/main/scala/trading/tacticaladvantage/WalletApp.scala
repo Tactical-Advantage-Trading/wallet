@@ -24,6 +24,8 @@ import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.Date
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.Try
 
 object WalletApp {
@@ -47,6 +49,9 @@ object WalletApp {
 
   var seenUsdtInfos = Map.empty[String, UsdtInfo]
   var pendingUsdtInfos = Map.empty[String, UsdtInfo]
+
+  // TODO: when updating wallet state from server or address from biconomy, we need to change onlint info as well as database
+  // TODO: currently this is not happening, we need to unify these operations through this "usdt" object
   var usdt = TaLink.UsdtWalletManager(Set.empty)
 
   final val FIAT_CODE = "fiatCode"
@@ -167,9 +172,10 @@ object WalletApp {
     if (loadWallets) {
       // Fill online map with persisted wallets
       val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-      for (btcWalletInfo \ ord <- native.zipWithIndex) startFromInfo(btcWalletInfo, ord)
-      for (btcWalletInfo <- attached) startFromInfo(btcWalletInfo, ord = 0L)
+      for (btcWalletInfo \ ord <- native.zipWithIndex) startBtcWallet(btcWalletInfo, ord)
+      for (btcWalletInfo <- attached) startBtcWallet(btcWalletInfo, ord = 0L)
       usdt = usdtWalletBag.listWallets.foldLeft(usdt)(_ withWalletAdded _)
+      ensureUsdtAccounts
     }
 
     // USDT
@@ -227,14 +233,6 @@ object WalletApp {
     }
   }
 
-  def startFromInfo(info: CompleteBtcWalletInfo, ord: Long): Unit = {
-    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
-    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
-    ElectrumWallet.specs.update(ewt.xPub, spec)
-    spec.walletRef ! info.initData
-  }
-
   def assetToInternal(assetName: String, destName: String): Unit = {
     val destFile = new File(app.getFilesDir, destName)
     val outStream = new FileOutputStream(destFile)
@@ -253,6 +251,40 @@ object WalletApp {
       inStream.close
       outStream.close
     }
+  }
+
+  def startBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
+    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
+    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
+    ElectrumWallet.specs.update(ewt.xPub, spec)
+    spec.walletRef ! info.initData
+  }
+
+  def createBtcWallet(ord: Long) = {
+    val btcLabel = app.getString(bitcoin_wallet)
+    val core = SigningWallet(ElectrumWallet.BIP84)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), btcLabel)
+    ElectrumWallet.addWallet(spec)
+  }
+
+  def createUsdtWallet(ord: Long) = {
+    val usdtLabel = app.getString(usdt_wallet)
+    val xPriv = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
+    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, usdtLabel)
+    usdt = usdt.withWalletAdded(info)
+    usdtWalletBag.addWallet(info)
+  }
+
+  def ensureUsdtAccounts = if (usdt.withFakeAddress.nonEmpty) Future {
+    // Once wallet is created we only have an EOA secret but not related account address
+    // In order to obtain an account address we need to interact with local Biconomy server
+
+    for {
+      info <- usdt.withFakeAddress
+      response <- biconomy.getSmartAccountAddress(info.xPriv)
+    } usdtWalletBag.updateAddress(response.smartAccountAddress, info.xPriv)
   }
 
   // Fiat conversion
