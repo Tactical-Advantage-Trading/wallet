@@ -3,12 +3,12 @@ package trading.tacticaladvantage
 import immortan.ConnectionProvider
 import immortan.utils.ImplicitJsonFormats._
 import spray.json._
-import Biconomy._
+import trading.tacticaladvantage.Biconomy._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 object Biconomy {
-  System.loadLibrary("native-lib")
-  System.loadLibrary("node")
-
   case class AccountAddressRequest(pk: String)
   case class TxDetailsRequest(pk: String, token: String, recipient: String, amount: String)
 
@@ -24,35 +24,50 @@ object Biconomy {
   implicit val opHashResponseFormat: JsonFormat[OpHashResponse] = jsonFormat1(OpHashResponse)
 }
 
-class Biconomy(cp: ConnectionProvider) {
-  final val waitUntilNodeOnlineMsec = 2000
-  final val endpoint = "http://localhost:3000"
-  // This is USDT contract on Polygon mainnet network
-  final val contract = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+class Biconomy(cp: ConnectionProvider, dir: String) {
   @native def startNodeWithArguments(arguments: Array[String] = Array.empty): Integer
+  final val endpoint = "http://localhost:3000"
+  final val waitUntilOnlineMsec = 2000
+  final val maxAttmpts = 10
+
+  var isRunning = false
+  def startNode: Unit = Future {
+    // We can not start a Node again while it runnig
+    if (isRunning) return else isRunning = true
+
+    // Safe to load multiple times
+    System.loadLibrary("native-lib")
+    System.loadLibrary("node")
+
+    // Snap back to not running if node gets killed
+    val args = Array("node", s"$dir/server.js")
+    startNodeWithArguments(args)
+    isRunning = false
+  }
 
   // Node takes some time to get the local server up, depending on phone specs
   // To make this smooth for API user we poll a number of times with delay
   def attempt[T](left: Int)(action: => T): Option[T] =
     try Some(action) catch {
       case _: Throwable if left > 0 =>
-        Thread.sleep(waitUntilNodeOnlineMsec)
+        if (left == maxAttmpts) startNode
+        Thread.sleep(waitUntilOnlineMsec)
         attempt(left - 1)(action)
       case _: Throwable =>
         None
     }
 
-  def getSmartAccountAddress(req: AccountAddressRequest): Option[AccountAddressResponse] = attempt(10) {
+  def getSmartAccountAddress(req: AccountAddressRequest): Option[AccountAddressResponse] = attempt(maxAttmpts) {
     val response = cp.postJson(s"$endpoint/get-smart-account-address", req.toJson.compactPrint)
     to[AccountAddressResponse](response.string)
   }
 
-  def estimateTxGas(req: TxDetailsRequest): Option[EstimateGasResponse] = attempt(10) {
+  def estimateTxGas(req: TxDetailsRequest): Option[EstimateGasResponse] = attempt(maxAttmpts) {
     val response = cp.postJson(s"$endpoint/estimate-gas", req.toJson.compactPrint)
     to[EstimateGasResponse](response.string)
   }
 
-  def send(req: TxDetailsRequest): Option[OpHashResponse] = attempt(10) {
+  def send(req: TxDetailsRequest): Option[OpHashResponse] = attempt(maxAttmpts) {
     val response = cp.postJson(s"$endpoint/execute-transaction", req.toJson.compactPrint)
     to[OpHashResponse](response.string)
   }

@@ -1,8 +1,5 @@
 import { mainnet, polygon } from 'viem/chains';
 import { type Address } from 'viem';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
 
 export const chain = polygon;
 

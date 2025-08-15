@@ -20,6 +20,7 @@ import spray.json._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
 
+import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.Date
@@ -92,9 +93,9 @@ object WalletApp {
     require(isAlive, "Halted, application is not alive yet")
     secret = sec
 
-    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
-    biconomy = new Biconomy(ElectrumWallet.connectionProvider)
+    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
+    biconomy = new Biconomy(ElectrumWallet.connectionProvider, app.getFilesDir.getAbsolutePath)
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -216,6 +217,7 @@ object WalletApp {
       override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
         case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.StateWrap(TaLink.LoggedOut, persist = true)
         case upd: TaLink.UserStatus => taLink ! TaLink.StateWrap(upd, persist = true)
+        case _ => // Other kind of error, handle elsewhere
       }
     }
 
@@ -231,6 +233,26 @@ object WalletApp {
     val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
     ElectrumWallet.specs.update(ewt.xPub, spec)
     spec.walletRef ! info.initData
+  }
+
+  def assetToInternal(assetName: String, destName: String): Unit = {
+    val destFile = new File(app.getFilesDir, destName)
+    val outStream = new FileOutputStream(destFile)
+    val inStream = app.getAssets.open(assetName)
+
+    try {
+      val buffer = new Bytes(2048)
+      var bytesRead = inStream.read(buffer)
+      destFile.getParentFile.mkdirs
+
+      while (bytesRead != -1) {
+        outStream.write(buffer, 0, bytesRead)
+        bytesRead = inStream.read(buffer)
+      }
+    } finally {
+      inStream.close
+      outStream.close
+    }
   }
 
   // Fiat conversion

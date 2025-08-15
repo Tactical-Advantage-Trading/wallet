@@ -1,21 +1,26 @@
 {
   "name": "biconomy-nexus",
   "scripts": {
-    "build": "node scripts/build.js",
+    "build:esbuild": "node scripts/build.js",
+    "build:babel": "babel dist/server.raw.js -o dist/server.js --plugins @babel/plugin-transform-unicode-property-regex",
+    "build": "npm run build:esbuild && npm run build:babel",
     "start": "npm run build && node dist/server.js",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.3",
+    "@babel/plugin-transform-unicode-property-regex": "^7.27.1",
     "@types/express": "^5.0.2",
-    "esbuild": "^0.25.5",
+    "esbuild": "^0.25.9",
     "prettier": "^3.0.0",
+    "regexpu": "^4.8.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@biconomy/abstractjs": "0.1.1",
     "@rhinestone/module-sdk": "0.2.3",
-    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "viem": "^2.23.5"
   }
