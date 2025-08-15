@@ -78,7 +78,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     // Create USDT wallet
     val usdtLabel = getString(usdt_wallet)
     val aaxp = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord = 0L)
-    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv, usdtLabel)
+    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, aaxp.xPriv.privateKey.toAccount, usdtLabel)
     WalletApp.usdt = WalletApp.usdt.withWalletAdded(info)
     WalletApp.usdtWalletBag.addWallet(info)
 

@@ -58,6 +58,8 @@ object Crypto {
      * @return the private key in Base58 (WIF) compressed format
      */
     def toBase58(prefix: Byte) = Base58Check.encode(prefix, value.bytes :+ 1.toByte)
+
+    def toAccount: String = s"0x${value.toHex}"
   }
 
   object PrivateKey {
