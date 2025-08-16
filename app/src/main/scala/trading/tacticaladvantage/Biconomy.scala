@@ -57,8 +57,8 @@ class Biconomy(cp: ConnectionProvider, dir: String) {
         None
     }
 
-  def getSmartAccountAddress(pk: String): Option[AccountAddressResponse] = attempt(maxAttmpts) {
-    val response = cp.postJson(s"$endpoint/get-smart-account-address", AccountAddressRequest(pk).toJson.compactPrint)
+  def getSmartAccountAddress(privKey: String): Option[AccountAddressResponse] = attempt(maxAttmpts) {
+    val response = cp.postJson(s"$endpoint/get-smart-account-address", AccountAddressRequest(privKey).toJson.compactPrint)
     to[AccountAddressResponse](response.string)
   }
 

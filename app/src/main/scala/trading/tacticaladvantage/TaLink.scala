@@ -3,7 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import immortan.crypto.Tools.{ThrowableOps, none}
 import immortan.crypto.{CanBeShutDown, StateMachine}
-import immortan.sqlite.CompleteUsdtWalletInfo
+import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteData, SQLiteUsdtWallet}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
@@ -21,11 +21,9 @@ object TaLink {
   val VERSION: Char = '1'
 
   case class UsdtWalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
-    def withWalletAdded(wallet: CompleteUsdtWalletInfo) = copy(wallets = wallets - wallet + wallet)
     lazy val withRealAddress = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
     lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
     lazy val myAddresses: Set[String] = withRealAddress.map(_.address)
-    lazy val withFakeAddress = wallets -- withRealAddress
   }
 
   //
@@ -38,10 +36,9 @@ object TaLink {
   case object USD_INFRA_FAIL extends FailureCode { val code = 50 }
   case object ACCOUNT_BANNED extends FailureCode { val code = 60 }
 
-  val failureCodes: Seq[FailureCode] = Seq(
-    INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST,
-    UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED
-  )
+  val failureCodes =
+    Seq(INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST,
+      UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED)
 
   def fromCode(code: Int): Option[FailureCode] =
     failureCodes.find(_.code == code)
@@ -62,6 +59,7 @@ object TaLink {
   case object USD extends Asset { val kind = 1 }
 
   val assets: Seq[Asset] = Seq(BTC, USD)
+
   def fromKind(kind: Int): Option[Asset] =
     assets.find(_.kind == kind)
 
@@ -139,7 +137,6 @@ object TaLink {
   case object LoggedOut extends TaLinkState
   case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
                         email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
-  case class StateWrap(state: TaLinkState, persist: Boolean)
 
   implicit val loanAdFormat: JsonFormat[LoanAd] = taggedJsonFmt(jsonFormat7(LoanAd), "LoanAd")
   implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat1(Failure), "Failure")
@@ -174,7 +171,9 @@ object TaLink {
   case object CmdConnect
   case object CmdConnected
   case object CmdDisconnected
+  case object CmdEnsureUsdtAccounts
   case class CmdRemove(listener: Listener)
+  case class CmdState(state: TaLinkState, persist: Boolean)
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
@@ -183,8 +182,10 @@ object TaLink {
   }
 }
 
-abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
-  // Not using a set to ensure insertion order
+class TaLink(host: String, usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
+             biconomy: Biconomy) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
+
+  var usdt = UsdtWalletManager(usdtWalletBag.listWallets.toSet)
   var listeners = List.empty[Listener]
   var ws: WebSocket = _
 
@@ -202,6 +203,7 @@ abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBe
 
   def becomeShutDown: Unit = {
     ws.removeListener(wsListener)
+    usdt = UsdtWalletManager(Set.empty)
     state = DISCONNECTED
     data = LoggedOut
     ws.disconnect
@@ -211,17 +213,31 @@ abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBe
     case (listener: Listener, _) => listeners = listeners :+ listener
     case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
 
-    case (StateWrap(LoggedOut, persist), _) =>
-      if (persist) removeUserStatus
+    case (info: CompleteUsdtWalletInfo, _) =>
+      usdt = usdt.copy(usdt.wallets - info + info)
+      usdtWalletBag.addUpdateWallet(info)
+
+    case (UsdBalanceNonce(address, balance, nonce, tip), _) =>
+      for (walletInfo <- usdt.wallets if walletInfo.address == address)
+        me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce, chainTip = tip)
+
+    case (CmdEnsureUsdtAccounts, _) => for {
+      walletInfo <- usdt.wallets if walletInfo.address == CompleteUsdtWalletInfo.NOADDRESS
+      response <- biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv)
+    } me !! walletInfo.copy(address = response.smartAccountAddress)
+
+    case (CmdState(LoggedOut, persist), _) =>
+      if (persist) extDataBag.delete(TA_USER_STATUS)
       become(LoggedOut, state)
 
-    case (StateWrap(status: UserStatus, persist), _) =>
+    case (CmdState(status: UserStatus, persist), _) =>
       if (persist) saveUserStatus(status)
       become(status, state)
 
     case (CmdConnect, DISCONNECTED) =>
-      ws = (new WebSocketFactory).setConnectionTimeout(10000).createSocket(host, 443)
-      ws.addListener(wsListener).connectAsynchronously
+      val factory = (new WebSocketFactory).setConnectionTimeout(10000)
+      ws = factory.createSocket(host, 443).addListener(wsListener)
+      ws.connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>
       Rx.delay(5000).foreach(_ => me ! CmdConnect)
@@ -238,9 +254,11 @@ abstract class TaLink(host: String) extends StateMachine[TaLinkState] with CanBe
     case otherwise => println(otherwise)
   }
 
-  def loadUserStatus: Try[StateWrap]
-  def saveUserStatus(status: UserStatus): Unit
-  def removeUserStatus: Unit
+  private val TA_USER_STATUS = "ta-user-status"
+  private val nonPersistWrap: String => CmdState = json => CmdState(to[UserStatus](json), persist = false)
+  def loadUserStatus: Try[CmdState] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map nonPersistWrap
+  def saveUserStatus(status: UserStatus): Unit = extDataBag.put(TA_USER_STATUS, status.toJson.compactPrint getBytes "UTF-8")
+
   state = DISCONNECTED
   data = LoggedOut
 }

@@ -5,10 +5,8 @@ import android.view.View
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
-import fr.acinq.bitcoin.{MnemonicCode, Satoshi}
-import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, ElectrumWalletType}
+import fr.acinq.bitcoin.MnemonicCode
 import immortan.crypto.Tools.{SEPARATOR, StringList, none}
-import immortan.sqlite.{CompleteUsdtWalletInfo, SigningWallet}
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.R.string._
 
@@ -64,14 +62,13 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     // Make local Biconomy bundle accessible to Node
     WalletApp.assetToInternal("server.js", "server.js")
 
-    // Call before creating wallets
+    // Before creating wallets
     WalletApp.extDataBag.putSecret(secret)
-    WalletApp.makeOperational(secret, loadWallets = false)
+    WalletApp.makeOperational(secret)
 
     // Create wallets
     WalletApp.createBtcWallet(ord = 0L)
     WalletApp.createUsdtWallet(ord = 0L)
-    WalletApp.ensureUsdtAccounts
 
     // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)

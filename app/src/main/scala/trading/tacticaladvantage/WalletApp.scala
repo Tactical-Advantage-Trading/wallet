@@ -14,9 +14,7 @@ import fr.acinq.eclair.blockchain.electrum._
 import immortan._
 import immortan.crypto.Tools._
 import immortan.sqlite._
-import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
-import spray.json._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
 
@@ -24,8 +22,6 @@ import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.Date
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.util.Try
 
 object WalletApp {
@@ -49,10 +45,6 @@ object WalletApp {
 
   var seenUsdtInfos = Map.empty[String, UsdtInfo]
   var pendingUsdtInfos = Map.empty[String, UsdtInfo]
-
-  // TODO: when updating wallet state from server or address from biconomy, we need to change onlint info as well as database
-  // TODO: currently this is not happening, we need to unify these operations through this "usdt" object
-  var usdt = TaLink.UsdtWalletManager(Set.empty)
 
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
@@ -94,13 +86,14 @@ object WalletApp {
     }
   }
 
-  def makeOperational(sec: WalletSecret, loadWallets: Boolean): Unit = {
+  def makeOperational(sec: WalletSecret): Unit = {
     require(isAlive, "Halted, application is not alive yet")
     secret = sec
 
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
     ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
     biconomy = new Biconomy(ElectrumWallet.connectionProvider, app.getFilesDir.getAbsolutePath)
+    taLink = new TaLink("wss://localhost", usdtWalletBag, extDataBag, biconomy)
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -154,43 +147,11 @@ object WalletApp {
       }
     }
 
-    ElectrumWallet.connectionProvider doWhenReady {
-      ElectrumWallet.pool ! ElectrumClientPool.InitConnect
-
-      val feeratePeriodHours = 2
-      val rateRetry = Rx.retry(Rx.ioQueue.map(_ => feeRates.reloadData), Rx.incSec, 3 to 18 by 3)
-      val rateRepeat = Rx.repeat(rateRetry, Rx.incHour, feeratePeriodHours to Int.MaxValue by feeratePeriodHours)
-      val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
-      feerateObs.foreach(feeRates.updateInfo, none)
-
-      val fiatPeriodSecs = 60 * 3
-      val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates.reloadData), Rx.incSec, 3 to 18 by 3)
-      val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
-      fiatRepeat.foreach(fiatRates.updateInfo, none)
-    }
-
-    if (loadWallets) {
-      // Fill online map with persisted wallets
-      val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-      for (btcWalletInfo \ ord <- native.zipWithIndex) startBtcWallet(btcWalletInfo, ord)
-      for (btcWalletInfo <- attached) startBtcWallet(btcWalletInfo, ord = 0L)
-      usdt = usdtWalletBag.listWallets.foldLeft(usdt)(_ withWalletAdded _)
-      ensureUsdtAccounts
-    }
-
     // USDT
-
-    taLink = new TaLink("wss://localhost") {
-      private val TA_USER_STATUS = "ta-user-status"
-      private val nonPersistWrap: String => TaLink.StateWrap = json => TaLink.StateWrap(to[TaLink.UserStatus](json), persist = false)
-      def loadUserStatus: Try[TaLink.StateWrap] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map nonPersistWrap
-      def saveUserStatus(status: TaLink.UserStatus): Unit = extDataBag.put(TA_USER_STATUS, status.toJson.compactPrint getBytes "UTF-8")
-      def removeUserStatus: Unit = extDataBag.delete(TA_USER_STATUS)
-    }
 
     taLink ! new TaLink.Listener(TaLink.USDT_STATE_UPDATE) {
       def doAddTx(tr: TaLink.UsdTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
-        usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, usdt.totalBalance.toString, tr.stamp)
+        usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, taLink.usdt.totalBalance.toString, tr.stamp)
         usdtTxDataBag.addSearchableTransaction(desc.queryText(tr.hash), tr.hash)
         pendingUsdtInfos -= tr.fromAddr
         seenUsdtInfos -= tr.fromAddr
@@ -198,18 +159,18 @@ object WalletApp {
 
       def addTx(tr: TaLink.UsdTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
         case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
-        case None if usdt.myAddresses.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
+        case None if taLink.usdt.myAddresses.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
         case None => doAddTx(tr, desc = UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
       }
 
       override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
-        case upd: TaLink.UsdBalanceNonce => usdtWalletBag.persist(upd.balance, upd.nonce, upd.chainTip, upd.address)
-        case upd: TaLink.UsdTransfers => usdtTxDataBag.db.txWrap(upd.transfers foreach addTx)
-        case _ =>
+        case usdtUpdate: TaLink.UsdTransfers => usdtTxDataBag.db.txWrap(usdtUpdate.transfers foreach addTx)
+        case usdtUpdate: TaLink.UsdBalanceNonce => taLink ! usdtUpdate
+        case _ => // Not interested in anything else
       }
 
-      override def onConnected(stateData: TaLink.TaLinkState): Unit = if (usdt.withRealAddress.nonEmpty) {
-        val sub = TaLink.UsdSubscribe(usdt.myAddresses.toList, usdt.withRealAddress.head.chainTip)
+      override def onConnected(stateData: TaLink.TaLinkState): Unit = if (taLink.usdt.withRealAddress.nonEmpty) {
+        val sub = TaLink.UsdSubscribe(taLink.usdt.myAddresses.toList, taLink.usdt.withRealAddress.head.chainTip)
         taLink ! TaLink.Request(sub, id)
       }
     }
@@ -221,15 +182,10 @@ object WalletApp {
       }
 
       override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
-        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.StateWrap(TaLink.LoggedOut, persist = true)
-        case upd: TaLink.UserStatus => taLink ! TaLink.StateWrap(upd, persist = true)
+        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.CmdState(TaLink.LoggedOut, persist = true)
+        case upd: TaLink.UserStatus => taLink ! TaLink.CmdState(upd, persist = true)
         case _ => // Other kind of error, handle elsewhere
       }
-    }
-
-    if (usdt.wallets.nonEmpty || showTaCard) {
-      taLink.loadUserStatus.foreach(taLink ! _)
-      taLink ! TaLink.CmdConnect
     }
   }
 
@@ -253,14 +209,6 @@ object WalletApp {
     }
   }
 
-  def startBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
-    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
-    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
-    ElectrumWallet.specs.update(ewt.xPub, spec)
-    spec.walletRef ! info.initData
-  }
-
   def createBtcWallet(ord: Long) = {
     val btcLabel = app.getString(bitcoin_wallet)
     val core = SigningWallet(ElectrumWallet.BIP84)
@@ -272,19 +220,44 @@ object WalletApp {
   def createUsdtWallet(ord: Long) = {
     val usdtLabel = app.getString(usdt_wallet)
     val xPriv = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
-    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, usdtLabel)
-    usdt = usdt.withWalletAdded(info)
-    usdtWalletBag.addWallet(info)
+    taLink ! CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, usdtLabel)
+    taLink ! TaLink.CmdEnsureUsdtAccounts
   }
 
-  def ensureUsdtAccounts = if (usdt.withFakeAddress.nonEmpty) Future {
-    // Once wallet is created we only have an EOA secret but not related account address
-    // In order to obtain an account address we need to interact with local Biconomy server
+  def initBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
+    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
+    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
+    ElectrumWallet.specs.update(ewt.xPub, spec)
+    spec.walletRef ! info.initData
+  }
 
-    for {
-      info <- usdt.withFakeAddress
-      response <- biconomy.getSmartAccountAddress(info.xPriv)
-    } usdtWalletBag.updateAddress(response.smartAccountAddress, info.xPriv)
+  def init = {
+    // Fill online map with persisted wallets
+    val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
+    for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
+    for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
+    taLink ! TaLink.CmdEnsureUsdtAccounts
+
+    if (taLink.usdt.wallets.nonEmpty || showTaCard) {
+      taLink.loadUserStatus.foreach(state => taLink ! state)
+      taLink ! TaLink.CmdConnect
+    }
+
+    ElectrumWallet.connectionProvider doWhenReady {
+      ElectrumWallet.pool ! ElectrumClientPool.InitConnect
+
+      val feeratePeriodHours = 2
+      val rateRetry = Rx.retry(Rx.ioQueue.map(_ => feeRates.reloadData), Rx.incSec, 3 to 18 by 3)
+      val rateRepeat = Rx.repeat(rateRetry, Rx.incHour, feeratePeriodHours to Int.MaxValue by feeratePeriodHours)
+      val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
+      feerateObs.foreach(feeRates.updateInfo, none)
+
+      val fiatPeriodSecs = 60 * 3
+      val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates.reloadData), Rx.incSec, 3 to 18 by 3)
+      val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
+      fiatRepeat.foreach(fiatRates.updateInfo, none)
+    }
   }
 
   // Fiat conversion

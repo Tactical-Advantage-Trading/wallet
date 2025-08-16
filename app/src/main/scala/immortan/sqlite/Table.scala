@@ -65,13 +65,7 @@ object BtcTxTable extends Table {
 object UsdtWalletTable extends Table {
   val (table, address, xPriv, lastBalance, lastNonce, lastTip, label) = ("usdtwallet", "address", "xpriv", "lastbalance", "lastnonce", "lasttip", "label")
 
-  val newSql = s"INSERT OR IGNORE INTO $table ($address, $xPriv, $lastBalance, $lastNonce, $lastTip, $label) VALUES (?, ?, ?, ?, ?, ?)"
-
-  val updSql = s"UPDATE $table SET $lastBalance = ?, $lastNonce = ?, $lastTip = ? WHERE $address = ?"
-
-  val updAddressSql = s"UPDATE $table SET $address = ? WHERE $xPriv = ?"
-
-  val updLabelSql = s"UPDATE $table SET $label = ? WHERE $xPriv = ?"
+  val newUpdSql = s"INSERT OR REPLACE INTO $table ($address, $xPriv, $lastBalance, $lastNonce, $lastTip, $label) VALUES (?, ?, ?, ?, ?, ?)"
 
   val selectSql = s"SELECT * FROM $table ORDER BY $id ASC"
 
@@ -79,9 +73,9 @@ object UsdtWalletTable extends Table {
 
   def createStatements: Seq[String] =
     s"""CREATE TABLE IF NOT EXISTS $table(
-      $IDAUTOINC, $address TEXT NOT NULL $UNIQUE, $xPriv TEXT NOT NULL $UNIQUE,
-      $lastBalance TEXT NOT NULL, $lastNonce TEXT NOT NULL, $lastTip INTEGER NOT NULL,
-      $label TEXT NOT NULL
+      $IDAUTOINC, $address TEXT NOT NULL, $xPriv TEXT NOT NULL $UNIQUE,
+      $lastBalance TEXT NOT NULL, $lastNonce TEXT NOT NULL,
+      $lastTip INTEGER NOT NULL, $label TEXT NOT NULL
     )""" :: Nil
 }
 
