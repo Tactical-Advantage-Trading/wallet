@@ -173,7 +173,6 @@ object TaLink {
   case object CmdDisconnected
   case object CmdEnsureUsdtAccounts
   case class CmdRemove(listener: Listener)
-  case class CmdState(state: TaLinkState, persist: Boolean)
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
@@ -226,12 +225,12 @@ class TaLink(host: String, usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteDa
       response <- biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv)
     } me !! walletInfo.copy(address = response.smartAccountAddress)
 
-    case (CmdState(LoggedOut, persist), _) =>
-      if (persist) extDataBag.delete(TA_USER_STATUS)
+    case (LoggedOut, _) =>
+      extDataBag.delete(TA_USER_STATUS)
       become(LoggedOut, state)
 
-    case (CmdState(status: UserStatus, persist), _) =>
-      if (persist) saveUserStatus(status)
+    case (status: UserStatus, _) =>
+      saveUserStatus(status)
       become(status, state)
 
     case (CmdConnect, DISCONNECTED) =>
@@ -251,12 +250,11 @@ class TaLink(host: String, usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteDa
     case (req: Request, CONNECTED) => ws.sendText(s"$VERSION${req.toJson.compactPrint}")
     case (req: Request, DISCONNECTED) => listeners.filter(_.id == req.id).foreach(_.onDisconnected)
     case (Response(arguments, id), CONNECTED) => listeners.filter(_.id == id).foreach(_ onResponse arguments)
-    case otherwise => println(otherwise)
+    case _ =>
   }
 
   private val TA_USER_STATUS = "ta-user-status"
-  private val nonPersistWrap: String => CmdState = json => CmdState(to[UserStatus](json), persist = false)
-  def loadUserStatus: Try[CmdState] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map nonPersistWrap
+  def loadUserStatus: Try[UserStatus] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map to[UserStatus]
   def saveUserStatus(status: UserStatus): Unit = extDataBag.put(TA_USER_STATUS, status.toJson.compactPrint getBytes "UTF-8")
 
   state = DISCONNECTED

@@ -69,23 +69,6 @@
             android:id="@+id/chainCardsContainer"
             android:orientation="vertical"/>
 
-        <!-- Recovery phrase warning -->
-
-        <TextView
-            android:textSize="18sp"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginTop="15dp"
-            android:layout_marginEnd="15dp"
-            android:layout_marginStart="15dp"
-            android:id="@+id/recoveryPhraseWarning"
-            android:background="@drawable/border_green"
-            android:text="@string/recovery_phrase_warning"
-            android:layout_width="match_parent"
-            style="@style/ChipTextGray"
-            android:visibility="gone"
-            android:maxLines="4"/>
-
     </LinearLayout>
 
     <!-- Search field -->

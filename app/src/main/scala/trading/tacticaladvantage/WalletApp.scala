@@ -182,9 +182,9 @@ object WalletApp {
       }
 
       override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
-        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.CmdState(TaLink.LoggedOut, persist = true)
-        case upd: TaLink.UserStatus => taLink ! TaLink.CmdState(upd, persist = true)
-        case _ => // Other kind of error, handle elsewhere
+        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.LoggedOut
+        case data: TaLink.UserStatus => taLink ! data
+        case _ =>
       }
     }
   }
@@ -237,10 +237,10 @@ object WalletApp {
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
     for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
     for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
-    taLink ! TaLink.CmdEnsureUsdtAccounts
 
     if (taLink.usdt.wallets.nonEmpty || showTaCard) {
-      taLink.loadUserStatus.foreach(state => taLink ! state)
+      for (status <- taLink.loadUserStatus) taLink.data = status
+      taLink ! TaLink.CmdEnsureUsdtAccounts
       taLink ! TaLink.CmdConnect
     }
 
