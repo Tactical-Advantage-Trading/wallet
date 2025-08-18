@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     style="@style/StandardLinearLayout"
-    xmlns:card_view="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Default view -->
@@ -51,7 +50,7 @@
             <ImageButton
                 android:padding="6dp"
                 android:id="@+id/settingsButton"
-                android:onClick="goToSettingsPage"
+                android:onClick="enterSettingsMode"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:src="@drawable/baseline_settings_24"

@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
 
@@ -45,5 +42,26 @@
                 <data android:scheme="bitcoin"/>
             </intent-filter>
         </activity>
+
+        <activity
+            android:launchMode="singleTask"
+            android:name=".EmergencyActivity"
+            android:theme="@style/NoBar"/>
+
+        <activity
+            android:name=".SetupActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/NoBar"/>
+
+        <activity
+            android:name=".QRBtcActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/NoBar"/>
+
+        <activity
+            android:name=".QRSigActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/NoBar"/>
+
     </application>
 </manifest>

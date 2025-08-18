@@ -14,9 +14,9 @@ object Denomination {
   formatFiat setDecimalFormatSymbols symbols
   formatFiatShort setDecimalFormatSymbols symbols
 
-  def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * BtcDenomination.factor).toLong.msat
+  def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * BtcDenom.factor).toLong.msat
 
-  def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / BtcDenomination.factor
+  def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / BtcDenom.factor
 }
 
 trait Denomination {
@@ -40,7 +40,23 @@ trait Denomination {
   val sign: String
 }
 
-object BtcDenomination extends Denomination { me =>
+object SatDenom extends Denomination { me =>
+  val fmt: DecimalFormat = new DecimalFormat("###,###,###")
+  fmt.setDecimalFormatSymbols(Denomination.symbols)
+  val factor = 1000L
+  val sign = "sat"
+
+  def parsedWithSignTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
+    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>\u00A0" + sign
+
+  def parsedWithSign(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
+    if (0L == msat.toLong) "0" else parsed(msat, mainColor, zeroColor) + "\u00A0" + sign
+
+  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
+    s"<font color=$mainColor>" + fmt.format(me fromMsat msat) + "</font>"
+}
+
+object BtcDenom extends Denomination { me =>
   val fmt: DecimalFormat = new DecimalFormat("##0.00000000")
   fmt.setDecimalFormatSymbols(Denomination.symbols)
   val factor = 100000000000L

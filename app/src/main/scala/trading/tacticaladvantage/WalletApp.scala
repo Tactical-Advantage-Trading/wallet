@@ -22,6 +22,7 @@ import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.Date
+import scala.collection.mutable
 import scala.util.Try
 
 object WalletApp {
@@ -39,18 +40,17 @@ object WalletApp {
   var taLink: TaLink = _
   var app: WalletApp = _
 
-  var seenBtcInfos = Map.empty[ByteVector32, BtcInfo]
-  var pendingBtcInfos = Map.empty[ByteVector32, BtcInfo]
   var currentBtcNode = Option.empty[InetSocketAddress]
+  val seenBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
+  val pendingBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
 
-  var seenUsdtInfos = Map.empty[String, UsdtInfo]
-  var pendingUsdtInfos = Map.empty[String, UsdtInfo]
+  val seenUsdtInfos = mutable.Map.empty[String, UsdtInfo]
+  val pendingUsdtInfos = mutable.Map.empty[String, UsdtInfo]
 
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
   def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
-  def denom: Denomination = BtcDenomination
 
   def isAlive: Boolean =
     null != btcTxDataBag && null != btcWalletBag &&
@@ -93,7 +93,7 @@ object WalletApp {
     ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
     ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
     biconomy = new Biconomy(ElectrumWallet.connectionProvider, app.getFilesDir.getAbsolutePath)
-    taLink = new TaLink("wss://localhost", usdtWalletBag, extDataBag, biconomy)
+    taLink = new TaLink(usdtWalletBag, extDataBag, biconomy)
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -136,7 +136,7 @@ object WalletApp {
         def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
           btcTxDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
           btcTxDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
-          pendingBtcInfos -= event.tx.txid
+          pendingBtcInfos.remove(event.tx.txid)
         }
 
         seenBtcInfos.get(event.tx.txid) match {
@@ -153,14 +153,14 @@ object WalletApp {
       def doAddTx(tr: TaLink.UsdTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
         usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, taLink.usdt.totalBalance.toString, tr.stamp)
         usdtTxDataBag.addSearchableTransaction(desc.queryText(tr.hash), tr.hash)
-        pendingUsdtInfos -= tr.fromAddr
-        seenUsdtInfos -= tr.fromAddr
+        pendingUsdtInfos.remove(tr.fromAddr)
       }
 
       def addTx(tr: TaLink.UsdTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
         case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
-        case None if taLink.usdt.myAddresses.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
-        case None => doAddTx(tr, desc = UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
+        case None if taLink.usdt.okWallets.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
+        case None if taLink.usdt.okWallets.contains(tr.toAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
+        case _ => // Unrelated to our current wallet state
       }
 
       override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
@@ -170,7 +170,7 @@ object WalletApp {
       }
 
       override def onConnected(stateData: TaLink.TaLinkState): Unit = if (taLink.usdt.withRealAddress.nonEmpty) {
-        val sub = TaLink.UsdSubscribe(taLink.usdt.myAddresses.toList, taLink.usdt.withRealAddress.head.chainTip)
+        val sub = TaLink.UsdSubscribe(taLink.usdt.okWallets.keys.toList, taLink.usdt.withRealAddress.head.chainTip)
         taLink ! TaLink.Request(sub, id)
       }
     }
@@ -263,7 +263,7 @@ object WalletApp {
   // Fiat conversion
 
   def currentRate(rates: Fiat2Btc, code: String): Try[Double] = Try(rates apply code)
-  def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenomination.factor)
+  def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenom.factor)
   val currentMsatInFiatHuman: MilliSatoshi => String = msat => msatInFiatHuman(fiatRates.info.rates, fiatCode, msat, immortan.utils.Denomination.formatFiat)
 
   def msatInFiatHuman(rates: Fiat2Btc, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {

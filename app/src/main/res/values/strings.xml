@@ -20,7 +20,7 @@
     <string name="setup_restore_existing">Restore existing wallet</string>
 
     <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
-    <string name="share_chain_tx" translatable="false">Bitcoin transaction hex\n\n%1$s</string>
+    <string name="share_btc_tx" translatable="false">Bitcoin transaction hex\n\n%1$s</string>
 
     <string name="action_recovery_phrase_title">Wallet recovery phrase</string>
     <string name="action_recovery_phrase_hint">Type recovery words</string>
@@ -64,15 +64,15 @@
 
     <!-- special tx/payment descriptions -->
 
-    <string name="tx_description_rbf_cancel">RBF canceling</string>
-    <string name="tx_description_rbf_boost">RBF boosting</string>
-    <string name="tx_description_cpfp">CPFP boosting</string>
+    <string name="description_rbf_cancel">RBF canceling</string>
+    <string name="description_rbf_boost">RBF boosting</string>
+    <string name="description_cpfp">CPFP boosting</string>
 
     <string name="tx_btc">Bitcoin Transaction</string>
-    <string name="tx_state_double_spent">failed</string>
+    <string name="state_double_spent">failed</string>
 
     <string name="popup_to_address"><![CDATA[<b>address</b>&#160;%1$s]]></string>
-    <string name="popup_txid"><![CDATA[<b>txid</b>&#160;%1$s]]></string>
+    <string name="popup_btc_txid"><![CDATA[<b>txid</b>&#160;%1$s]]></string>
 
     <string name="popup_fiat"><![CDATA[<b>fiat&#160;value</b>&#160;%1$s]]></string>
     <string name="popup_chain_fee"><![CDATA[<b>chain&#160;fee</b>&#160;%1$s]]></string>
@@ -93,13 +93,13 @@
 
     <string name="tx_cpfp_current">Current sum</string>
     <string name="tx_cpfp_rbf_after">After boost</string>
-    <string name="tx_cpfp_explain">Apply CPFP to this incoming transaction to increase its fee and get it confirmed faster</string>
+    <string name="cpfp_explain">Apply CPFP to this incoming transaction to increase its fee and get it confirmed faster</string>
 
     <string name="tx_rbf_current">Current fee</string>
-    <string name="tx_rbf_boost_explain"><![CDATA[Apply RBF to this outgoing transaction to increase its fee and <b>get it confirmed faster</b>]]></string>
-    <string name="tx_rbf_cancel_explain"><![CDATA[Apply RBF to this outgoing transaction to increase its fee and <b>get it back to wallet</b>]]></string>
-    <string name="tx_rbf_err_foreign_inputs">Can not boost this transaction because it contains inputs not belonging to this wallet</string>
-    <string name="tx_rbf_err_parents_missing">Can not boost this transaction because its parents are missing in this wallet</string>
+    <string name="rbf_boost_explain"><![CDATA[Apply RBF to this outgoing transaction to increase its fee and <b>get it confirmed faster</b>]]></string>
+    <string name="rbf_cancel_explain"><![CDATA[Apply RBF to this outgoing transaction to increase its fee and <b>get it back to wallet</b>]]></string>
+    <string name="rbf_err_foreign_inputs">Can not boost this transaction because it contains inputs not belonging to this wallet</string>
+    <string name="rbf_err_parents_missing">Can not boost this transaction because its parents are missing in this wallet</string>
 
     <!-- /CPFP/RBF -->
 
@@ -110,8 +110,8 @@
         but your wallet does not contain such an address.
     ]]></string>
 
-    <string name="sign_sign_message_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
-    <string name="sign_sign_message_tx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b><br><br>From transaction<br><br><b>%2$s</b>]]></string>
+    <string name="sign_sign_message_notx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
+    <string name="sign_sign_message_title"><![CDATA[Sign message using address<br><br><b>%1$s</b><br><br>From transaction<br><br><b>%2$s</b>]]></string>
     <string name="sign_signed_message_title"><![CDATA[<b>Message signed with address</b><br>%1$s]]></string>
 
     <string name="sign_sign_message">Sign message</string>

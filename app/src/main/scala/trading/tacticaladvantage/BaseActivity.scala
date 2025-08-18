@@ -49,6 +49,7 @@ object BaseActivity {
   implicit class StringOps(source: String) {
     def html: Spanned = android.text.Html.fromHtml(source)
     def humanFour: String = "<tt>" + source.grouped(4).mkString(s"\u0020") + "</tt>"
+    def short0x: String = s"<font color=${cardZero}><tt>0x</tt></font>&#160;$short"
 
     def short: String = {
       val len = source.length
@@ -64,6 +65,8 @@ object BaseActivity {
 }
 
 object ClassNames {
+  val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
+  val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
 }
 
@@ -128,7 +131,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val title = new TitleView(caption)
 
     for (amount <- uri.amount) {
-      val amountHuman = WalletApp.denom.parsedWithSignTT(amount, cardIn, signCardZero)
+      val amountHuman = BtcDenom.parsedWithSignTT(amount, cardIn, signCardZero)
       val requested = getString(dialog_requested).format(amountHuman)
       addFlowChip(title.flow, requested, R.drawable.border_gray)
     }
@@ -139,11 +142,6 @@ trait BaseActivity extends AppCompatActivity { me =>
   def browse(maybeUri: String): Unit = try {
     me startActivity new Intent(Intent.ACTION_VIEW, Uri parse maybeUri)
   } catch { case exception: Throwable => me onFail exception }
-
-  def chainWalletNotice(wallet: WalletSpec): Int = {
-    val hasMaster = wallet.info.core.attachedMaster.isDefined
-    if (hasMaster) attached_wallet else tap_to_receive
-  }
 
   def share(text: CharSequence): Unit = startActivity {
     val shareAction = (new Intent).setAction(Intent.ACTION_SEND)
@@ -371,14 +369,14 @@ trait BaseActivity extends AppCompatActivity { me =>
     val extraInput: EditText = content.findViewById(R.id.extraInput).asInstanceOf[EditText]
 
     def updateText(value: MilliSatoshi): Unit = {
-      val amount = WalletApp.denom.fromMsat(value).toString
+      val amount = BtcDenom.fromMsat(value).toString
       runAnd(inputAmount.requestFocus)(inputAmount setText amount)
       updateFiatInput
     }
 
     def bigDecimalFrom(input: CurrencyEditText): BigDecimal = BigDecimal(input.getNumericValueBigDecimal)
     def resultExtraInput: Option[String] = Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty)
-    def resultMsat: MilliSatoshi = (bigDecimalFrom(inputAmount) * WalletApp.denom.factor).toLong.msat
+    def resultMsat: MilliSatoshi = (bigDecimalFrom(inputAmount) * BtcDenom.factor).toLong.msat
 
     def updatedFiatFromBtc: String =
       WalletApp.msatInFiat(rates, fiatCode)(resultMsat)
@@ -389,7 +387,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       WalletApp.currentRate(rates, fiatCode)
         .map(perBtc => bigDecimalFrom(fiatInputAmount) / perBtc)
         .filter(0.000000001D <= _).map(Denomination.btcBigDecimal2MSat)
-        .map(WalletApp.denom.fromMsat).map(_.toString)
+        .map(BtcDenom.fromMsat).map(_.toString)
         .getOrElse("0.00")
 
     def updateFiatInput: Unit = {
@@ -427,7 +425,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       if (inputAmount.hasFocus) updateFiatInput
     }
 
-    inputAmountHint setText WalletApp.denom.sign.toUpperCase
+    inputAmountHint setText BtcDenom.sign.toUpperCase
     fiatInputAmountHint setText fiatCode.toUpperCase
     fiatInputAmount setLocale Denomination.locale
     inputAmount setLocale Denomination.locale
@@ -456,7 +454,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       setVisMany(feeOpt.isDefined -> bitcoinFee, feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
 
       feeOpt.foreach { fee =>
-        val humanFee = WalletApp.denom.parsedWithSign(fee, cardIn, cardZero).html
+        val humanFee = BtcDenom.parsedWithSign(fee, cardIn, cardZero).html
         fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
         bitcoinFee setText humanFee
       }
@@ -508,7 +506,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val inputChain: LinearLayout = host.findViewById(R.id.inputChain).asInstanceOf[LinearLayout]
 
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
-    val canSend = WalletApp.denom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
+    val canSend = BtcDenom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
     val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
 
     manager.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
@@ -547,8 +545,8 @@ trait BaseActivity extends AppCompatActivity { me =>
       chainConfirmView.chainButtonsView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
       chainConfirmView.chainButtonsView.chainEditButton setOnClickListener onButtonTap(me switchToDefault alert)
 
-      chainConfirmView.confirmFee.secondItem setText WalletApp.denom.parsedWithSignTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
-      chainConfirmView.confirmAmount.secondItem setText WalletApp.denom.parsedWithSignTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
+      chainConfirmView.confirmFee.secondItem setText BtcDenom.parsedWithSignTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
+      chainConfirmView.confirmAmount.secondItem setText BtcDenom.parsedWithSignTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
       chainConfirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(response.transferred.toMilliSatoshi).html
 
       switchButtons(alert, on = false)
@@ -572,7 +570,7 @@ trait BaseActivity extends AppCompatActivity { me =>
         update(spendable)
 
         val totalCanSend = selected.valuesIterator.map(_.info.lastBalance).sum.toMilliSatoshi
-        val formatted = WalletApp.denom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
+        val formatted = BtcDenom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
         if (totalCanSend > 0L.msat) info.setText(s"∑ $formatted".html)
         else info.setText(select_wallets)
       }
@@ -680,11 +678,11 @@ abstract class ChainWalletCards(host: BaseActivity) { me =>
     }
 
     def updateView(spec: WalletSpec): Unit = {
-      val hasMoney = spec.info.lastBalance > 0L.sat
+      val hasMoney = spec.info.lastBalance.toLong > 0L
       val bgResource = if (selected contains spec.data.keys.ewt.xPub) R.drawable.border_card_signing_on else R.color.cardBitcoinSigning
-      chainBalance setText WalletApp.denom.parsedWithSignTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
+      chainBalance setText BtcDenom.parsedWithSignTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
+      chainWalletNotice setText { if (spec.info.core.attachedMaster.isDefined) attached_wallet else tap_to_receive }
       chainBalanceFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
-      chainWalletNotice setText host.chainWalletNotice(spec)
 
       host.setVisMany(hasMoney -> chainBalanceWrap, !hasMoney -> receiveBitcoinTip)
       chainLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(spec.info.core.walletType)

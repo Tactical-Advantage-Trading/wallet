@@ -9,6 +9,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object Biconomy {
+  var isRunning: Boolean = false
+
   case class AccountAddressRequest(pk: String)
   case class TxDetailsRequest(pk: String, token: String, recipient: String, amount: String)
 
@@ -25,12 +27,13 @@ object Biconomy {
 }
 
 class Biconomy(cp: ConnectionProvider, dir: String) {
-  @native def startNodeWithArguments(arguments: Array[String] = Array.empty): Integer
   final val endpoint = "http://localhost:3000"
   final val waitUntilOnlineMsec = 2000
   final val maxAttmpts = 10
 
-  var isRunning = false
+  @native
+  def startNodeWithArguments(arguments: Array[String] = Array.empty): Integer
+
   def startNode: Unit = Future {
     // We can't start a Node again while it's runnig
     if (isRunning) return else isRunning = true

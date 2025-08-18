@@ -72,6 +72,20 @@
                 <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24dp"/>
             </LinearLayout>
 
+            <!-- USDT incoming -->
+
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtIncoming">
+                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_downward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24dp"/>
+            </LinearLayout>
+
+            <!-- USDT outgoing -->
+
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtOutgoing">
+                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_upward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24dp"/>
+            </LinearLayout>
+
             <!-- Content -->
 
             <LinearLayout

@@ -43,6 +43,7 @@ sealed trait ItemDetails {
 
   val date: Date = new Date(updatedAt)
   val description: ItemDescription
+  val isDoubleSpent: Boolean
   val identity: String
 }
 
@@ -54,6 +55,7 @@ case class BtcAddressDescription(label: Option[String] = None) extends ItemDescr
 
 case class BtcAddressInfo(ewt: ElectrumWalletType, core: CompleteBtcWalletInfo, pubKey: ExtendedPublicKey, description: BtcAddressDescription) extends ItemDetails {
   override val identity: String = ewt.textAddress(pubKey)
+  override val isDoubleSpent: Boolean = false
   override def updatedAt: Long = 0L
   override def seenAt: Long = 0L
 }
@@ -102,10 +104,10 @@ case class FallbackBtcDescription(label: Option[String] = None, semanticOrder: O
 case class BtcInfo(txString: String, txidString: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
                    feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: BtcDescription, balanceSnapshot: MilliSatoshi,
                    fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
+  override val isDoubleSpent: Boolean = 1L == doubleSpent
   override val identity: String = txidString
-  lazy val isIncoming: Boolean = 1L == incoming
-  lazy val isDoubleSpent: Boolean = 1L == doubleSpent
-  lazy val isConfirmed: Boolean = depth > 0
+  val isIncoming: Boolean = 1L == incoming
+  val isConfirmed: Boolean = depth > 0
 
   lazy val fiatRateSnapshot: Fiat2Btc = to[Fiat2Btc](fiatRatesString)
   lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
@@ -133,7 +135,7 @@ case class UsdtDescription(fromAddrString: String, toAddrString: String, label: 
 case class UsdtInfo(hashString: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,
                     feeUsdtString: String, seenAt: Long, updatedAt: Long, description: UsdtDescription, balanceUsdt: Long,
                     incoming: Long, doubleSpent: Long) extends ItemDetails {
+  override val isDoubleSpent: Boolean = 1L == doubleSpent
   override val identity: String = hashString
-  lazy val isIncoming: Boolean = 1L == incoming
-  lazy val isDoubleSpent: Boolean = 1L == doubleSpent
+  val isIncoming: Boolean = 1L == incoming
 }

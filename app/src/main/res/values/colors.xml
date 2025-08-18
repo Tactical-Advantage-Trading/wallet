@@ -15,10 +15,6 @@
     <color name="buttonGreenPale">#33517D2B</color>
     <color name="buttonGreen">#517D2B</color>
 
-    <color name="buttonRedRipple">#F0473E</color>
-    <color name="buttonRedBorder">#D1231E</color>
-    <color name="buttonRed">#AF1212</color>
-
     <color name="buttonGrayRipple">#868899</color>
     <color name="buttonGrayBorder">#494949</color>
 

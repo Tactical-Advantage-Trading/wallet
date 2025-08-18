@@ -15,12 +15,6 @@
         <item name="nb_radius">6dp</item>
     </style>
 
-    <style name="RedButton" parent="GreenButton">
-        <item name="nb_focusColor">@color/buttonRedRipple</item>
-        <item name="nb_borderColor">@color/buttonRedBorder</item>
-        <item name="nb_backgroundColor">@color/buttonRed</item>
-    </style>
-
     <style name="GrayButton" parent="GreenButton">
         <item name="nb_focusColor">@color/buttonGrayRipple</item>
         <item name="nb_borderColor">@color/buttonGrayBorder</item>

@@ -45,7 +45,7 @@ class SQLiteBtcTx(val db: DBInterface) {
     newSqlPQ.close
   }
 
-  def toBtcInfo(rc: RichCursor): BtcInfo = {
+  def toInfo(rc: RichCursor): BtcInfo = {
     BtcInfo(txString = rc string BtcTxTable.rawTx, txidString = rc string BtcTxTable.txid, extPubsString = rc string BtcTxTable.pub, depth = rc long BtcTxTable.depth,
       receivedSat = Satoshi(rc long BtcTxTable.receivedSat), sentSat = Satoshi(rc long BtcTxTable.sentSat), feeSat = Satoshi(rc long BtcTxTable.feeSat), seenAt = rc long BtcTxTable.seenAt,
       updatedAt = rc long BtcTxTable.updatedAt, description = to[BtcDescription](rc string BtcTxTable.description), balanceSnapshot = MilliSatoshi(rc long BtcTxTable.balanceMsat),

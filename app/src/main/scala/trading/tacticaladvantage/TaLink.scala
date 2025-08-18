@@ -21,9 +21,9 @@ object TaLink {
   val VERSION: Char = '1'
 
   case class UsdtWalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
-    lazy val withRealAddress = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
+    lazy val withRealAddress: Set[CompleteUsdtWalletInfo] = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
+    lazy val okWallets: Map[String, CompleteUsdtWalletInfo] = withRealAddress.map(wallet => wallet.address -> wallet).toMap
     lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
-    lazy val myAddresses: Set[String] = withRealAddress.map(_.address)
   }
 
   //
@@ -181,9 +181,8 @@ object TaLink {
   }
 }
 
-class TaLink(host: String, usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
+class TaLink(usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
              biconomy: Biconomy) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
-
   var usdt = UsdtWalletManager(usdtWalletBag.listWallets.toSet)
   var listeners = List.empty[Listener]
   var ws: WebSocket = _
@@ -235,7 +234,7 @@ class TaLink(host: String, usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteDa
 
     case (CmdConnect, DISCONNECTED) =>
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket(host, 443).addListener(wsListener)
+      ws = factory.createSocket("wss://tactical-advantage.trading/tacc", 443).addListener(wsListener)
       ws.connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>
