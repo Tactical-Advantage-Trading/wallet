@@ -56,7 +56,7 @@
 
     <!-- errors -->
 
-    <string name="error_btc_no_wallet">Can not proceed because related chain wallet is not found, please add it from app settings.</string>
+    <string name="error_btc_no_wallet">Bitcoin wallet is not found</string>
     <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
     <string name="error_nothing_useful">Nothing useful is found</string>
 
@@ -105,10 +105,7 @@
 
     <!-- sign-verify -->
 
-    <string name="sign_address_not_found"><![CDATA[
-        Message is requested to be signed with address <strong>%1$s</strong>,
-        but your wallet does not contain such an address.
-    ]]></string>
+    <string name="sign_address_not_found">Requested address is not found</string>
 
     <string name="sign_sign_message_notx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
     <string name="sign_sign_message_title"><![CDATA[Sign message using address<br><br><b>%1$s</b><br><br>From transaction<br><br><b>%2$s</b>]]></string>

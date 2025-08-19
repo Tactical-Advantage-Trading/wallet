@@ -19,7 +19,6 @@ import androidx.core.content.{ContextCompat, FileProvider}
 import androidx.recyclerview.widget.RecyclerView
 import com.cottacush.android.currencyedittext.CurrencyEditText
 import com.google.android.material.slider.Slider
-import com.google.android.material.snackbar.{BaseTransientBottomBar, Snackbar}
 import com.google.android.material.textfield.TextInputLayout
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
@@ -42,7 +41,7 @@ import java.io.{File, FileOutputStream}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 
 object BaseActivity {
@@ -159,20 +158,6 @@ trait BaseActivity extends AppCompatActivity { me =>
       val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
       addFlowChip(content.flow, oneWord, R.drawable.border_blue, None)
     }
-  }
-
-  // Snackbar
-
-  def snack(parent: View, msg: CharSequence, res: Int): Try[Snackbar] = Try {
-    val snack: Snackbar = Snackbar.make(parent, msg, BaseTransientBottomBar.LENGTH_INDEFINITE)
-    snack.getView.findViewById(com.google.android.material.R.id.snackbar_text).asInstanceOf[TextView].setMaxLines(5)
-    snack
-  }
-
-  def snack(parent: View, msg: CharSequence, res: Int, fun: Snackbar => Unit): Try[Snackbar] = snack(parent, msg, res) map { snack =>
-    val listener = onButtonTap(fun apply snack)
-    snack.setAction(res, listener).show
-    snack
   }
 
   // Listener helpers

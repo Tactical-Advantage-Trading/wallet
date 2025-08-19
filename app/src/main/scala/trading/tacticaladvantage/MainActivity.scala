@@ -189,7 +189,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     // CPFP / RBF
 
     def boostCPFP(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      case Nil => snack(contentWindow, getString(error_btc_no_wallet).html, dialog_ok, _.dismiss)
+      case Nil => WalletApp.app.quickToast(error_btc_no_wallet)
       case wallets => doBoostCPFP(wallets, info)
     }
 
@@ -265,8 +265,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def boostRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      // This is a special case where we must make sure that we are going to use exactly as many wallets as we used originally
-      case res if res.size < info.extPubs.size => snack(contentWindow, getString(error_btc_no_wallet).html, dialog_ok, _.dismiss)
+      case res if res.size < info.extPubs.size => WalletApp.app.quickToast(error_btc_no_wallet)
       case specs => doBoostRBF(specs, info)
     }
 
@@ -350,7 +349,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def cancelRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      case Nil => snack(contentWindow, getString(error_btc_no_wallet).html, dialog_ok, _.dismiss)
+      case Nil => WalletApp.app.quickToast(error_btc_no_wallet)
       case specs => doCancelRBF(specs, info)
     }
 
@@ -730,8 +729,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       case data: BIP32SignData =>
         runInFutureProcessOnUI(getBtcAddressSpec.addresses.find(addressInfo => data.address == addressInfo.identity), onFail) {
-          case None => snack(contentWindow, getString(sign_address_not_found).format(data.address.short).html, dialog_ok, _.dismiss)
           case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info).setText(data.message)
+          case None => WalletApp.app.quickToast(sign_address_not_found)
         }
 
       case _ =>
