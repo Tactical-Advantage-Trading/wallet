@@ -85,13 +85,13 @@ object TaLink {
   case object GetHistory extends RequestArguments { val tag = "GetHistory" }
   case object LogOut extends RequestArguments { val tag = "LogOut" }
 
-  implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat2(Login), "Login")
-  implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat1(GetLoanAd), "GetLoanAd")
-  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat3(WithdrawReq), "Withdraw")
-  implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat2(UsdSubscribe), "UsdSubscribe")
-  implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat2(DepositIntent), "DepositIntent")
-  implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat1(GetUserStatus), "GetUserStatus")
-  implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat1(CancelWithdraw), "CancelWithdraw")
+  implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[Asset, GetLoanAd](GetLoanAd.apply, "asset"), "GetLoanAd")
+  implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), "Login")
+  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, Option[Double], WithdrawReq](WithdrawReq.apply, "address", "asset", "requested"), "Withdraw")
+  implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat[List[String], Long, UsdSubscribe](UsdSubscribe.apply, "addresses", "afterBlock"), "UsdSubscribe")
+  implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[String, Asset, DepositIntent](DepositIntent.apply, "txid", "asset"), "DepositIntent")
+  implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
+  implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
   implicit val getHistoryFormat: JsonFormat[GetHistory.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetHistory), "GetHistory")
   implicit val logOutFormat: JsonFormat[LogOut.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => LogOut), "LogOut")
 
@@ -120,11 +120,24 @@ object TaLink {
   case class Withdraw(txid: Option[String], id: String, address: String, amount: Double, requested: Double, created: Long, fee: Double, asset: Asset)
   case class UsdTransfer(amount: String, fromAddr: String, toAddr: String, hash: String, block: Long, stamp: Long, isRemoved: Boolean)
 
-  implicit val depositFormat: JsonFormat[Deposit] = jsonFormat7(Deposit)
-  implicit val withdrawFormat: JsonFormat[Withdraw] = jsonFormat8(Withdraw)
-  implicit val activeLoanFormat: JsonFormat[ActiveLoan] = jsonFormat7(ActiveLoan)
-  implicit val totalFundsFormat: JsonFormat[TotalFunds] = jsonFormat3(TotalFunds)
-  implicit val usdTransferFormat: JsonFormat[UsdTransfer] = jsonFormat7(UsdTransfer)
+  implicit val depositFormat: JsonFormat[Deposit] =
+    jsonFormat[String, String, Double, Long, Boolean, Boolean, Asset,
+      Deposit](Deposit.apply, "txid", "address", "amount", "created", "isConfirmed", "isCanceled", "asset")
+
+  implicit val withdrawFormat: JsonFormat[Withdraw] =
+    jsonFormat[Option[String], String, String, Double, Double, Long, Double, Asset,
+      Withdraw](Withdraw.apply, "txid", "id", "address", "amount", "requested", "created", "fee", "asset")
+
+  implicit val activeLoanFormat: JsonFormat[ActiveLoan] =
+    jsonFormat[Long, Long, Long, Long, Double, Double, Asset,
+      ActiveLoan](ActiveLoan.apply, "id", "userId", "start", "end", "roi", "amount", "asset")
+
+  implicit val totalFundsFormat: JsonFormat[TotalFunds] =
+    jsonFormat[Double, Double, Asset, TotalFunds](TotalFunds.apply, "balance", "withdrawable", "asset")
+
+  implicit val usdTransferFormat: JsonFormat[UsdTransfer] =
+    jsonFormat[String, String, String, String, Long, Long, Boolean,
+      UsdTransfer](UsdTransfer.apply, "amount", "fromAddr", "toAddr", "hash", "block", "stamp", "isRemoved")
 
   sealed trait ResponseArguments { def tag: String }
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
@@ -138,12 +151,26 @@ object TaLink {
   case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
                         email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
 
-  implicit val loanAdFormat: JsonFormat[LoanAd] = taggedJsonFmt(jsonFormat7(LoanAd), "LoanAd")
-  implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat1(Failure), "Failure")
-  implicit val usdTransfersFormat: JsonFormat[UsdTransfers] = taggedJsonFmt(jsonFormat2(UsdTransfers), "UsdTransfers")
-  implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat4(UsdBalanceNonce), "UsdBalanceNonce")
-  implicit val userStatusFormat: JsonFormat[UserStatus] = taggedJsonFmt(jsonFormat5(UserStatus), "UserStatus")
-  implicit val historyFormat: JsonFormat[History] = taggedJsonFmt(jsonFormat3(History), "History")
+  implicit val loanAdFormat: JsonFormat[LoanAd] =
+    taggedJsonFmt(jsonFormat[Long, Double, Double, Option[String], String, Double, Asset,
+      LoanAd](LoanAd.apply, "durationDays", "minDeposit", "maxDeposit", "address", "challenge", "roi", "asset"), "LoanAd")
+
+  implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat[FailureCode,
+    Failure](Failure.apply, "failureCode"), "Failure")
+
+  implicit val usdTransfersFormat: JsonFormat[UsdTransfers] = taggedJsonFmt(jsonFormat[List[UsdTransfer], Long,
+    UsdTransfers](UsdTransfers.apply, "transfers", "chainTip"), "UsdTransfers")
+
+  implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat[String, String, String, Long,
+    UsdBalanceNonce](UsdBalanceNonce.apply, "address", "balance", "nonce", "chainTip"), "UsdBalanceNonce")
+
+  implicit val userStatusFormat: JsonFormat[UserStatus] =
+    taggedJsonFmt(jsonFormat[List[Withdraw], List[ActiveLoan], List[TotalFunds], String, String,
+      UserStatus](UserStatus.apply, "pendingWithdraws", "activeLoans", "totalFunds", "email", "sessionToken"), "UserStatus")
+
+  implicit val historyFormat: JsonFormat[History] =
+    taggedJsonFmt(jsonFormat[List[Deposit], List[Withdraw], List[ActiveLoan],
+      History](History.apply, "deposits", "withdraws", "loans"), "History")
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
     def read(json: JsValue): ResponseArguments = json.asJsObject.fields(TAG) match {
@@ -162,8 +189,8 @@ object TaLink {
 
   case class Request(arguments: RequestArguments, id: String)
   case class Response(arguments: Option[ResponseArguments], id: String)
-  implicit val requestFormat : JsonFormat[Request] = jsonFormat2(Request)
-  implicit val responseFormat: JsonFormat[Response] = jsonFormat2(Response)
+  implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
+  implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
 
   final val DISCONNECTED = 0
   final val CONNECTED = 1

@@ -26,7 +26,7 @@
         android:layout_toStartOf="@id/chainCancelButton"
         android:layout_centerVertical="true"
         android:id="@+id/chainEditButton"
-        style="@style/GrayButton"/>
+        style="@style/BlueButton"/>
 
     <com.ornach.nobobutton.NoboButton
         android:layout_marginStart="5dp"
@@ -34,6 +34,6 @@
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
         app:nb_text="@string/dialog_cancel"
-        style="@style/GrayButton"/>
+        style="@style/BlueButton"/>
 
 </RelativeLayout>

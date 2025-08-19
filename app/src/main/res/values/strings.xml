@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Key</string>
+    <string name="app_name">Key wallet</string>
     <string name="attached_wallet">Attached wallet</string>
     <string name="select_wallets">Select wallets</string>
 
+    <string name="recent_activity">Recent activity</string>
     <string translatable="false" name="wallet_send">Send</string>
-    <string translatable="false" name="wallet_receive">Receive</string>
 
     <string name="bitcoin_wallet">Bitcoin</string>
-    <string name="usdt_wallet">USDT</string>
+    <string name="usdt_wallet">Tether USDT</string>
 
-    <string name="typing_hints">Bitcoin address</string>
+    <string name="typing_hints">Bitcoin or USDT address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="search_recent">My transactions and addresses</string>
     <string name="emergency_mode">Something went wrong</string>
@@ -26,6 +26,7 @@
     <string name="action_recovery_phrase_hint">Type recovery words</string>
 
     <string name="dialog_ok">OK</string>
+    <string name="dialog_set_label">Set label</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_share">Share</string>
     <string name="dialog_boost">Boost</string>
@@ -37,8 +38,6 @@
     <string name="dialog_visibility_sender">visible to sender</string>
     <string name="dialog_visibility_private">visible to you only</string>
     <string name="dialog_add_description">Add description&#8230;</string>
-    <string name="dialog_set_label">Attach label&#8230;</string>
-
     <string name="dialog_receive_btc"><![CDATA[Your address]]></string>
 
     <string name="dialog_up_to"><![CDATA[<b>up to</b> %1$s]]></string>

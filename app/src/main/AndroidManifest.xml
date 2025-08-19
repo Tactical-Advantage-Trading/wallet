@@ -13,13 +13,13 @@
         android:name="trading.tacticaladvantage.WalletApp"
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:theme="@style/NoBar">
+        android:theme="@style/NoActionBar">
 
         <activity
             android:exported="true"
             android:name=".MainActivity"
-            android:theme="@style/NoBar"
             android:launchMode="singleTask"
+            android:theme="@style/NoActionBar"
             android:windowSoftInputMode="adjustNothing">
 
             <intent-filter>
@@ -46,22 +46,22 @@
         <activity
             android:launchMode="singleTask"
             android:name=".EmergencyActivity"
-            android:theme="@style/NoBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
             android:name=".SetupActivity"
             android:launchMode="singleTask"
-            android:theme="@style/NoBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
             android:name=".QRBtcActivity"
             android:launchMode="singleTask"
-            android:theme="@style/NoBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
             android:name=".QRSigActivity"
             android:launchMode="singleTask"
-            android:theme="@style/NoBar"/>
+            android:theme="@style/NoActionBar"/>
 
     </application>
 </manifest>

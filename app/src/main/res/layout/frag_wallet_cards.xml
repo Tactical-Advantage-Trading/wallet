@@ -68,6 +68,15 @@
             android:id="@+id/chainCardsContainer"
             android:orientation="vertical"/>
 
+        <TextView
+            android:gravity="center"
+            android:paddingTop="25dp"
+            android:paddingStart="15dp"
+            android:paddingBottom="5dp"
+            android:id="@+id/recentActivity"
+            android:text="@string/recent_activity"
+            style="@style/BoundedView"/>
+
     </LinearLayout>
 
     <!-- Search field -->

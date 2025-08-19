@@ -73,7 +73,7 @@ object WalletApp {
   }
 
   def makeAlive: Unit = {
-    ElectrumWallet.chainHash = Block.LivenetGenesisBlock.hash
+    ElectrumWallet.chainHash = Block.TestnetGenesisBlock.hash
     val interface = new DBInterfaceSQLiteAndroid(app, "misc.db")
 
     interface txWrap {
@@ -210,11 +210,13 @@ object WalletApp {
   }
 
   def createBtcWallet(ord: Long) = {
-    val btcLabel = app.getString(bitcoin_wallet)
     val core = SigningWallet(ElectrumWallet.BIP84)
     val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), btcLabel)
-    ElectrumWallet.addWallet(spec)
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), app.getString(bitcoin_wallet).trim)
+    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
+    spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
+    ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
   }
 
   def createUsdtWallet(ord: Long) = {
@@ -232,17 +234,11 @@ object WalletApp {
     spec.walletRef ! info.initData
   }
 
-  def init = {
+  def initWallets = {
     // Fill online map with persisted wallets
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
     for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
     for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
-
-    if (taLink.usdt.wallets.nonEmpty || showTaCard) {
-      for (status <- taLink.loadUserStatus) taLink.data = status
-      taLink ! TaLink.CmdEnsureUsdtAccounts
-      taLink ! TaLink.CmdConnect
-    }
 
     ElectrumWallet.connectionProvider doWhenReady {
       ElectrumWallet.pool ! ElectrumClientPool.InitConnect
@@ -258,6 +254,12 @@ object WalletApp {
       val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
       fiatRepeat.foreach(fiatRates.updateInfo, none)
     }
+
+//    if (taLink.usdt.wallets.nonEmpty || showTaCard) {
+//      for (status <- taLink.loadUserStatus) taLink.data = status
+//      taLink ! TaLink.CmdEnsureUsdtAccounts
+//      taLink ! TaLink.CmdConnect
+//    }
   }
 
   // Fiat conversion
@@ -300,8 +302,8 @@ class WalletApp extends Application { me =>
     System.currentTimeMillis - thenDate.getTime match {
       case ago if ago > 12960000 => simpleFormat.format(thenDate)
       case ago if ago < android.text.format.DateUtils.MINUTE_IN_MILLIS => "now"
-      case ago if ago < android.text.format.DateUtils.HOUR_IN_MILLIS => s"${ago / android.text.format.DateUtils.MINUTE_IN_MILLIS} min ago"
-      case ago if ago < android.text.format.DateUtils.DAY_IN_MILLIS => s"${ago / android.text.format.DateUtils.HOUR_IN_MILLIS} hr ago"
+      case ago if ago < android.text.format.DateUtils.HOUR_IN_MILLIS => s"${ago / android.text.format.DateUtils.MINUTE_IN_MILLIS}m ago"
+      case ago if ago < android.text.format.DateUtils.DAY_IN_MILLIS => s"${ago / android.text.format.DateUtils.HOUR_IN_MILLIS}h ago"
     }
 
   def quickToast(code: Int): Unit = quickToast(me getString code)

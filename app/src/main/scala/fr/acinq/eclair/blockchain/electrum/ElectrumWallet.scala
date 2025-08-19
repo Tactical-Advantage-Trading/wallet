@@ -284,14 +284,6 @@ object ElectrumWallet extends CanBeShutDown {
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 
-  def addWallet(spec: WalletSpec): Unit = {
-    // All further db writes will be updates which expect an initial record to be present already
-    params.walletDb.addWallet(spec.info, params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-    specs.update(key = spec.data.keys.ewt.xPub, value = spec)
-    spec.walletRef ! params.emptyPersistentDataBytes
-    sync ! ChainFor(spec.walletRef)
-  }
-
   def removeWallet(key: ExtendedPublicKey): Unit = {
     specs.remove(key).foreach(_.walletRef ! PoisonPill)
     params.walletDb.remove(key.publicKey)

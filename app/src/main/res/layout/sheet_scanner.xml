@@ -19,7 +19,7 @@
         <TextView
             style="@style/ChipTextGray"
             android:id="@+id/altAction"
-            android:background="@drawable/border_green"
+            android:background="@drawable/border_blue"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
             android:visibility="gone"/>

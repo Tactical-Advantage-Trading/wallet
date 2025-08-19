@@ -160,7 +160,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
     // MENU BUTTONS
 
-    def doSetItemLabel: Unit = {
+    def setItemLabel: Unit = {
       val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
       mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(null, container), dialog_ok, dialog_cancel)
       extraInputLayout.setHint(dialog_set_label)
@@ -172,7 +172,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
     }
 
-    def doShareItem: Unit = Some(currentDetails).collectFirst {
+    def shareItem: Unit = Some(currentDetails).collectFirst {
       case info: BtcInfo => me share getString(share_btc_tx).format(info.txString)
       case info: BtcAddressInfo => me share info.identity
     }
@@ -465,8 +465,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             for (wallet <- info.extPubs flatMap ElectrumWallet.specs.get)
               addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray)
 
-          addFlowChip(extraInfo, chipText = getString(popup_btc_txid) format info.txidString.short, R.drawable.border_green, info.txidString.asSome)
-          for (adr <- info.description.addresses) addFlowChip(extraInfo, getString(popup_to_address) format adr.short, R.drawable.border_yellow, adr.asSome)
+          addFlowChip(extraInfo, chipText = getString(popup_btc_txid) format info.txidString.short, R.drawable.border_gray, info.txidString.asSome)
+          for (adr <- info.description.addresses) addFlowChip(extraInfo, getString(popup_to_address) format adr.short, R.drawable.border_gray, adr.asSome)
 
           if (info.feeSat > 0L.sat) {
             val fee = BtcDenom.directedWithSign(0L.msat, info.feeSat.toMilliSatoshi, cardOut, cardIn, cardZero, isIncoming = false)
@@ -483,7 +483,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow, _ => self boostRBF info)
 
         case info: BtcAddressInfo =>
-          addFlowChip(extraInfo, "Copy address", R.drawable.border_yellow, _ => WalletApp.app copy info.identity)
           def doSign: Unit = bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info)
           if (info.ewt.secrets.nonEmpty) addFlowChip(extraInfo, getString(sign_sign_message), R.drawable.border_yellow, _ => doSign)
 
@@ -492,6 +491,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             addFlowChip(extraInfo, s"balance $amount", R.drawable.border_gray)
           }
       }
+
+      addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow, _ => setItemLabel)
+      addFlowChip(extraInfo, getString(dialog_share), R.drawable.border_yellow, _ => shareItem)
     }
 
     def updateDetails: Unit = {
@@ -508,8 +510,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case info: BtcInfo if info.description.cpfpOf.isDefined => description setText description_cpfp
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => description setText description_rbf_boost
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => description setText description_rbf_cancel
-        case info: BtcInfo => description setText info.description.addresses.headOption.map(_.short).getOrElse(me getString tx_btc).html
         case info: UsdtInfo => description setText info.description.label.getOrElse(info.description.toAddrString.short0x.html)
+        case info: BtcInfo => description setText info.labelOrAddressOpt.getOrElse(me getString tx_btc).html
         case info: BtcAddressInfo => description setText info.identity.short.html
       }
 
@@ -798,6 +800,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
           case Success(secret) =>
             WalletApp.makeOperational(secret)
+            WalletApp.initWallets
             START(state)
         }
 

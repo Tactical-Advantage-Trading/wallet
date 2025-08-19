@@ -21,7 +21,7 @@ object Denomination {
 
     val whole1 = if (amount == decimal) amount else whole
     val whole2 = formatFiatShort format BigDecimal(whole1)
-    s"<font color=$color>$sign$whole2$decimal</font>"
+    s"$sign<font color=$color>$whole2$decimal</font>"
   }
 
   def fiatDirectedWithSignTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String =
@@ -67,8 +67,8 @@ object BtcDenom extends Denomination { me =>
 
     val basicFormatted = fmt.format(me fromMsat msat)
     val (whole, decimal) = basicFormatted.splitAt(basicFormatted indexOf ".")
-    val bld = new StringBuilder(decimal).insert(3, ",").insert(7, ",").insert(0, whole)
-    val splitIndex = bld.indexWhere(char => char != '0' && char != '.' && char != ',')
+    val bld = new StringBuilder(decimal).insert(3, "'").insert(7, "'").insert(0, whole)
+    val splitIndex = bld.indexWhere(char => char != '0' && char != '.' && char != ''')
     val finalSplitIndex = if (".00000000" == decimal) splitIndex - 1 else splitIndex
     val (finalWhole, finalDecimal) = bld.splitAt(finalSplitIndex)
 

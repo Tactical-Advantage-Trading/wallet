@@ -157,7 +157,7 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     for (mnemonicWord \ mnemonicIndex <- WalletApp.secret.mnemonic.zipWithIndex) {
       val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
-      addFlowChip(content.flow, oneWord, R.drawable.border_green)
+      addFlowChip(content.flow, oneWord, R.drawable.border_blue)
     }
   }
 

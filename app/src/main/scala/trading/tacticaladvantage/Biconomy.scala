@@ -14,16 +14,16 @@ object Biconomy {
   case class AccountAddressRequest(pk: String)
   case class TxDetailsRequest(pk: String, token: String, recipient: String, amount: String)
 
-  implicit val accountAddressRequestFormat: JsonFormat[AccountAddressRequest] = jsonFormat1(AccountAddressRequest)
-  implicit val txDetailsRequestFormat: JsonFormat[TxDetailsRequest] = jsonFormat4(TxDetailsRequest)
+  implicit val accountAddressRequestFormat: JsonFormat[AccountAddressRequest] = jsonFormat[String, AccountAddressRequest](AccountAddressRequest.apply, "pk")
+  implicit val txDetailsRequestFormat: JsonFormat[TxDetailsRequest] = jsonFormat[String, String, String, String, TxDetailsRequest](TxDetailsRequest.apply, "pk", "token", "recipient", "amount")
 
   case class AccountAddressResponse(smartAccountAddress: String)
   case class EstimateGasResponse(usdcFeeAmount: String)
   case class OpHashResponse(userOpHash: String)
 
-  implicit val accountAddressResponseFormat: JsonFormat[AccountAddressResponse] = jsonFormat1(AccountAddressResponse)
-  implicit val estimateGasResponseFormat: JsonFormat[EstimateGasResponse] = jsonFormat1(EstimateGasResponse)
-  implicit val opHashResponseFormat: JsonFormat[OpHashResponse] = jsonFormat1(OpHashResponse)
+  implicit val accountAddressResponseFormat: JsonFormat[AccountAddressResponse] = jsonFormat[String, AccountAddressResponse](AccountAddressResponse.apply, "smartAccountAddress")
+  implicit val estimateGasResponseFormat: JsonFormat[EstimateGasResponse] = jsonFormat[String, EstimateGasResponse](EstimateGasResponse.apply, "usdcFeeAmount")
+  implicit val opHashResponseFormat: JsonFormat[OpHashResponse] = jsonFormat[String, OpHashResponse](OpHashResponse.apply, "userOpHash")
 }
 
 class Biconomy(cp: ConnectionProvider, dir: String) {

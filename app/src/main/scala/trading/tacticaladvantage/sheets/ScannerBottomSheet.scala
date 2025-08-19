@@ -29,7 +29,7 @@ abstract class ScannerBottomSheet(host: BaseActivity) extends BottomSheetDialogF
   var flashlight: ImageButton = _
 
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup, state: Bundle): View = {
-    val contextThemeWrapper = new ContextThemeWrapper(host, R.style.NoBar)
+    val contextThemeWrapper = new ContextThemeWrapper(host, R.style.NoActionBar)
     val inflatorExt = inflater.cloneInContext(contextThemeWrapper)
     inflatorExt.inflate(R.layout.sheet_scanner, container, false)
   }

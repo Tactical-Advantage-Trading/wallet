@@ -8,6 +8,7 @@ import fr.acinq.eclair.blockchain.electrum.ElectrumWalletType
 import immortan.crypto.Tools.{Any2Some, ExtPubKeys, Fiat2Btc, SEPARATOR, StringList}
 import immortan.sqlite.CompleteBtcWalletInfo
 import immortan.utils.ImplicitJsonFormats._
+import trading.tacticaladvantage.BaseActivity.StringOps
 
 case class SemanticOrder(id: String, order: Long)
 case class RBFParams(ofTxid: ByteVector32, mode: Long)
@@ -109,15 +110,12 @@ case class BtcInfo(txString: String, txidString: String, extPubsString: String, 
   val isIncoming: Boolean = 1L == incoming
   val isConfirmed: Boolean = depth > 0
 
-  lazy val fiatRateSnapshot: Fiat2Btc = to[Fiat2Btc](fiatRatesString)
   lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
   lazy val txid: ByteVector32 = ByteVector32.fromValidHex(txidString)
   lazy val tx: Transaction = Transaction.read(txString)
 
-  lazy val relatedTxids: Set[ByteVector32] = {
-    val rbfTxidSet = description.rbf.map(_.ofTxid).toSet
-    rbfTxidSet ++ description.cpfpBy ++ description.cpfpOf + txid
-  }
+  lazy val relatedTxids: Set[ByteVector32] = description.rbf.map(_.ofTxid).toSet ++ description.cpfpBy ++ description.cpfpOf + txid
+  lazy val labelOrAddressOpt: Option[String] = description.label orElse description.addresses.headOption.map(_.short)
 }
 
 // USDT tx

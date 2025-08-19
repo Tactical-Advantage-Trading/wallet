@@ -25,7 +25,7 @@
                 app:nb_text="@string/setup_restore_existing"
                 android:id="@+id/restoreOptionsButton"
                 android:onClick="showMnemonicPopup"
-                style="@style/GrayButton"/>
+                style="@style/BlueButton"/>
 
         </LinearLayout>
     </LinearLayout>

@@ -13,7 +13,7 @@
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_green"
+            android:background="@drawable/border_blue"
             android:id="@+id/feeRate"/>
 
         <TextView
@@ -25,13 +25,13 @@
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_green"
+            android:background="@drawable/border_blue"
             android:visibility="invisible"
             android:id="@+id/bitcoinFee"/>
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_green"
+            android:background="@drawable/border_blue"
             android:visibility="invisible"
             android:id="@+id/fiatFee"/>
 
@@ -49,7 +49,7 @@
             android:textStyle="bold"/>
 
         <com.google.android.material.slider.Slider
-            app:trackColor="@color/buttonGrayRipple"
+            app:trackColor="@android:color/holo_blue_light"
             app:thumbColor="@color/colorAccent"
             app:haloColor="@color/colorAccent"
             android:layout_marginBottom="10dp"

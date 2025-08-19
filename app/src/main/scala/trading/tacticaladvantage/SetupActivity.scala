@@ -68,7 +68,8 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
     // Create wallets
     WalletApp.createBtcWallet(ord = 0L)
-    WalletApp.createUsdtWallet(ord = 0L)
+//    WalletApp.createUsdtWallet(ord = 0L)
+    WalletApp.initWallets
 
     // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)
