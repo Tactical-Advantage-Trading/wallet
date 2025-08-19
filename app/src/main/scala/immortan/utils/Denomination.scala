@@ -8,15 +8,24 @@ import fr.acinq.eclair._
 object Denomination {
   val locale = new java.util.Locale("en", "US")
   val symbols = new DecimalFormatSymbols(locale)
-  val formatFiat = new DecimalFormat("#,###,###.##")
-  val formatFiatShort = new DecimalFormat("#,###,###")
 
-  formatFiat setDecimalFormatSymbols symbols
+  val formatFiatShort = new DecimalFormat("#,###,###")
   formatFiatShort setDecimalFormatSymbols symbols
 
   def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * BtcDenom.factor).toLong.msat
-
   def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / BtcDenom.factor
+
+  def fiatDirectedWithSign(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String = {
+    val (sign, color, amount) = if (isIncoming) ("+&#160;", inColor, incoming) else ("-&#160;", outColor, outgoing)
+    val (whole, decimal) = amount.splitAt(amount indexOf ".")
+
+    val whole1 = if (amount == decimal) amount else whole
+    val whole2 = formatFiatShort format BigDecimal(whole1)
+    s"<font color=$color>$sign$whole2$decimal</font>"
+  }
+
+  def fiatDirectedWithSignTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String =
+    "<tt>" + fiatDirectedWithSign(incoming, outgoing, inColor, outColor, isIncoming) + "</tt>"
 }
 
 trait Denomination {
@@ -38,22 +47,6 @@ trait Denomination {
   val fmt: DecimalFormat
   val factor: Long
   val sign: String
-}
-
-object SatDenom extends Denomination { me =>
-  val fmt: DecimalFormat = new DecimalFormat("###,###,###")
-  fmt.setDecimalFormatSymbols(Denomination.symbols)
-  val factor = 1000L
-  val sign = "sat"
-
-  def parsedWithSignTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>\u00A0" + sign
-
-  def parsedWithSign(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "0" else parsed(msat, mainColor, zeroColor) + "\u00A0" + sign
-
-  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    s"<font color=$mainColor>" + fmt.format(me fromMsat msat) + "</font>"
 }
 
 object BtcDenom extends Denomination { me =>

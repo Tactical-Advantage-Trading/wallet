@@ -448,25 +448,29 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       item match {
         case info: UsdtInfo =>
-          ???
+          if (WalletApp.taLink.usdt.okWallets.size > 1)
+            for (wallet <- WalletApp.taLink.usdt.okWallets.values if wallet isRelatedToInfo info)
+              addFlowChip(extraInfo, wallet.label, R.drawable.border_gray)
+
+          if (info.feeUsdtString > "0") {
+            val fee = Denomination.fiatDirectedWithSign("0", info.feeUsdtString, cardOut, cardIn, isIncoming = false)
+            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray)
+          }
 
         case info: BtcInfo =>
-          val amount = if (info.isIncoming) info.receivedSat.toMilliSatoshi else info.sentSat.toMilliSatoshi
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
-          val fiatThen = WalletApp.msatInFiatHuman(info.fiatRateSnapshot, WalletApp.fiatCode, amount, Denomination.formatFiat)
 
           if (ElectrumWallet.specs.size > 1)
             for (wallet <- info.extPubs flatMap ElectrumWallet.specs.get)
               addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray)
 
-          addFlowChip(extraInfo, getString(popup_fiat).format(s"<font color=$cardIn>$fiatThen</font>"), R.drawable.border_gray)
           addFlowChip(extraInfo, chipText = getString(popup_btc_txid) format info.txidString.short, R.drawable.border_green, info.txidString.asSome)
           for (adr <- info.description.addresses) addFlowChip(extraInfo, getString(popup_to_address) format adr.short, R.drawable.border_yellow, adr.asSome)
 
           if (info.feeSat > 0L.sat) {
             val fee = BtcDenom.directedWithSign(0L.msat, info.feeSat.toMilliSatoshi, cardOut, cardIn, cardZero, isIncoming = false)
-            addFlowChip(extraInfo, chipText = getString(popup_chain_fee) format fee, R.drawable.border_gray)
+            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray)
           }
 
           for (addressInfo <- findBtcInputAddress(info.tx).headOption if addressInfo.ewt.secrets.nonEmpty) {
@@ -512,13 +516,13 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       currentDetails match {
         case info: UsdtInfo if WalletApp.pendingUsdtInfos.contains(info.description.fromAddrString) => itemView.setAlpha(0.6F)
         case info: BtcInfo if WalletApp.pendingBtcInfos.contains(info.txid) => itemView.setAlpha(0.6F)
-        case _: BtcAddressInfo => itemView.setAlpha(1F)
+        case _ => itemView.setAlpha(1F)
       }
 
       currentDetails match {
         case info: UsdtInfo => statusIcon setImageResource usdtStatusIcon(info)
         case info: BtcInfo => statusIcon setImageResource btcStatusIcon(info)
-        case _: BtcAddressInfo =>
+        case _ =>
       }
 
       currentDetails match {
@@ -533,12 +537,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       currentDetails match {
-        case info: UsdtInfo =>
-          // set amount, need denomination
-
-        case info: BtcInfo =>
-          amount.setText(BtcDenom.directedWithSign(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
-
+        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedWithSign(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
+        case info: BtcInfo => amount.setText(BtcDenom.directedWithSign(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
         case info: BtcAddressInfo =>
           statusText.setText(info.description.label getOrElse "?")
           if (btcAddressSpec.amounts contains info.pubKey) expand(info)
@@ -768,7 +768,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         // STREAMS
 
         val window = 500.millis
-        timer.scheduleAtFixedRate(paymentAdapterDataChanged, 20000, 20000)
+        timer.scheduleAtFixedRate(paymentAdapterDataChanged, 30000, 30000)
         runInFutureProcessOnUI(loadRecent, none) { _ => paymentAdapterDataChanged.run }
         stateSubscription = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txDbStream, window).subscribe { _ =>
           // After each delayed update we check if pending txs got confirmed or double-spent

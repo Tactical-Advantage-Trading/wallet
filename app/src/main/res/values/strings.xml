@@ -75,7 +75,7 @@
     <string name="popup_btc_txid"><![CDATA[<b>txid</b>&#160;%1$s]]></string>
 
     <string name="popup_fiat"><![CDATA[<b>fiat&#160;value</b>&#160;%1$s]]></string>
-    <string name="popup_chain_fee"><![CDATA[<b>chain&#160;fee</b>&#160;%1$s]]></string>
+    <string name="popup_fee"><![CDATA[<b>fee</b>&#160;%1$s]]></string>
 
     <!-- /special tx/payment descriptions -->
 
