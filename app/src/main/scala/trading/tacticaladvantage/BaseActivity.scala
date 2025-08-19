@@ -17,10 +17,6 @@ import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.{ContextCompat, FileProvider}
 import androidx.recyclerview.widget.RecyclerView
-import BaseActivity.StringOps
-import Colors._
-import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
 import com.cottacush.android.currencyedittext.CurrencyEditText
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.{BaseTransientBottomBar, Snackbar}
@@ -37,6 +33,10 @@ import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
 import immortan.crypto.Tools._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
+import trading.tacticaladvantage.BaseActivity.StringOps
+import trading.tacticaladvantage.Colors._
+import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
 
 import java.io.{File, FileOutputStream}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -132,8 +132,8 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     for (amount <- uri.amount) {
       val amountHuman = BtcDenom.parsedWithSignTT(amount, cardIn, signCardZero)
-      val requested = getString(dialog_requested).format(amountHuman)
-      addFlowChip(title.flow, requested, R.drawable.border_gray)
+      val requested = getString(dialog_requested).format(args = amountHuman)
+      addFlowChip(title.flow, requested, R.drawable.border_gray, None)
     }
 
     title
@@ -157,7 +157,7 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     for (mnemonicWord \ mnemonicIndex <- WalletApp.secret.mnemonic.zipWithIndex) {
       val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
-      addFlowChip(content.flow, oneWord, R.drawable.border_blue)
+      addFlowChip(content.flow, oneWord, R.drawable.border_blue, None)
     }
   }
 
@@ -294,14 +294,12 @@ trait BaseActivity extends AppCompatActivity { me =>
     else sheet.show(getSupportFragmentManager, "scanner-bottom-sheet-fragment")
   }
 
-  def addFlowChip(flow: FlowLayout, chipText: String, backgroundRes: Int, shareText: Option[String] = None): TextView = {
-    def copyText(defText: String): Unit = WalletApp.app.copy(shareText getOrElse defText)
-    addFlowChip(flow, chipText, backgroundRes, copyText _)
-  }
+  def addFlowChip(flow: FlowLayout, chipText: String, backgroundRes: Int, shareText: Option[String] = None): TextView =
+    addFlowChip(flow, chipText, backgroundRes)(shareText foreach WalletApp.app.copy)
 
-  def addFlowChip(flow: FlowLayout, chipText: String, backgroundRes: Int, onTap: String => Unit): TextView = {
+  def addFlowChip(flow: FlowLayout, chipText: String, backgroundRes: Int)(onTap: => Unit): TextView = {
     val text = getLayoutInflater.inflate(R.layout.frag_chip_text, flow, false).asInstanceOf[TextView]
-    text setOnClickListener onButtonTap(onTap apply text.getText.toString)
+    text setOnClickListener onButtonTap(onTap)
     text setBackgroundResource backgroundRes
     text setText chipText.html
 
@@ -323,6 +321,11 @@ trait BaseActivity extends AppCompatActivity { me =>
     val extraInputLayout = container.findViewById(R.id.extraInputLayout).asInstanceOf[TextInputLayout]
     val extraInput = container.findViewById(R.id.extraInput).asInstanceOf[EditText]
     (container, extraInputLayout, extraInput, extraOption, extraOptionText)
+  }
+
+  def singleInputPopupBuilder = {
+    val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
+    (titleBodyAsViewBuilder(null, container), extraInputLayout, extraInput)
   }
 
   // Rich popup title
@@ -555,7 +558,7 @@ trait BaseActivity extends AppCompatActivity { me =>
   }
 
   abstract class WalletSelector(title: TitleView) {
-    val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow)
+    val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow, None)
     val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
     val alert = mkCheckForm(alert => runAnd(alert.dismiss)(onOk), none, titleBodyAsViewBuilder(title.view, cardsContainer), dialog_ok, dialog_cancel)
     val spendable = ElectrumWallet.specs.values.filter(_.spendable)

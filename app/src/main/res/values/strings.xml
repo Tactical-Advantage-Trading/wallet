@@ -26,9 +26,10 @@
     <string name="action_recovery_phrase_hint">Type recovery words</string>
 
     <string name="dialog_ok">OK</string>
+    <string name="dialog_share">Share</string>
+    <string name="dialog_share_address">Share address</string>
     <string name="dialog_set_label">Set label</string>
     <string name="dialog_cancel">Cancel</string>
-    <string name="dialog_share">Share</string>
     <string name="dialog_boost">Boost</string>
     <string name="dialog_paste">Paste</string>
     <string name="dialog_copy">Copy</string>

@@ -161,20 +161,24 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     // MENU BUTTONS
 
     def setItemLabel: Unit = {
-      val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
-      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(null, container), dialog_ok, dialog_cancel)
+      val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
+      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
       extraInputLayout.setHint(dialog_set_label)
       showKeys(extraInput)
 
-      def proceed: Unit = Some(currentDetails).collectFirst { case info: BtcInfo =>
-        val optionalInput = Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty)
-        WalletApp.btcTxDataBag.updDescription(info.description.withNewLabel(optionalInput), info.txid)
+      def proceed: Unit = {
+        (Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty), currentDetails) match {
+          case (labelOpt, info: BtcInfo) => WalletApp.btcTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.txid)
+          case (labelOpt, info: UsdtInfo) => WalletApp.usdtTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.hashString)
+          case _ =>
+        }
       }
     }
 
-    def shareItem: Unit = Some(currentDetails).collectFirst {
-      case info: BtcInfo => me share getString(share_btc_tx).format(info.txString)
-      case info: BtcAddressInfo => me share info.identity
+    def shareItem: Unit = currentDetails match {
+      case info: BtcInfo => info.description.addresses.headOption.foreach(share)
+      case info: UsdtInfo => share(info.description.toAddrString)
+      case info: BtcAddressInfo => share(info.identity)
     }
 
     def ractOnTap: Unit = {
@@ -450,12 +454,15 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case info: UsdtInfo =>
           if (WalletApp.taLink.usdt.okWallets.size > 1)
             for (wallet <- WalletApp.taLink.usdt.okWallets.values if wallet isRelatedToInfo info)
-              addFlowChip(extraInfo, wallet.label, R.drawable.border_gray)
+              addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
           if (info.feeUsdtString > "0") {
             val fee = Denomination.fiatDirectedWithSign("0", info.feeUsdtString, cardOut, cardIn, isIncoming = false)
-            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray)
+            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
           }
+
+          addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
+          if (info.isIncoming) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
 
         case info: BtcInfo =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
@@ -463,37 +470,39 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
           if (ElectrumWallet.specs.size > 1)
             for (wallet <- info.extPubs flatMap ElectrumWallet.specs.get)
-              addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray)
+              addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray, None)
 
-          addFlowChip(extraInfo, chipText = getString(popup_btc_txid) format info.txidString.short, R.drawable.border_gray, info.txidString.asSome)
-          for (adr <- info.description.addresses) addFlowChip(extraInfo, getString(popup_to_address) format adr.short, R.drawable.border_gray, adr.asSome)
+          val txid = getString(popup_btc_txid).format(info.txidString.short)
+          addFlowChip(extraInfo, chipText = txid, R.drawable.border_gray, info.txidString.asSome)
 
           if (info.feeSat > 0L.sat) {
             val fee = BtcDenom.directedWithSign(0L.msat, info.feeSat.toMilliSatoshi, cardOut, cardIn, cardZero, isIncoming = false)
-            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray)
+            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
           }
 
-          for (addressInfo <- findBtcInputAddress(info.tx).headOption if addressInfo.ewt.secrets.nonEmpty) {
-            def doSign: Unit = bringSignDialog(getString(sign_sign_message_title).format(addressInfo.identity.short, info.txidString.humanFour).asDefView, addressInfo)
-            addFlowChip(extraInfo, getString(sign_sign_message), R.drawable.border_yellow, _ => doSign)
+          for (adr <- findBtcInputAddress(info.tx).headOption if adr.ewt.secrets.nonEmpty) {
+            addFlowChip(extraInfo, chipText = getString(sign_sign_message), R.drawable.border_yellow) {
+              val msg = getString(sign_sign_message_title).format(adr.identity.short, info.txidString.humanFour)
+              bringSignDialog(msg.asDefView, adr)
+            }
           }
 
-          if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow, _ => self boostCPFP info)
-          if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow, _ => self cancelRBF info)
-          if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow, _ => self boostRBF info)
+          addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
+          if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
+          if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
+          if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
+          if (info.isIncoming && info.description.addresses.nonEmpty) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
 
         case info: BtcAddressInfo =>
-          def doSign: Unit = bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info)
-          if (info.ewt.secrets.nonEmpty) addFlowChip(extraInfo, getString(sign_sign_message), R.drawable.border_yellow, _ => doSign)
-
           btcAddressSpec.amounts.get(info.pubKey) foreach { balance =>
             val amount = BtcDenom.parsedWithSign(balance.toMilliSatoshi, cardIn, cardZero)
-            addFlowChip(extraInfo, s"balance $amount", R.drawable.border_gray)
+            addFlowChip(extraInfo, amount, R.drawable.border_gray, None)
           }
-      }
 
-      addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow, _ => setItemLabel)
-      addFlowChip(extraInfo, getString(dialog_share), R.drawable.border_yellow, _ => shareItem)
+          def doSign: Unit = bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info)
+          if (info.ewt.secrets.nonEmpty) addFlowChip(extraInfo, getString(sign_sign_message), R.drawable.border_yellow)(doSign)
+          addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
+      }
     }
 
     def updateDetails: Unit = {
@@ -593,8 +602,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       override def onWalletTap(key: ExtendedPublicKey): Unit = goToWithValue(ClassNames.qrBtcActivityClass, key)
 
       override def onLabelTap(key: ExtendedPublicKey): Unit = {
-        val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
-        mkCheckForm(proceed, none, titleBodyAsViewBuilder(null, container), dialog_ok, dialog_cancel)
+        val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
+        mkCheckForm(proceed, none, builder, dialog_ok, dialog_cancel)
         extraInputLayout.setHint(dialog_set_label)
         showKeys(extraInput)
 
@@ -838,8 +847,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   def bringPasteAddressDialog: Unit = {
     def doBringPasteAddressDialog: Unit = {
-      val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
-      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(null, container), dialog_ok, dialog_cancel)
+      val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
+      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
       extraInputLayout.setHint(typing_hints)
       showKeys(extraInput)
 
@@ -867,16 +876,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val onScan = UITask(me checkExternalData nothingUsefulTask)
     val sheet = new sheets.OnceBottomSheet(me, onCreated, onScan)
     callScanner(sheet)
-  }
-
-  def goToReceivePage(view: View): Unit = {
-    if (ElectrumWallet.specs.nonEmpty) {
-      val specs = ElectrumWallet.orderByImportance(ElectrumWallet.specs.values.toList)
-      goToWithValue(ClassNames.qrBtcActivityClass, specs.head.data.keys.ewt.xPub)
-    } else {
-      val message = getString(error_btc_no_wallet).html
-      snack(contentWindow, message, dialog_ok, _.dismiss)
-    }
   }
 
   def enterSettingsMode(view: View): Unit = {
