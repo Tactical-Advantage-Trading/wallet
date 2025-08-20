@@ -17,6 +17,7 @@ import immortan.sqlite._
 import immortan.utils._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
+import trading.tacticaladvantage.utils.WsListener
 
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
@@ -36,8 +37,9 @@ object WalletApp {
   var feeRates: FeeRates = _
   var fiatRates: FiatRates = _
   var secret: WalletSecret = _
+  var linkClient: LinkClient = _
+  var linkUsdt: LinkUsdt = _
   var biconomy: Biconomy = _
-  var taLink: TaLink = _
   var app: WalletApp = _
 
   var currentBtcNode = Option.empty[InetSocketAddress]
@@ -53,20 +55,19 @@ object WalletApp {
   def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
 
   def isAlive: Boolean =
-    null != btcTxDataBag && null != btcWalletBag &&
-      null != usdtTxDataBag && null != usdtWalletBag &&
-      null != extDataBag && null != app
+    null != btcTxDataBag && null != btcWalletBag && null != usdtTxDataBag &&
+      null != usdtWalletBag && null != extDataBag && null != app
 
   def isOperational: Boolean =
     null != ElectrumWallet.chainHash && null != secret && null != fiatRates &&
-      null != feeRates && null != ElectrumWallet.connectionProvider &&
-      biconomy != null && taLink != null
+      null != feeRates && linkClient != null && linkUsdt != null && biconomy != null
 
   def freePossiblyUsedRuntimeResouces: Unit = {
     try ElectrumWallet.becomeShutDown catch none
     try fiatRates.becomeShutDown catch none
     try feeRates.becomeShutDown catch none
-    try taLink.becomeShutDown catch none
+    try linkClient.becomeShutDown catch none
+    try linkUsdt.becomeShutDown catch none
     // non-alive and non-operational
     btcTxDataBag = null
     secret = null
@@ -84,16 +85,17 @@ object WalletApp {
       btcTxDataBag = new SQLiteBtcTx(interface)
       btcWalletBag = new SQLiteBtcWallet(interface)
     }
+
+    ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
+    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag)
   }
 
   def makeOperational(sec: WalletSecret): Unit = {
-    require(isAlive, "Halted, application is not alive yet")
-    secret = sec
-
-    ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
-    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag, dustLimit = 546L.sat)
+    require(isAlive, "Halted, application must be made alive before making it operational")
     biconomy = new Biconomy(ElectrumWallet.connectionProvider, app.getFilesDir.getAbsolutePath)
-    taLink = new TaLink(usdtWalletBag, extDataBag, biconomy)
+    linkUsdt = new LinkUsdt(usdtWalletBag, biconomy)
+    linkClient = new LinkClient(extDataBag)
+    secret = sec
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -147,43 +149,44 @@ object WalletApp {
       }
     }
 
-    // USDT
+    // USDT and Client
 
-    taLink ! new TaLink.Listener(TaLink.USDT_STATE_UPDATE) {
-      def doAddTx(tr: TaLink.UsdTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
-        usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, taLink.usdt.totalBalance.toString, tr.stamp)
+    linkUsdt ! new LinkUsdt.Listener(LinkUsdt.USDT_UPDATE) {
+      def doAddTx(tr: LinkUsdt.UsdtTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
+        usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, linkUsdt.data.totalBalance.toString, tr.stamp)
         usdtTxDataBag.addSearchableTransaction(desc.queryText(tr.hash), tr.hash)
         pendingUsdtInfos.remove(tr.fromAddr)
       }
 
-      def addTx(tr: TaLink.UsdTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
+      def addTx(tr: LinkUsdt.UsdtTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
         case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
-        case None if taLink.usdt.okWallets.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
-        case None if taLink.usdt.okWallets.contains(tr.toAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
+        case None if linkUsdt.data.okWallets.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
+        case None if linkUsdt.data.okWallets.contains(tr.toAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
         case _ => // Unrelated to our current wallet state
       }
 
-      override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
-        case usdtUpdate: TaLink.UsdTransfers => usdtTxDataBag.db.txWrap(usdtUpdate.transfers foreach addTx)
-        case usdtUpdate: TaLink.UsdBalanceNonce => taLink ! usdtUpdate
+      override def onResponse(arguments: Option[LinkUsdt.ResponseArguments] = None): Unit = arguments.foreach {
+        case usdtUpdate: LinkUsdt.UsdtTransfers => usdtTxDataBag.db.txWrap(usdtUpdate.transfers foreach addTx)
+        case usdtUpdate: LinkUsdt.UsdtBalanceNonce => linkUsdt ! usdtUpdate
         case _ => // Not interested in anything else
       }
 
-      override def onConnected(stateData: TaLink.TaLinkState): Unit = if (taLink.usdt.withRealAddress.nonEmpty) {
-        val sub = TaLink.UsdSubscribe(taLink.usdt.okWallets.keys.toList, taLink.usdt.withRealAddress.head.chainTip)
-        taLink ! TaLink.Request(sub, id)
-      }
+      override def onConnected: Unit =
+        for (info <- linkUsdt.data.withRealAddress) {
+          val sub = LinkUsdt.UsdtSubscribe(info.address, info.chainTip)
+          linkUsdt ! LinkUsdt.Request(sub, id)
+        }
     }
 
-    taLink ! new TaLink.Listener(TaLink.USER_STATUS_UPDATE) {
-      override def onConnected(stateData: TaLink.TaLinkState): Unit = stateData match {
-        case data: TaLink.UserStatus => taLink ! TaLink.Request(TaLink.GetUserStatus(data.sessionToken), id)
+    linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
+      override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {
+        case data: LinkClient.UserStatus => linkClient ! LinkClient.Request(LinkClient.GetUserStatus(data.sessionToken), id)
         case _ => // Not logged in, user can do it manually later
       }
 
-      override def onResponse(arguments: Option[TaLink.ResponseArguments] = None): Unit = arguments.foreach {
-        case TaLink.Failure(TaLink.NOT_AUTHORIZED) => taLink ! TaLink.LoggedOut
-        case data: TaLink.UserStatus => taLink ! data
+      override def onResponse(arguments: Option[LinkClient.ResponseArguments] = None): Unit = arguments.foreach {
+        case LinkClient.Failure(LinkClient.NOT_AUTHORIZED) => linkClient ! LinkClient.LoggedOut
+        case data: LinkClient.UserStatus => linkClient ! data
         case _ =>
       }
     }
@@ -209,21 +212,17 @@ object WalletApp {
     }
   }
 
-  def createBtcWallet(ord: Long) = {
-    val core = SigningWallet(ElectrumWallet.BIP84)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, secret.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
+  def createBtcWallet(sec: WalletSecret, ord: Long) = {
+    val core = SigningWallet(walletType = ElectrumWallet.BIP84)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, sec.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
     val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), app.getString(bitcoin_wallet).trim)
     btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-    ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
-    spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
-    ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
   }
 
-  def createUsdtWallet(ord: Long) = {
-    val usdtLabel = app.getString(usdt_wallet)
-    val xPriv = ElectrumWalletType.xPriv32(secret.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
-    taLink ! CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, usdtLabel)
-    taLink ! TaLink.CmdEnsureUsdtAccounts
+  def createUsdtWallet(sec: WalletSecret, ord: Long) = {
+    val xPriv = ElectrumWalletType.xPriv32(master = sec.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
+    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, app.getString(usdt_wallet).trim)
+    usdtWalletBag.addUpdateWallet(info)
   }
 
   def initBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
@@ -255,10 +254,17 @@ object WalletApp {
       fiatRepeat.foreach(fiatRates.updateInfo, none)
     }
 
-//    if (taLink.usdt.wallets.nonEmpty || showTaCard) {
-//      for (status <- taLink.loadUserStatus) taLink.data = status
-//      taLink ! TaLink.CmdEnsureUsdtAccounts
-//      taLink ! TaLink.CmdConnect
+//    if (linkUsdt.data.wallets.nonEmpty) {
+//      // This is a single place where we should bypass sequential threading
+//      linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
+//      linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+//      linkUsdt ! WsListener.CmdConnect
+//    }
+//
+//    if (showTaCard) {
+//      // This is a single place where we should bypass sequential threading
+//      for (status <- linkClient.loadUserStatus) linkClient.data = status
+//      linkClient ! WsListener.CmdConnect
 //    }
   }
 

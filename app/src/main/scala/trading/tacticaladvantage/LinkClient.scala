@@ -1,58 +1,47 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
-import immortan.crypto.Tools.{ThrowableOps, none}
+import immortan.crypto.Tools.none
 import immortan.crypto.{CanBeShutDown, StateMachine}
-import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteData, SQLiteUsdtWallet}
+import immortan.sqlite.SQLiteData
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
-import trading.tacticaladvantage.TaLink._
+import trading.tacticaladvantage.LinkClient._
+import trading.tacticaladvantage.utils.WsListener
+import trading.tacticaladvantage.utils.WsListener._
 
 import scala.util.Try
 
-object TaLink {
-  type JavaList = java.util.List[String]
-  type JavaMap = java.util.Map[String, JavaList]
-
-  val USDT_STATE_UPDATE: String = "usdt-state-update"
-  val USER_STATUS_UPDATE: String = "user-status-update"
+object LinkClient {
+  val USER_UPDATE: String = "user-update"
   val GENERAL_ERROR: String = "general-error"
   val VERSION: Char = '1'
 
-  case class UsdtWalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
-    lazy val withRealAddress: Set[CompleteUsdtWalletInfo] = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
-    lazy val okWallets: Map[String, CompleteUsdtWalletInfo] = withRealAddress.map(wallet => wallet.address -> wallet).toMap
-    lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
-  }
-
-  //
+  // Failure codes
 
   sealed trait FailureCode { def code: Int }
   case object INVALID_JSON extends FailureCode { val code = 10 }
   case object NOT_AUTHORIZED extends FailureCode { val code = 20 }
   case object INVALID_REQUEST extends FailureCode { val code = 30 }
   case object UPDATE_CLIENT_APP extends FailureCode { val code = 40 }
-  case object USD_INFRA_FAIL extends FailureCode { val code = 50 }
-  case object ACCOUNT_BANNED extends FailureCode { val code = 60 }
+  case object ACCOUNT_BANNED extends FailureCode { val code = 50 }
 
   val failureCodes =
-    Seq(INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST,
-      UPDATE_CLIENT_APP, USD_INFRA_FAIL, ACCOUNT_BANNED)
-
-  def fromCode(code: Int): Option[FailureCode] =
-    failureCodes.find(_.code == code)
+    Seq(INVALID_JSON, NOT_AUTHORIZED,
+      INVALID_REQUEST, UPDATE_CLIENT_APP,
+      ACCOUNT_BANNED)
 
   implicit object FailureCodeFormat extends JsonFormat[FailureCode] {
     def write(fc: FailureCode): JsValue = JsNumber(fc.code)
 
     def read(value: JsValue): FailureCode = value match {
-      case JsNumber(num) => fromCode(num.toInt).get
+      case JsNumber(num) => failureCodes.find(_.code == num).get
       case _ => throw new RuntimeException
     }
   }
 
-  //
+  // Asset types
 
   sealed trait Asset { def kind: Int }
   case object BTC extends Asset { val kind = 0 }
@@ -60,25 +49,21 @@ object TaLink {
 
   val assets: Seq[Asset] = Seq(BTC, USD)
 
-  def fromKind(kind: Int): Option[Asset] =
-    assets.find(_.kind == kind)
-
   implicit object AssetFormat extends JsonFormat[Asset] {
     def write(a: Asset): JsValue = JsNumber(a.kind)
 
     def read(value: JsValue): Asset = value match {
-      case JsNumber(num) => fromKind(num.toInt).get
+      case JsNumber(num) => assets.find(_.kind == num).get
       case _ => throw new RuntimeException
     }
   }
 
-  //
+  // Request types
 
   sealed trait RequestArguments { val tag: String }
   case class GetLoanAd(asset: Asset) extends RequestArguments { val tag = "GetLoanAd" }
   case class GetUserStatus(sessionToken: String) extends RequestArguments { val tag = "GetUserStatus" }
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
-  case class UsdSubscribe(addresses: List[String], afterBlock: Long) extends RequestArguments { val tag = "UsdSubscribe" }
   case class WithdrawReq(address: String, asset: Asset, requested: Option[Double] = None) extends RequestArguments { val tag = "WithdrawReq" }
   case class DepositIntent(txid: String, asset: Asset) extends RequestArguments { val tag = "DepositIntent" }
   case class CancelWithdraw(asset: Asset) extends RequestArguments { val tag = "CancelWithdraw" }
@@ -88,7 +73,6 @@ object TaLink {
   implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[Asset, GetLoanAd](GetLoanAd.apply, "asset"), "GetLoanAd")
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), "Login")
   implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, Option[Double], WithdrawReq](WithdrawReq.apply, "address", "asset", "requested"), "Withdraw")
-  implicit val usdSubscribeFormat: JsonFormat[UsdSubscribe] = taggedJsonFmt(jsonFormat[List[String], Long, UsdSubscribe](UsdSubscribe.apply, "addresses", "afterBlock"), "UsdSubscribe")
   implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[String, Asset, DepositIntent](DepositIntent.apply, "txid", "asset"), "DepositIntent")
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
@@ -102,7 +86,6 @@ object TaLink {
       case request: GetUserStatus => getUserStatusFormat.write(request)
       case request: CancelWithdraw => cancelWithdrawFormat.write(request)
       case request: DepositIntent => depositIntentFormat.write(request)
-      case request: UsdSubscribe => usdSubscribeFormat.write(request)
       case request: WithdrawReq => withdrawReqFormat.write(request)
       case GetHistory => getHistoryFormat.write(GetHistory)
       case LogOut => logOutFormat.write(LogOut)
@@ -112,13 +95,12 @@ object TaLink {
       throw new RuntimeException
   }
 
-  //
+  // Response types
 
   case class TotalFunds(balance: Double, withdrawable: Double, asset: Asset)
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: Double, amount: Double, asset: Asset)
   case class Deposit(txid: String, address: String, amount: Double, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
   case class Withdraw(txid: Option[String], id: String, address: String, amount: Double, requested: Double, created: Long, fee: Double, asset: Asset)
-  case class UsdTransfer(amount: String, fromAddr: String, toAddr: String, hash: String, block: Long, stamp: Long, isRemoved: Boolean)
 
   implicit val depositFormat: JsonFormat[Deposit] =
     jsonFormat[String, String, Double, Long, Boolean, Boolean, Asset,
@@ -135,14 +117,10 @@ object TaLink {
   implicit val totalFundsFormat: JsonFormat[TotalFunds] =
     jsonFormat[Double, Double, Asset, TotalFunds](TotalFunds.apply, "balance", "withdrawable", "asset")
 
-  implicit val usdTransferFormat: JsonFormat[UsdTransfer] =
-    jsonFormat[String, String, String, String, Long, Long, Boolean,
-      UsdTransfer](UsdTransfer.apply, "amount", "fromAddr", "toAddr", "hash", "block", "stamp", "isRemoved")
+
 
   sealed trait ResponseArguments { def tag: String }
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
-  case class UsdTransfers(transfers: List[UsdTransfer], chainTip: Long) extends ResponseArguments { val tag = "UsdTransfers" }
-  case class UsdBalanceNonce(address: String, balance: String, nonce: String, chainTip: Long) extends ResponseArguments { val tag = "UsdBalanceNonce" }
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
   case class LoanAd(durationDays: Long, minDeposit: Double, maxDeposit: Double, address: Option[String], challenge: String, roi: Double, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
 
@@ -158,12 +136,6 @@ object TaLink {
   implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat[FailureCode,
     Failure](Failure.apply, "failureCode"), "Failure")
 
-  implicit val usdTransfersFormat: JsonFormat[UsdTransfers] = taggedJsonFmt(jsonFormat[List[UsdTransfer], Long,
-    UsdTransfers](UsdTransfers.apply, "transfers", "chainTip"), "UsdTransfers")
-
-  implicit val usdBalanceNonceFormat: JsonFormat[UsdBalanceNonce] = taggedJsonFmt(jsonFormat[String, String, String, Long,
-    UsdBalanceNonce](UsdBalanceNonce.apply, "address", "balance", "nonce", "chainTip"), "UsdBalanceNonce")
-
   implicit val userStatusFormat: JsonFormat[UserStatus] =
     taggedJsonFmt(jsonFormat[List[Withdraw], List[ActiveLoan], List[TotalFunds], String, String,
       UserStatus](UserStatus.apply, "pendingWithdraws", "activeLoans", "totalFunds", "email", "sessionToken"), "UserStatus")
@@ -174,8 +146,6 @@ object TaLink {
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
     def read(json: JsValue): ResponseArguments = json.asJsObject.fields(TAG) match {
-      case JsString("UsdBalanceNonce") => usdBalanceNonceFormat.read(json)
-      case JsString("UsdTransfers") => usdTransfersFormat.read(json)
       case JsString("UserStatus") => userStatusFormat.read(json)
       case JsString("Failure") => failureFormat.read(json)
       case JsString("History") => historyFormat.read(json)
@@ -192,43 +162,22 @@ object TaLink {
   implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
   implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
 
-  final val DISCONNECTED = 0
-  final val CONNECTED = 1
-
-  case object CmdConnect
-  case object CmdConnected
-  case object CmdDisconnected
-  case object CmdEnsureUsdtAccounts
-  case class CmdRemove(listener: Listener)
-
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
     def onConnected(stateData: TaLinkState): Unit = none
     def onDisconnected: Unit = none
   }
+
+  case class CmdRemove(listener: Listener)
 }
 
-class TaLink(usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
-             biconomy: Biconomy) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
-  var usdt = UsdtWalletManager(usdtWalletBag.listWallets.toSet)
+class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
+  val wsListener = new WsListener[TaLinkState, Response](me, tryTo[Response], println)
   var listeners = List.empty[Listener]
   var ws: WebSocket = _
 
-  val wsListener = new WebSocketAdapter {
-    override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = me ! CmdDisconnected
-    override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = me ! CmdDisconnected
-    override def onConnected(ws: WebSocket, headers: JavaMap): Unit = me ! CmdConnected
-
-    override def onTextMessage(ws: WebSocket, message: String): Unit =
-      tryTo[Response](message).map(me ! _).recover { case exception =>
-        println(exception.stackTraceAsString)
-        ws.disconnect
-      }
-  }
-
   def becomeShutDown: Unit = {
     ws.removeListener(wsListener)
-    usdt = UsdtWalletManager(Set.empty)
     state = DISCONNECTED
     data = LoggedOut
     ws.disconnect
@@ -237,19 +186,6 @@ class TaLink(usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
   def !!(change: Any): Unit = (change, state) match {
     case (listener: Listener, _) => listeners = listeners :+ listener
     case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
-
-    case (info: CompleteUsdtWalletInfo, _) =>
-      usdt = usdt.copy(usdt.wallets - info + info)
-      usdtWalletBag.addUpdateWallet(info)
-
-    case (UsdBalanceNonce(address, balance, nonce, tip), _) =>
-      for (walletInfo <- usdt.wallets if walletInfo.address == address)
-        me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce, chainTip = tip)
-
-    case (CmdEnsureUsdtAccounts, _) => for {
-      walletInfo <- usdt.wallets if walletInfo.address == CompleteUsdtWalletInfo.NOADDRESS
-      response <- biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv)
-    } me !! walletInfo.copy(address = response.smartAccountAddress)
 
     case (LoggedOut, _) =>
       extDataBag.delete(TA_USER_STATUS)
@@ -260,8 +196,9 @@ class TaLink(usdtWalletBag: SQLiteUsdtWallet, extDataBag: SQLiteData,
       become(status, state)
 
     case (CmdConnect, DISCONNECTED) =>
+      val endpoint = "wss://tactical-advantage.trading/client"
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket("wss://tactical-advantage.trading/tacc", 443).addListener(wsListener)
+      ws = factory.createSocket(endpoint, 443).addListener(wsListener)
       ws.connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>

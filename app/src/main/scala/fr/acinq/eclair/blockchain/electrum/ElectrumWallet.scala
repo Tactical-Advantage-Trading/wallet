@@ -492,7 +492,7 @@ case class WalletSpec(info: CompleteBtcWalletInfo, data: ElectrumData, walletRef
   def spendable: Boolean = info.lastBalance > 0L.sat
 }
 
-case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteBtcWallet, txDb: SQLiteBtcTx, dustLimit: Satoshi) {
+case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteBtcWallet, txDb: SQLiteBtcTx, dustLimit: Satoshi = 546L.sat) {
   val emptyPersistentData: PersistentData = PersistentData(ElectrumWallet.MAX_RECEIVE_ADDRESSES, ElectrumWallet.MAX_RECEIVE_ADDRESSES)
   val emptyPersistentDataBytes: ByteVector = persistentDataCodec.encode(emptyPersistentData).require.toByteVector
 }

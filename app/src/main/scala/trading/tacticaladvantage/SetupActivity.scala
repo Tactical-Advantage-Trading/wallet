@@ -61,15 +61,11 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
     // Make local Biconomy bundle accessible to Node
     WalletApp.assetToInternal("server.js", "server.js")
-
-    // Before creating wallets
     WalletApp.extDataBag.putSecret(secret)
-    WalletApp.makeOperational(secret)
 
     // Create wallets
-    WalletApp.createBtcWallet(ord = 0L)
-//    WalletApp.createUsdtWallet(ord = 0L)
-    WalletApp.initWallets
+    WalletApp.createBtcWallet(secret, ord = 0L)
+//    WalletApp.createUsdtWallet(secret, ord = 0L)
 
     // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)

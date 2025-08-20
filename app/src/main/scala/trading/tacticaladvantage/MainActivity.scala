@@ -451,8 +451,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       item match {
         case info: UsdtInfo =>
-          if (WalletApp.taLink.usdt.okWallets.size > 1)
-            for (wallet <- WalletApp.taLink.usdt.okWallets.values if wallet isRelatedToInfo info)
+          if (WalletApp.linkUsdt.data.okWallets.size > 1)
+            for (wallet <- WalletApp.linkUsdt.data.okWallets.values if wallet isRelatedToInfo info)
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
           if (info.feeUsdtString > "0") {
@@ -573,8 +573,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def usdtStatusIcon(info: UsdtInfo): Int = {
-      val in = WalletApp.taLink.usdt.okWallets.get(info.description.toAddrString)
-      val out = WalletApp.taLink.usdt.okWallets.get(info.description.fromAddrString)
+      val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddrString)
+      val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddrString)
       val isConfirmed = in.exists(_.chainTip - info.block >= 20) || out.exists(_.chainTip - info.block >= 10)
       val isUnknown = in.isEmpty && out.isEmpty
 
@@ -593,6 +593,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val defaultHeader: LinearLayout = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
     val searchField: EditText = view.findViewById(R.id.searchField).asInstanceOf[EditText]
     val spinner: ProgressBar = view.findViewById(R.id.spinner).asInstanceOf[ProgressBar]
+    val recentActivity: View = view.findViewById(R.id.recentActivity)
     // This means search is off at start
     searchField.setTag(false)
 
@@ -1007,9 +1008,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    // Hide if we have already expanded, if search mode is on, if there's nothing to show by expanding
     val expandHideCases = displayFullIxInfoHistory || isSearchOn || recentBtcInfos.size <= allInfos.size
-    setVis(!expandHideCases, expandContainer)
+    setVisMany(allInfos.nonEmpty -> walletCards.recentActivity, !expandHideCases -> expandContainer)
     paymentsAdapter.notifyDataSetChanged
   }
 
@@ -1066,7 +1066,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     } yield BtcAddressInfo(spec.data.keys.ewt, spec.info, extPubKey, description)
   }
 
-  private def drongoNetwork = ElectrumWallet.chainHash match {
+  def drongoNetwork = ElectrumWallet.chainHash match {
     case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
     case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
     case _ => drongo.Network.REGTEST
