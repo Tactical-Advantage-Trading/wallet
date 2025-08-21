@@ -254,13 +254,14 @@ object WalletApp {
       fiatRepeat.foreach(fiatRates.updateInfo, none)
     }
 
-//    if (linkUsdt.data.wallets.nonEmpty) {
-//      // This is a single place where we should bypass sequential threading
-//      linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
-//      linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+    // This is a single place where we should bypass sequential threading
+    linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
+
+    if (linkUsdt.data.wallets.nonEmpty) {
+      linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
 //      linkUsdt ! WsListener.CmdConnect
-//    }
-//
+    }
+
 //    if (showTaCard) {
 //      // This is a single place where we should bypass sequential threading
 //      for (status <- linkClient.loadUserStatus) linkClient.data = status
@@ -273,6 +274,7 @@ object WalletApp {
   def currentRate(rates: Fiat2Btc, code: String): Try[Double] = Try(rates apply code)
   def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenom.factor)
   val currentMsatInFiatHuman: MilliSatoshi => String = msat => msatInFiatHuman(fiatRates.info.rates, fiatCode, msat, Denomination.formatFiatShort)
+  def plurOrZero(opts: Array[String], number: Int) = if (number > 0) opts(number - 1) else opts(opts.length - 1)
 
   def msatInFiatHuman(rates: Fiat2Btc, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {
     val fiatAmount: String = msatInFiat(rates, code)(msat).map(decimalFormat.format).getOrElse(default = "?")

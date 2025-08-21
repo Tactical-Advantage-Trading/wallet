@@ -22,7 +22,7 @@
         style="@style/GreenButton"/>
 
     <com.ornach.nobobutton.NoboButton
-        app:nb_drawableResource="@drawable/outline_edit_20_24"
+        app:nb_drawableResource="@drawable/edit_24"
         android:layout_toStartOf="@id/chainCancelButton"
         android:layout_centerVertical="true"
         android:id="@+id/chainEditButton"

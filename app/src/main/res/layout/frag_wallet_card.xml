@@ -10,12 +10,12 @@
 
     <androidx.cardview.widget.CardView
         card_view:cardCornerRadius="@dimen/corner_radius"
-        android:id="@+id/chainWrap"
+        android:id="@+id/cardView"
         style="@style/Card">
 
         <RelativeLayout
             style="@style/FillingView"
-            android:id="@+id/chainContainer"
+            android:id="@+id/infoContainer"
             android:padding="15dp">
 
             <LinearLayout
@@ -25,13 +25,13 @@
 
                 <TextView
                     android:textColor="@android:color/white"
-                    android:id="@+id/chainLabel"
+                    android:id="@+id/infoWalletLabel"
                     style="@style/Emphasized"/>
 
                 <TextView
                     android:layout_marginTop="6dp"
                     android:textColor="@android:color/white"
-                    android:id="@+id/chainWalletNotice"
+                    android:id="@+id/infoWalletNotice"
                     style="@style/BoundedView"/>
 
             </LinearLayout>
@@ -39,19 +39,19 @@
             <LinearLayout
                 style="@style/BoundedView"
                 android:orientation="vertical"
-                android:id="@+id/chainBalanceWrap"
+                android:id="@+id/balanceContainer"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:gravity="end">
 
                 <TextView
-                    android:id="@+id/chainBalance"
+                    android:id="@+id/balanceWallet"
                     style="@style/Emphasized"/>
 
                 <TextView
                     android:layout_marginTop="6dp"
                     android:textColor="@android:color/white"
-                    android:id="@+id/chainBalanceFiat"
+                    android:id="@+id/balanceWalletFiat"
                     style="@style/BoundedView"/>
 
             </LinearLayout>
@@ -60,10 +60,9 @@
 
             <ImageView
                 style="@style/BoundedView"
-                android:id="@+id/receiveBitcoinTip"
+                android:id="@+id/imageTip"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
-                android:background="@drawable/baseline_add_24"
                 android:visibility="gone"/>
 
         </RelativeLayout>

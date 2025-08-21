@@ -38,6 +38,7 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
 
 import java.io.{File, FileOutputStream}
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -546,28 +547,26 @@ trait BaseActivity extends AppCompatActivity { me =>
     val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow, None)
     val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
     val alert = mkCheckForm(alert => runAnd(alert.dismiss)(onOk), none, titleBodyAsViewBuilder(title.view, cardsContainer), dialog_ok, dialog_cancel)
-    val spendable = ElectrumWallet.specs.values.filter(_.spendable)
-    updatePopupButton(getPositiveButton(alert), isEnabled = false)
+    val chooser = new WalletCardManager(cardsContainer)
 
-    val chooser = new ChainWalletCards(me) {
-      val holder: LinearLayout = cardsContainer
-
-      override def onWalletTap(pubKey: ExtendedPublicKey): Unit = {
-        selected = if (selected contains pubKey) selected - pubKey else selected.updated(pubKey, ElectrumWallet specs pubKey)
-        updatePopupButton(button = getPositiveButton(alert), isEnabled = selected.nonEmpty)
-        update(spendable)
-
-        val totalCanSend = selected.valuesIterator.map(_.info.lastBalance).sum.toMilliSatoshi
+    lazy val cards: Iterable[BtcWalletCard] = for {
+      xPub \ spec <- ElectrumWallet.specs if spec.spendable
+    } yield new BtcWalletCard(me, xPub) {
+      def onWalletTap: Unit = runAnd { isSelected = !isSelected } {
+        updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
+        val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
         val formatted = BtcDenom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
         if (totalCanSend > 0L.msat) info.setText(s"∑ $formatted".html)
         else info.setText(select_wallets)
+        updateView
       }
     }
 
-    chooser.init(spendable.size)
-    chooser.update(spendable)
-    chooser.unPadCards
     def onOk: Unit
+    def chosenCards: Iterable[WalletSpec] = cards.filter(_.isSelected).flatMap(ElectrumWallet.specs get _.xPub)
+    updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
+    runAnd(chooser)(chooser init cards.toList).unPad
+    chooser.cardViews.foreach(_.updateView)
   }
 }
 
@@ -632,55 +631,88 @@ object QRActivity {
   }
 }
 
-abstract class ChainWalletCards(host: BaseActivity) { me =>
-  var selected = Map.empty[ExtendedPublicKey, WalletSpec]
-  var cardViews = List.empty[ChainCard]
+// WALLET CARDS
 
-  def unPadCards: Unit = cardViews.foreach(_.unPad)
-  def update(specs: Iterable[WalletSpec] = Nil): Unit = {
-    val items = cardViews zip ElectrumWallet.orderByImportance(specs.toList)
-    for (chainCard \ walletSpec <- items) chainCard updateView walletSpec
+class WalletCardManager(holder: LinearLayout) {
+  var cardViews = List.empty[WalletCard]
+
+  def init(cards: List[WalletCard] = Nil): Unit = {
+    cards.foreach(holder addView _.cardWrap)
+    cardViews = cards
   }
 
-  def init(size: Int): Unit = {
-    cardViews = List.fill(size)(new ChainCard)
-    cardViews.foreach(card => holder addView card.topView)
+  def unPad: Unit = cardViews.foreach { card =>
+    val padding: Int = card.cardWrap.getPaddingTop
+    card.cardWrap.setPadding(padding, padding, padding, 0)
   }
+}
 
-  class ChainCard {
-    val topView: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_chain_card, null).asInstanceOf[LinearLayout]
-    val receiveBitcoinTip: ImageView = topView.findViewById(R.id.receiveBitcoinTip).asInstanceOf[ImageView]
-    val chainWrap: CardView = topView.findViewById(R.id.chainWrap).asInstanceOf[CardView]
+abstract class WalletCard(host: BaseActivity) {
+  val cardWrap: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_wallet_card, null).asInstanceOf[LinearLayout]
+  val imageTip: ImageView = cardWrap.findViewById(R.id.imageTip).asInstanceOf[ImageView]
+  val cardView: CardView = cardWrap.findViewById(R.id.cardView).asInstanceOf[CardView]
+  cardView setOnClickListener host.onButtonTap(onWalletTap)
 
-    val chainContainer: View = topView.findViewById(R.id.chainContainer).asInstanceOf[View]
-    val chainLabel: TextView = topView.findViewById(R.id.chainLabel).asInstanceOf[TextView]
-    val chainWalletNotice: TextView = topView.findViewById(R.id.chainWalletNotice).asInstanceOf[TextView]
+  val infoContainer: View = cardWrap.findViewById(R.id.infoContainer).asInstanceOf[View]
+  val infoWalletLabel: TextView = cardWrap.findViewById(R.id.infoWalletLabel).asInstanceOf[TextView]
+  val infoWalletNotice: TextView = cardWrap.findViewById(R.id.infoWalletNotice).asInstanceOf[TextView]
 
-    val chainBalanceWrap: LinearLayout = topView.findViewById(R.id.chainBalanceWrap).asInstanceOf[LinearLayout]
-    val chainBalanceFiat: TextView = topView.findViewById(R.id.chainBalanceFiat).asInstanceOf[TextView]
-    val chainBalance: TextView = topView.findViewById(R.id.chainBalance).asInstanceOf[TextView]
+  val balanceContainer: LinearLayout = cardWrap.findViewById(R.id.balanceContainer).asInstanceOf[LinearLayout]
+  val balanceWalletFiat: TextView = cardWrap.findViewById(R.id.balanceWalletFiat).asInstanceOf[TextView]
+  val balanceWallet: TextView = cardWrap.findViewById(R.id.balanceWallet).asInstanceOf[TextView]
 
-    def unPad: Unit = {
-      val padding = topView.getPaddingTop
-      topView.setPadding(padding, padding, padding, 0)
+  def onWalletTap: Unit
+  def updateView: Unit
+}
+
+abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) extends WalletCard(host) {
+  imageTip.setImageResource(R.drawable.add_24)
+  var isSelected: Boolean = false
+
+  def updateView: Unit = {
+    val spec = ElectrumWallet.specs(xPub)
+    val hasMoney = spec.info.lastBalance.toLong > 0L
+    val bgResource = if (isSelected) R.drawable.border_card_signing_on else R.color.cardBitcoinSigning
+    infoWalletNotice setText { if (spec.info.core.attachedMaster.isDefined) attached_wallet else tap_to_receive }
+    infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString bitcoin_wallet)
+    balanceWallet setText BtcDenom.parsedWithSignTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
+    balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
+    host.setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
+    infoContainer setBackgroundResource bgResource
+  }
+}
+
+abstract class UsdtWalletCard(host: BaseActivity, xPriv: String) extends WalletCard(host) {
+  infoContainer setBackgroundResource R.color.usdt
+  imageTip.setImageResource(R.drawable.add_24)
+  infoWalletNotice setText tap_to_receive
+  balanceWalletFiat setText "Polygon"
+
+  def updateView: Unit = {
+    val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
+    infoWalletLabel setText info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString usdt_wallet)
+    balanceWallet setText Denomination.fiatDirectedWithSignTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
+    host.setVis(info.lastBalance.toDouble > 0D, balanceContainer)
+    host.setVis(info.lastBalance.toDouble <= 0D, imageTip)
+  }
+}
+
+abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
+  lazy val activeLoans = host.getResources getStringArray R.array.ta_active_loans
+  infoContainer setBackgroundResource R.drawable.border_gray
+  imageTip.setImageResource(R.drawable.key_24)
+  infoWalletLabel setText ta_earn_label
+
+  def updateView: Unit =
+    WalletApp.linkClient.data match {
+      case state: LinkClient.UserStatus =>
+        host.setVisMany(true -> balanceContainer, false -> imageTip)
+        val balance = Btc(state.totalFunds.find(_.asset == LinkClient.BTC).map(_.withdrawable).getOrElse(0D): Double)
+        balanceWallet setText BtcDenom.parsedWithSignTT(balance.toSatoshi.toMilliSatoshi, "#FFFFFF", signCardZero).html
+        balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(balance.toSatoshi.toMilliSatoshi)
+        infoWalletNotice setText WalletApp.plurOrZero(activeLoans, state.activeLoans.size max 3)
+      case LinkClient.LoggedOut =>
+        host.setVisMany(false -> balanceContainer, true -> imageTip)
+        infoWalletNotice setText ta_client_login
     }
-
-    def updateView(spec: WalletSpec): Unit = {
-      val hasMoney = spec.info.lastBalance.toLong > 0L
-      val bgResource = if (selected contains spec.data.keys.ewt.xPub) R.drawable.border_card_signing_on else R.color.cardBitcoinSigning
-      chainBalance setText BtcDenom.parsedWithSignTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
-      chainWalletNotice setText { if (spec.info.core.attachedMaster.isDefined) attached_wallet else tap_to_receive }
-      chainBalanceFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
-
-      host.setVisMany(hasMoney -> chainBalanceWrap, !hasMoney -> receiveBitcoinTip)
-      chainLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(spec.info.core.walletType)
-      chainWrap setOnClickListener host.onButtonTap(me onWalletTap spec.data.keys.ewt.xPub)
-      chainContainer setBackgroundResource bgResource
-    }
-  }
-
-  def onLabelTap(key: ExtendedPublicKey): Unit = none
-  def onRemoveTap(key: ExtendedPublicKey): Unit = none
-  def onWalletTap(key: ExtendedPublicKey): Unit = none
-  def holder: LinearLayout
 }

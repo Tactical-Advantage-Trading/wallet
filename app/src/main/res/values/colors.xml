@@ -9,6 +9,7 @@
 
     <color name="paymentPassiveBorder">#555555</color>
     <color name="cardBitcoinSigning">#E08f04</color>
+    <color name="usdt">#50AF95</color>
 
     <color name="buttonGreenRipple">#8BD670</color>
     <color name="buttonGreenBorder">#5B8F36</color>

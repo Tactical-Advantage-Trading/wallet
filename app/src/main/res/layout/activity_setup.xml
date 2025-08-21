@@ -8,9 +8,23 @@
         style="@style/StandardLinearLayout"
         android:id="@+id/activitySetupMain">
 
-        <LinearLayout style="@style/StandardXYMarginLinearLayout">
+        <LinearLayout
+            style="@style/StandardXYMarginLinearLayout">
+
+            <TextView
+                android:layout_marginTop="@dimen/chip_default_padding_edge"
+                android:text="@string/app_name"
+                style="@style/Emphasized"/>
+
+            <TextView
+                android:id="@+id/devInfo"
+                android:linksClickable="true"
+                android:layout_marginTop="10dp"
+                android:textColorLink="@color/btcLogo"
+                style="@style/BoundedView"/>
 
             <com.ornach.nobobutton.NoboButton
+                android:layout_marginTop="45dp"
                 app:nb_text="@string/setup_create_new"
                 android:onClick="createNewWallet"
                 style="@style/GreenButton"/>

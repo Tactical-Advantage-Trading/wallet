@@ -451,8 +451,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       item match {
         case info: UsdtInfo =>
-          if (WalletApp.linkUsdt.data.okWallets.size > 1)
-            for (wallet <- WalletApp.linkUsdt.data.okWallets.values if wallet isRelatedToInfo info)
+          if (WalletApp.linkUsdt.data.withRealAddress.size > 1)
+            for (wallet <- WalletApp.linkUsdt.data.withRealAddress if wallet isRelatedToInfo info)
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
           if (info.feeUsdtString > "0") {
@@ -566,10 +566,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       // User may remove a wallet while related transactions are getting confirmed
       val hasNoWallets = info.extPubs.flatMap(ElectrumWallet.specs.get).isEmpty
 
-      if (info.isConfirmed) R.drawable.baseline_done_24
-      else if (info.isDoubleSpent) R.drawable.baseline_block_24
-      else if (hasNoWallets) R.drawable.baseline_question_24
-      else R.drawable.baseline_hourglass_empty_24
+      if (info.isConfirmed) R.drawable.done_24
+      else if (info.isDoubleSpent) R.drawable.block_24
+      else if (hasNoWallets) R.drawable.question_24
+      else R.drawable.hourglass_empty_24
     }
 
     def usdtStatusIcon(info: UsdtInfo): Int = {
@@ -578,10 +578,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val isConfirmed = in.exists(_.chainTip - info.block >= 20) || out.exists(_.chainTip - info.block >= 10)
       val isUnknown = in.isEmpty && out.isEmpty
 
-      if (info.isDoubleSpent) R.drawable.baseline_block_24
-      else if (isUnknown) R.drawable.baseline_question_24
-      else if (isConfirmed) R.drawable.baseline_done_24
-      else R.drawable.baseline_hourglass_empty_24
+      if (info.isDoubleSpent) R.drawable.block_24
+      else if (isUnknown) R.drawable.question_24
+      else if (isConfirmed) R.drawable.done_24
+      else R.drawable.hourglass_empty_24
     }
   }
 
@@ -591,43 +591,33 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val view: LinearLayout = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
     val fiatUnitPriceAndChange: TextView = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
     val defaultHeader: LinearLayout = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
+    val holder: LinearLayout = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val searchField: EditText = view.findViewById(R.id.searchField).asInstanceOf[EditText]
     val spinner: ProgressBar = view.findViewById(R.id.spinner).asInstanceOf[ProgressBar]
     val recentActivity: View = view.findViewById(R.id.recentActivity)
+    val manager: WalletCardManager = new WalletCardManager(holder)
     // This means search is off at start
     searchField.setTag(false)
 
-    val chainCards: ChainWalletCards = new ChainWalletCards(me) {
-      val holder: LinearLayout = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
-      override def onWalletTap(key: ExtendedPublicKey): Unit = goToWithValue(ClassNames.qrBtcActivityClass, key)
-
-      override def onLabelTap(key: ExtendedPublicKey): Unit = {
-        val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
-        mkCheckForm(proceed, none, builder, dialog_ok, dialog_cancel)
-        extraInputLayout.setHint(dialog_set_label)
-        showKeys(extraInput)
-
-        def proceed(alert: AlertDialog): Unit = runAnd(alert.dismiss) {
-          ElectrumWallet.setLabel(extraInput.getText.toString)(key)
-          resetChainCards
-        }
+    def makeCards: List[WalletCard] = {
+      val btcCards = for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(me, xPub) {
+        override def onWalletTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
       }
 
-      override def onRemoveTap(key: ExtendedPublicKey): Unit = {
-        val builder = new AlertDialog.Builder(me).setMessage(confirm_remove_item)
-        mkCheckForm(proceed, none, builder, dialog_ok, dialog_cancel)
-
-        def proceed(alert: AlertDialog): Unit = {
-          ElectrumWallet.removeWallet(key)
-          resetChainCards
-          alert.dismiss
-        }
+      val usdtCards = for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(me, info.xPriv) {
+        override def onWalletTap: Unit = println("usdt")
       }
-    }
 
-    def resetChainCards: Unit = {
-      chainCards.holder.removeAllViewsInLayout
-      chainCards.init(ElectrumWallet.specs.size)
+      val taCardOpt = if (WalletApp.showTaCard) new TaWalletCard(me) {
+        override def onWalletTap: Unit = println("ta")
+      }.asSome else None
+
+      btcCards ++ usdtCards ++ taCardOpt
+    }.toList
+
+    def resetCards: Unit = {
+      holder.removeAllViewsInLayout
+      manager init makeCards
       updateView
     }
 
@@ -635,8 +625,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
       val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
       val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, 100000000000L.msat, Denomination.formatFiatShort)
-      fiatUnitPriceAndChange.setText(s"$unitRate $change".html)
-      chainCards.update(ElectrumWallet.specs.values)
+      fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
+      manager.cardViews.foreach(_.updateView)
     }
   }
 
@@ -697,11 +687,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val usable = ElectrumWallet.specs.values.filter(_.usable).toList
 
     def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new WalletSelector(me titleViewFromUri bitcoinUri) {
-      def onOk: Unit = bringSendBitcoinPopup(chooser.selected.values.toList, bitcoinUri)
+      def onOk: Unit = bringSendBitcoinPopup(chosenCards.toList, bitcoinUri)
     }
 
     def bringMultiAddressSelector(a2a: MultiAddressParser.AddressToAmount) = new WalletSelector(me getString dialog_send_btc_many) {
-      def onOk: Unit = bringSendMultiBitcoinPopup(chooser.selected.values.toList, a2a)
+      def onOk: Unit = bringSendMultiBitcoinPopup(chosenCards.toList, a2a)
     }
 
     InputParser.checkAndMaybeErase {
@@ -772,15 +762,14 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           paymentAdapterDataChanged.run
         }
 
-        walletCards.chainCards.init(size = ElectrumWallet.specs.size)
+        walletCards.resetCards
         walletCards.searchField addTextChangedListener onTextChange(searchWorker.addWork)
-        walletCards.updateView
+        runInFutureProcessOnUI(loadRecent, none) { _ => paymentAdapterDataChanged.run }
 
         // STREAMS
 
         val window = 500.millis
         timer.scheduleAtFixedRate(paymentAdapterDataChanged, 30000, 30000)
-        runInFutureProcessOnUI(loadRecent, none) { _ => paymentAdapterDataChanged.run }
         stateSubscription = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txDbStream, window).subscribe { _ =>
           // After each delayed update we check if pending txs got confirmed or double-spent
           // do this check specifically after updating txInfos with new items

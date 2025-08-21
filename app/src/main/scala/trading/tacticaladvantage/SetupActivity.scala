@@ -8,6 +8,7 @@ import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
 import immortan.crypto.Tools.{SEPARATOR, StringList, none}
 import immortan.{MasterKeys, WalletSecret}
+import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
 
 trait MnemonicActivity { me: BaseActivity =>
@@ -52,22 +53,19 @@ trait MnemonicActivity { me: BaseActivity =>
   }
 }
 
-class SetupActivity extends BaseActivity with MnemonicActivity { me =>
+class SetupActivity extends BaseActivity with MnemonicActivity {
   lazy val activityContainer = findViewById(R.id.activitySetupMain).asInstanceOf[LinearLayout]
+  lazy val devInfo = findViewById(R.id.devInfo).asInstanceOf[TextView]
 
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
     val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
 
-    // Make local Biconomy bundle accessible to Node
-    WalletApp.assetToInternal("server.js", "server.js")
     WalletApp.extDataBag.putSecret(secret)
-
-    // Create wallets
     WalletApp.createBtcWallet(secret, ord = 0L)
-//    WalletApp.createUsdtWallet(secret, ord = 0L)
+    WalletApp.createUsdtWallet(secret, ord = 0L)
+    WalletApp.assetToInternal("server.js", "server.js")
 
-    // Proceed to main activity
     TransitionManager.beginDelayedTransition(activityContainer)
     activityContainer.setVisibility(View.GONE)
     exitTo(ClassNames.mainActivityClass)
@@ -75,6 +73,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
   override def START(s: Bundle): Unit = {
     setContentView(R.layout.activity_setup)
+    devInfo.setText(getString(dev_info).html)
   }
 
   def createNewWallet(view: View): Unit = {

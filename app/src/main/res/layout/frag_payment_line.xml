@@ -35,55 +35,55 @@
             <!-- BTC address -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcAddress">
-                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:background="@drawable/ic_logo_bitcoin_24dp"/>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:background="@drawable/ic_logo_bitcoin_24"/>
             </LinearLayout>
 
             <!-- BTC incoming -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcIncoming">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_downward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24dp"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24"/>
             </LinearLayout>
 
             <!-- BTC incoming boosted -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcInBoosted">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_downward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_downward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
             </LinearLayout>
 
             <!-- BTC outgoing boosted -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutBoosted">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_upward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_upward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
             </LinearLayout>
 
             <!-- BTC outgoing cancelled -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutCancelled">
-                <ImageView style="@style/BoundedView" android:background="@drawable/outline_shortcut_20" android:rotation="90"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/shortcut_20" android:rotation="90"/>
             </LinearLayout>
 
             <!-- BTC outgoing -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutgoing">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_upward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24dp"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24"/>
             </LinearLayout>
 
             <!-- USDT incoming -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtIncoming">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_downward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24dp"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24"/>
             </LinearLayout>
 
             <!-- USDT outgoing -->
 
             <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtOutgoing">
-                <ImageView style="@style/BoundedView" android:background="@drawable/baseline_arrow_upward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24dp"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24"/>
             </LinearLayout>
 
             <!-- Content -->
@@ -105,7 +105,7 @@
                         android:id="@+id/labelIcon"
                         android:layout_marginEnd="3dp"
                         android:layout_centerVertical="true"
-                        android:src="@drawable/baseline_label_20_24"/>
+                        android:src="@drawable/label_24"/>
 
                     <TextView
                         style="@style/FillingView"

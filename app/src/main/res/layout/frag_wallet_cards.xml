@@ -26,7 +26,7 @@
             <ProgressBar
                 android:scaleY="1.5"
                 android:visibility="gone"
-                android:layout_width="100dp"
+                android:layout_width="80dp"
                 android:layout_height="28dp"
                 android:layout_marginEnd="28dp"
                 android:progressTint="@color/colorAccent"
@@ -41,7 +41,7 @@
                 android:onClick="bringSearch"
                 android:id="@+id/enterSearchMode"
                 android:layout_centerVertical="true"
-                android:src="@drawable/ic_search_24dp"
+                android:src="@drawable/ic_search_24"
                 android:layout_toStartOf="@id/settingsButton"
                 android:background="?android:selectableItemBackground"
                 android:layout_marginEnd="@dimen/chip_default_padding_edge"
@@ -53,13 +53,13 @@
                 android:onClick="enterSettingsMode"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
-                android:src="@drawable/baseline_settings_24"
+                android:src="@drawable/settings_24"
                 android:background="?android:selectableItemBackground"
                 style="@style/BoundedView"/>
 
         </RelativeLayout>
 
-        <!-- Bitcoin cards -->
+        <!-- List of cards -->
 
         <LinearLayout
             style="@style/FillingView"
