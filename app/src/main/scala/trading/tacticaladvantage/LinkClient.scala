@@ -98,9 +98,12 @@ object LinkClient {
   // Response types
 
   case class TotalFunds(balance: Double, withdrawable: Double, asset: Asset)
-  case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: Double, amount: Double, asset: Asset)
   case class Deposit(txid: String, address: String, amount: Double, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
   case class Withdraw(txid: Option[String], id: String, address: String, amount: Double, requested: Double, created: Long, fee: Double, asset: Asset)
+  case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: Double, amount: Double, asset: Asset) {
+    lazy val msecsLeft = System.currentTimeMillis - end
+    lazy val daysLeft = msecsLeft / 86400000L
+  }
 
   implicit val depositFormat: JsonFormat[Deposit] =
     jsonFormat[String, String, Double, Long, Boolean, Boolean, Asset,
@@ -117,8 +120,6 @@ object LinkClient {
   implicit val totalFundsFormat: JsonFormat[TotalFunds] =
     jsonFormat[Double, Double, Asset, TotalFunds](TotalFunds.apply, "balance", "withdrawable", "asset")
 
-
-
   sealed trait ResponseArguments { def tag: String }
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
@@ -127,7 +128,10 @@ object LinkClient {
   sealed trait TaLinkState
   case object LoggedOut extends TaLinkState
   case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
-                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
+                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState {
+    lazy val userName = email.split('@').headOption.getOrElse(email)
+    val tag = "UserStatus"
+  }
 
   implicit val loanAdFormat: JsonFormat[LoanAd] =
     taggedJsonFmt(jsonFormat[Long, Double, Double, Option[String], String, Double, Asset,

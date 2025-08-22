@@ -698,20 +698,22 @@ abstract class UsdtWalletCard(host: BaseActivity, xPriv: String) extends WalletC
 }
 
 abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
-  lazy val activeLoans = host.getResources getStringArray R.array.ta_active_loans
+  lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
+  lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
   infoContainer setBackgroundResource R.drawable.border_gray
-  imageTip.setImageResource(R.drawable.key_24)
   infoWalletLabel setText ta_earn_label
 
   def updateView: Unit =
     WalletApp.linkClient.data match {
-      case state: LinkClient.UserStatus =>
-        host.setVisMany(true -> balanceContainer, false -> imageTip)
-        val balance = Btc(state.totalFunds.find(_.asset == LinkClient.BTC).map(_.withdrawable).getOrElse(0D): Double)
-        balanceWallet setText BtcDenom.parsedWithSignTT(balance.toSatoshi.toMilliSatoshi, "#FFFFFF", signCardZero).html
-        balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(balance.toSatoshi.toMilliSatoshi)
-        infoWalletNotice setText WalletApp.plurOrZero(activeLoans, state.activeLoans.size max 3)
+      case stat: LinkClient.UserStatus =>
+        imageTip.setImageResource(R.drawable.info_24)
+        val minDaysLeft = (stat.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
+        host.setVisMany(stat.activeLoans.nonEmpty -> balanceContainer, stat.activeLoans.isEmpty -> imageTip)
+        balanceWallet setText WalletApp.app.plurOrZero(activeLoans, stat.activeLoans.size)
+        balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeft, minDaysLeft.toInt)
+        infoWalletNotice setText stat.userName
       case LinkClient.LoggedOut =>
+        imageTip.setImageResource(R.drawable.lock_24)
         host.setVisMany(false -> balanceContainer, true -> imageTip)
         infoWalletNotice setText ta_client_login
     }

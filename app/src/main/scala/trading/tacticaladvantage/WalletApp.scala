@@ -274,7 +274,6 @@ object WalletApp {
   def currentRate(rates: Fiat2Btc, code: String): Try[Double] = Try(rates apply code)
   def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenom.factor)
   val currentMsatInFiatHuman: MilliSatoshi => String = msat => msatInFiatHuman(fiatRates.info.rates, fiatCode, msat, Denomination.formatFiatShort)
-  def plurOrZero(opts: Array[String], number: Int) = if (number > 0) opts(number - 1) else opts(opts.length - 1)
 
   def msatInFiatHuman(rates: Fiat2Btc, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {
     val fiatAmount: String = msatInFiat(rates, code)(msat).map(decimalFormat.format).getOrElse(default = "?")
@@ -326,4 +325,21 @@ class WalletApp extends Application { me =>
     clipboardManager.setPrimaryClip(bufferContent)
     quickToast(copied_to_clipboard)
   }
+
+  // Plurals
+
+  lazy val plur = getString(lang) match {
+    case "eng" | "esp" => (opts: Array[String], num: Int) => if (num == 1) opts(1) else opts(2)
+    case "chn" | "jpn" => (phraseOptions: Array[String], num: Int) => phraseOptions(1)
+    case "ukr" => (phraseOptions: Array[String], num: Int) =>
+      val reminder100 = num % 100
+      val reminder10 = reminder100 % 10
+      if (reminder100 > 10 & reminder100 < 20) phraseOptions(3)
+      else if (reminder10 > 1 & reminder10 < 5) phraseOptions(2)
+      else if (reminder10 == 1) phraseOptions(1)
+      else phraseOptions(3)
+  }
+
+  def plurOrZero(opts: Array[String], number: Int) =
+    if (number > 0) plur(opts, number) format number else opts(0)
 }
