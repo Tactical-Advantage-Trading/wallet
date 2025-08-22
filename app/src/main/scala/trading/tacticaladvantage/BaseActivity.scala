@@ -49,7 +49,7 @@ object BaseActivity {
   implicit class StringOps(source: String) {
     def html: Spanned = android.text.Html.fromHtml(source)
     def humanFour: String = "<tt>" + source.grouped(4).mkString(s"\u0020") + "</tt>"
-    def short0x: String = s"<font color=${cardZero}><tt>0x</tt></font>&#160;$short"
+    def short0x: String = s"<font color=${cardZero}><tt>${source take 2}</tt></font>&#160;${source.drop(2).short}"
 
     def short: String = {
       val len = source.length
@@ -65,6 +65,7 @@ object BaseActivity {
 }
 
 object ClassNames {
+  val qrUsdtActivityClass: Class[QRUsdtActivity] = classOf[QRUsdtActivity]
   val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
   val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
@@ -584,7 +585,7 @@ trait BaseCheckActivity extends BaseActivity { me =>
 }
 
 trait QRActivity extends BaseCheckActivity { me =>
-  def shareData(bitmap: Bitmap, bech32: String): Unit = {
+  def shareData(bitmap: Bitmap, text: String): Unit = {
     val paymentRequestFilePath = new File(getCacheDir, "images")
     if (!paymentRequestFilePath.isFile) paymentRequestFilePath.mkdirs
     val out = new FileOutputStream(s"$paymentRequestFilePath/qr.png")
@@ -594,7 +595,7 @@ trait QRActivity extends BaseCheckActivity { me =>
     val savedFile = new File(paymentRequestFilePath, "qr.png")
     val fileURI = FileProvider.getUriForFile(me, "trading.tacticaladvantage", savedFile)
     val share = new Intent setAction Intent.ACTION_SEND setType "text/plain" addFlags Intent.FLAG_GRANT_READ_URI_PERMISSION
-    share.putExtra(Intent.EXTRA_TEXT, bech32).putExtra(Intent.EXTRA_STREAM, fileURI).setDataAndType(fileURI, getContentResolver getType fileURI)
+    share.putExtra(Intent.EXTRA_TEXT, text).putExtra(Intent.EXTRA_STREAM, fileURI).setDataAndType(fileURI, getContentResolver getType fileURI)
     me startActivity Intent.createChooser(share, "Choose an app")
   }
 
@@ -682,7 +683,7 @@ abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) ex
   }
 }
 
-abstract class UsdtWalletCard(host: BaseActivity, xPriv: String) extends WalletCard(host) {
+abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends WalletCard(host) {
   infoContainer setBackgroundResource R.color.usdt
   imageTip.setImageResource(R.drawable.add_24)
   infoWalletNotice setText tap_to_receive

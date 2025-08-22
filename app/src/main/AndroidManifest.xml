@@ -75,5 +75,10 @@
             android:launchMode="singleTask"
             android:theme="@style/NoActionBar"/>
 
+        <activity
+            android:name=".QRUsdtActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/NoActionBar"/>
+
     </application>
 </manifest>

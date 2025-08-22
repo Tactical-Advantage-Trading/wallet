@@ -64,7 +64,7 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     val canReceiveHuman = BtcDenom.parsedWithSignTT(maxMsat, cardIn, cardZero)
     val body = getLayoutInflater.inflate(R.layout.frag_input_fiat_converter, null).asInstanceOf[ViewGroup]
     lazy val manager = new RateManager(body, getString(dialog_add_description).asSome, dialog_visibility_sender, WalletApp.fiatRates.info.rates, WalletApp.fiatCode)
-    mkCheckForm(proceed, none, titleBodyAsViewBuilder(getString(dialog_receive_btc).asColoredView(R.color.cardBitcoinSigning), manager.content), dialog_ok, dialog_cancel)
+    mkCheckForm(proceed, none, titleBodyAsViewBuilder(getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning), manager.content), dialog_ok, dialog_cancel)
     manager.hintFiatDenom.setText(getString(dialog_up_to).format(canReceiveFiatHuman).html)
     manager.hintDenom.setText(getString(dialog_up_to).format(canReceiveHuman).html)
     bu.amount.foreach(manager.updateText)
@@ -86,12 +86,12 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
   }
 
   override def PROCEED(state: Bundle): Unit = {
-    setContentView(R.layout.activity_qr_addresses)
+    setContentView(R.layout.activity_qr_btc)
     checkExternalData(noneRunnable)
   }
 
   def showQRCode: Unit = {
-    val title = getString(dialog_receive_btc) + "<br>" + spec.info.label
+    val title = getString(dialog_receive_address) + "<br>" + spec.info.label
     val keys = spec.data.firstUnusedAccountKeys.toList.sortBy(_.path.lastChildNumber)
     val layoutManager = new CarouselLayoutManager(CarouselLayoutManager.HORIZONTAL, false)
     layoutManager.setPostLayoutListener(new CarouselZoomPostLayoutListener)

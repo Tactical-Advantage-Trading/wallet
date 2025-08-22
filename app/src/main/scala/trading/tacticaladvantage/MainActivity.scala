@@ -605,7 +605,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       val usdtCards = for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(me, info.xPriv) {
-        override def onWalletTap: Unit = println("usdt")
+        override def onWalletTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
+          case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
+          case None => WalletApp.app.quickToast(usdt_not_ready)
+        }
       }
 
       val taCardOpt = if (WalletApp.showTaCard) new TaWalletCard(me) {
