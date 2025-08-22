@@ -15,6 +15,18 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/NoActionBar">
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="trading.tacticaladvantage"
+            android:grantUriPermissions="true"
+            android:exported="false">
+
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/filepaths"/>
+
+        </provider>
+
         <activity
             android:exported="true"
             android:name=".MainActivity"

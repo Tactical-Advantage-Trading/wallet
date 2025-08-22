@@ -592,7 +592,7 @@ trait QRActivity extends BaseCheckActivity { me =>
     out.close
 
     val savedFile = new File(paymentRequestFilePath, "qr.png")
-    val fileURI = FileProvider.getUriForFile(me, "com.btcontract.wallet", savedFile)
+    val fileURI = FileProvider.getUriForFile(me, "trading.tacticaladvantage", savedFile)
     val share = new Intent setAction Intent.ACTION_SEND setType "text/plain" addFlags Intent.FLAG_GRANT_READ_URI_PERMISSION
     share.putExtra(Intent.EXTRA_TEXT, bech32).putExtra(Intent.EXTRA_STREAM, fileURI).setDataAndType(fileURI, getContentResolver getType fileURI)
     me startActivity Intent.createChooser(share, "Choose an app")
