@@ -4,8 +4,8 @@ import immortan.UsdtInfo
 
 object CompleteUsdtWalletInfo { val NOADDRESS = "noaddress" }
 case class CompleteUsdtWalletInfo(address: String, xPriv: String, label: String, lastBalance: String = "0", lastNonce: String = "0", chainTip: Long = 0) {
-  def isRelatedToInfo(info: UsdtInfo): Boolean = address == info.description.toAddrString || address == info.description.fromAddrString
   override def equals(other: Any): Boolean = other match { case that: CompleteUsdtWalletInfo => xPriv == that.xPriv case _ => false }
+  def isRelatedToInfo(info: UsdtInfo): Boolean = address == info.description.toAddr || address == info.description.fromAddr
   override def hashCode: Int = xPriv.hashCode
 }
 

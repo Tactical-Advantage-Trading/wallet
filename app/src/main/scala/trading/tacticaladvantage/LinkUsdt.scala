@@ -1,6 +1,7 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
+import immortan.UsdtDescription
 import immortan.crypto.Tools.{ThrowableOps, none}
 import immortan.crypto.{CanBeShutDown, StateMachine}
 import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteData, SQLiteUsdtWallet}
@@ -48,7 +49,9 @@ object LinkUsdt {
   // Request types
 
   case class UsdtSubscribe(address: String, afterBlock: Long) { val tag = "UsdtSubscribe" }
-  case class UsdtTransfer(amount: String, fromAddr: String, toAddr: String, hash: String, block: Long, stamp: Long, isRemoved: Boolean)
+  case class UsdtTransfer(amount: String, fromAddr: String, toAddr: String, hash: String, block: Long, stamp: Long, isRemoved: Boolean) {
+    lazy val desc: UsdtDescription = UsdtDescription(fromAddr, toAddr)
+  }
 
   implicit val usdSubscribeFormat: JsonFormat[UsdtSubscribe] = taggedJsonFmt(jsonFormat[String, Long,
     UsdtSubscribe](UsdtSubscribe.apply, "address", "afterBlock"), "UsdtSubscribe")

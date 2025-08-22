@@ -177,7 +177,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
     def shareItem: Unit = currentDetails match {
       case info: BtcInfo => info.description.addresses.headOption.foreach(share)
-      case info: UsdtInfo => share(info.description.toAddrString)
+      case info: UsdtInfo => share(info.description.toAddr)
       case info: BtcAddressInfo => share(info.identity)
     }
 
@@ -518,13 +518,13 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case info: BtcInfo if info.description.cpfpOf.isDefined => description setText description_cpfp
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => description setText description_rbf_boost
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => description setText description_rbf_cancel
-        case info: UsdtInfo => description setText info.description.label.getOrElse(info.description.toAddrString.short0x.html)
+        case info: UsdtInfo => description setText info.description.label.getOrElse(info.description.toAddr.short0x.html)
         case info: BtcInfo => description setText info.labelOrAddressOpt.getOrElse(me getString tx_btc).html
         case info: BtcAddressInfo => description setText info.identity.short.html
       }
 
       currentDetails match {
-        case info: UsdtInfo if WalletApp.pendingUsdtInfos.contains(info.description.fromAddrString) => itemView.setAlpha(0.6F)
+        case info: UsdtInfo if WalletApp.pendingUsdtInfos.contains(info.description.fromAddr) => itemView.setAlpha(0.6F)
         case info: BtcInfo if WalletApp.pendingBtcInfos.contains(info.txid) => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
@@ -573,8 +573,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def usdtStatusIcon(info: UsdtInfo): Int = {
-      val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddrString)
-      val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddrString)
+      val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
+      val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
       val isConfirmed = in.exists(_.chainTip - info.block >= 20) || out.exists(_.chainTip - info.block >= 10)
       val isUnknown = in.isEmpty && out.isEmpty
 

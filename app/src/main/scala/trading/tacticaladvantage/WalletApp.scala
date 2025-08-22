@@ -160,8 +160,8 @@ object WalletApp {
 
       def addTx(tr: LinkUsdt.UsdtTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
         case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
-        case None if linkUsdt.data.okWallets.contains(tr.fromAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = "0", tr.amount, fee = "0", isIncoming = 0)
-        case None if linkUsdt.data.okWallets.contains(tr.toAddr) => doAddTx(tr, UsdtDescription(tr.fromAddr, tr.toAddr), received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
+        case None if linkUsdt.data.okWallets.contains(tr.fromAddr) => doAddTx(tr, tr.desc, received = "0", sent = tr.amount, fee = "0", isIncoming = 0)
+        case None if linkUsdt.data.okWallets.contains(tr.toAddr) => doAddTx(tr, tr.desc, received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
         case _ => // Unrelated to our current wallet state
       }
 

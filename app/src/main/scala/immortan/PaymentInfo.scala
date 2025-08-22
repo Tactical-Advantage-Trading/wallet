@@ -125,8 +125,8 @@ object UsdtDescription {
   final val POLYGON = 2
 }
 
-case class UsdtDescription(fromAddrString: String, toAddrString: String, label: Option[String] = None) extends ItemDescription {
-  def queryText(hash: String): String = hash + SEPARATOR + fromAddrString + SEPARATOR + toAddrString + label.getOrElse(new String)
+case class UsdtDescription(fromAddr: String, toAddr: String, label: Option[String] = None) extends ItemDescription {
+  def queryText(hash: String): String = hash + SEPARATOR + fromAddr + SEPARATOR + toAddr + label.getOrElse(new String)
   def withNewLabel(label1: Option[String] = None): UsdtDescription = copy(label = label1)
   val semanticOrder: Option[SemanticOrder] = None
 }
