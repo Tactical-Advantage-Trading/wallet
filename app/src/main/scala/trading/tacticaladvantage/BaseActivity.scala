@@ -38,7 +38,6 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
 
 import java.io.{File, FileOutputStream}
-import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -69,6 +68,7 @@ object ClassNames {
   val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
   val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
+  val taActivityClass: Class[TaActivity] = classOf[TaActivity]
 }
 
 object Colors {
@@ -295,12 +295,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     text
   }
 
-  def showKeys(input: EditText): Unit = {
-    // Popup forms can't show keyboard immediately due to animation, so delay it a bit
-    def process: Unit = runAnd(input.requestFocus)(WalletApp.app showKeys input)
-    timer.schedule(UITask(process), 225)
-  }
-
   def singleInputPopup: (View, TextInputLayout, EditText, CheckBox, TextView) = {
     val container = getLayoutInflater.inflate(R.layout.frag_hint_input, null, false)
     val extraOption = container.findViewById(R.id.extraOption).asInstanceOf[CheckBox]
@@ -396,7 +390,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     for (hintText <- extraText) {
       val revealExtraInputListener = onButtonTap {
         setVisMany(true -> extraInputLayout, false -> extraInputOption)
-        showKeys(extraInput)
       }
 
       extraInputLayout.setHint(hintText)

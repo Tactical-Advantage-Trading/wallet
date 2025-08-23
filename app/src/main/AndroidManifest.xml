@@ -66,6 +66,11 @@
             android:theme="@style/NoActionBar"/>
 
         <activity
+            android:name=".TaActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/NoActionBar"/>
+
+        <activity
             android:name=".QRBtcActivity"
             android:launchMode="singleTask"
             android:theme="@style/NoActionBar"/>

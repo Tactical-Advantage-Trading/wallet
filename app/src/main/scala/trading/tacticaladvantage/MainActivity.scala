@@ -153,7 +153,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
       mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
       extraInputLayout.setHint(dialog_set_label)
-      showKeys(extraInput)
 
       def proceed: Unit = {
         (Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty), currentDetails) match {
@@ -574,7 +573,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       val taCardOpt = if (WalletApp.showTaCard) new TaWalletCard(me) {
-        override def onWalletTap: Unit = println("ta")
+        override def onWalletTap: Unit = goTo(ClassNames.taActivityClass)
       }.asSome else None
 
       btcCards ++ usdtCards ++ taCardOpt
@@ -760,12 +759,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     walletCards.searchField.setTag(true)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(false -> walletCards.defaultHeader, true -> walletCards.searchField)
-    WalletApp.app.showKeys(walletCards.searchField)
-    btcTxInfos = recentBtcInfos.take(3)
-    fillAllInfos
-
-    // Update view after filling
-    paymentAdapterDataChanged.run
   }
 
   def rmSearch(view: View): Unit = {
@@ -773,7 +766,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     walletCards.searchField.setText(new String)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(true -> walletCards.defaultHeader, false -> walletCards.searchField)
-    WalletApp.app.hideKeys(walletCards.searchField)
   }
 
   def bringPasteAddressDialog: Unit = {
@@ -781,7 +773,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
       mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
       extraInputLayout.setHint(typing_hints)
-      showKeys(extraInput)
 
       def proceed: Unit = runInFutureProcessOnUI(InputParser recordValue extraInput.getText.toString, onFail) { _ =>
         def attemptProcessInput: Unit = runAnd(doBringPasteAddressDialog)(nothingUsefulTask.run)
@@ -919,7 +910,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val (container, extraInputLayout, extraInputField, extraOption, extraOptionText) = singleInputPopup
     mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(title, container), sign_sign, dialog_cancel)
     extraInputLayout.setHint(sign_message)
-    showKeys(extraInputField)
 
     setVisMany(true -> extraOptionText, true -> extraOption)
     extraOptionText.setText(sign_sig_only_info)

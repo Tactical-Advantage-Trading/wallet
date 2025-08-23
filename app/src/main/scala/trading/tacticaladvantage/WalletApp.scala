@@ -4,8 +4,7 @@ import akka.actor.Props
 import android.app.Application
 import android.content._
 import android.text.format.DateFormat
-import android.view.inputmethod.InputMethodManager
-import android.widget.{EditText, Toast}
+import android.widget.Toast
 import androidx.multidex.MultiDex
 import fr.acinq.bitcoin.{Block, ByteVector32, Satoshi}
 import fr.acinq.eclair._
@@ -315,9 +314,6 @@ class WalletApp extends Application { me =>
   def quickToast(code: Int): Unit = quickToast(me getString code)
   def quickToast(msg: CharSequence): Unit = Toast.makeText(me, msg, Toast.LENGTH_LONG).show
   def clipboardManager: ClipboardManager = getSystemService(Context.CLIPBOARD_SERVICE).asInstanceOf[ClipboardManager]
-  def inputMethodManager: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
-  def showKeys(field: EditText): Unit = try inputMethodManager.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT) catch none
-  def hideKeys(field: EditText): Unit = try inputMethodManager.hideSoftInputFromWindow(field.getWindowToken, 0) catch none
 
   def copy(text: String): Unit = {
     val bufferContent = ClipData.newPlainText("wallet", text)
@@ -338,7 +334,7 @@ class WalletApp extends Application { me =>
       else if (reminder10 == 1) phraseOptions(1)
       else phraseOptions(3)
   }
-
   def plurOrZero(opts: Array[String], number: Int) =
-    if (number > 0) plur(opts, number) format number else opts(0)
+    if (number > 0) plur(opts, number).format(number)
+    else opts(0)
 }

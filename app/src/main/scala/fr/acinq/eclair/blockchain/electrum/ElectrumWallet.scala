@@ -8,7 +8,6 @@ import fr.acinq.bitcoin.DeterministicWallet._
 import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.electrum.Blockchain.RETARGETING_PERIOD
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
-import fr.acinq.eclair.blockchain.electrum.db._
 import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
 import fr.acinq.eclair.blockchain.fee.FeeratePerKw
 import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
