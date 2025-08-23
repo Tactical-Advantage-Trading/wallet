@@ -41,11 +41,8 @@ object WalletApp {
   var app: WalletApp = _
 
   var currentBtcNode = Option.empty[InetSocketAddress]
-  val seenBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
-  val pendingBtcInfos = mutable.Map.empty[ByteVector32, BtcInfo]
-
-  val seenUsdtInfos = mutable.Map.empty[String, UsdtInfo]
-  val pendingUsdtInfos = mutable.Map.empty[String, UsdtInfo]
+  val seenInfos = mutable.Map.empty[String, ItemDetails]
+  val pendingInfos = mutable.Map.empty[String, ItemDetails]
 
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
@@ -136,11 +133,11 @@ object WalletApp {
         def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
           btcTxDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
           btcTxDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
-          pendingBtcInfos.remove(event.tx.txid)
+          pendingInfos.remove(event.tx.txid.toHex)
         }
 
-        seenBtcInfos.get(event.tx.txid) match {
-          case Some(seen) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
+        seenInfos.get(event.tx.txid.toHex) match {
+          case Some(seen: BtcInfo) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
           case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
           case None => addTx(event.received, event.sent - event.received, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 0L)
         }
@@ -153,11 +150,11 @@ object WalletApp {
       def doAddTx(tr: LinkUsdt.UsdtTransfer, desc: UsdtDescription, received: String, sent: String, fee: String, isIncoming: Long) = {
         usdtTxDataBag.addTx(UsdtDescription.POLYGON, tr.hash, tr.block, tr.isRemoved, received, sent, fee, desc, isIncoming, linkUsdt.data.totalBalance.toString, tr.stamp)
         usdtTxDataBag.addSearchableTransaction(desc.queryText(tr.hash), tr.hash)
-        pendingUsdtInfos.remove(tr.fromAddr)
+        pendingInfos.remove(tr.fromAddr)
       }
 
-      def addTx(tr: LinkUsdt.UsdtTransfer) = seenUsdtInfos.get(tr.fromAddr) match {
-        case Some(seen) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = 0)
+      def addTx(tr: LinkUsdt.UsdtTransfer) = pendingInfos.get(tr.fromAddr) match {
+        case Some(seen: UsdtInfo) => doAddTx(tr, seen.description, received = "0", tr.amount, seen.feeUsdtString, isIncoming = seen.incoming)
         case None if linkUsdt.data.okWallets.contains(tr.fromAddr) => doAddTx(tr, tr.desc, received = "0", sent = tr.amount, fee = "0", isIncoming = 0)
         case None if linkUsdt.data.okWallets.contains(tr.toAddr) => doAddTx(tr, tr.desc, received = tr.amount, sent = "0", fee = "0", isIncoming = 1)
         case _ => // Unrelated to our current wallet state

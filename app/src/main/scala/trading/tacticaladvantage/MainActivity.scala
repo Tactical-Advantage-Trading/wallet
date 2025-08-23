@@ -89,7 +89,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def fillAllInfos: Unit = {
-    val pending = WalletApp.pendingBtcInfos.values
+    val pending = WalletApp.pendingInfos.values
     val displayed = pending.toList ++ btcTxInfos
     allInfos = SemanticOrder.makeSemanticOrder(displayed)
   }
@@ -229,7 +229,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
                 WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid, error.message)
+                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
 
               case None =>
                 // Parent semantic order has already been updated, now we also must update CPFP parent info
@@ -311,7 +311,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
                 WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid, error.message)
+                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
 
               case None =>
                 val parentLowestOrder = rbfBumpOrder.copy(order = Long.MaxValue)
@@ -397,7 +397,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
                 WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid, error.message)
+                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
 
               case None =>
                 val parentLowestOrder = rbfBumpOrder.copy(order = Long.MaxValue)
@@ -478,8 +478,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       else meta setText WalletApp.app.when(currentDetails.date, WalletApp.app.dateFormat).html
 
       currentDetails match {
-        case info: UsdtInfo => setVis(info.description.label.isDefined, labelIcon)
         case info: BtcInfo => setVis(info.description.label.isDefined, labelIcon)
+        case info: UsdtInfo => setVis(info.description.label.isDefined, labelIcon)
       }
 
       currentDetails match {
@@ -491,29 +491,29 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       currentDetails match {
-        case info: UsdtInfo if WalletApp.pendingUsdtInfos.contains(info.description.fromAddr) => itemView.setAlpha(0.6F)
-        case info: BtcInfo if WalletApp.pendingBtcInfos.contains(info.txid) => itemView.setAlpha(0.6F)
+        case info: BtcInfo if WalletApp.pendingInfos.contains(info.txidString) => itemView.setAlpha(0.6F)
+        case info: UsdtInfo if WalletApp.pendingInfos.contains(info.description.fromAddr) => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
 
       currentDetails match {
-        case info: UsdtInfo => statusIcon setImageResource usdtStatusIcon(info)
         case info: BtcInfo => statusIcon setImageResource btcStatusIcon(info)
+        case info: UsdtInfo => statusIcon setImageResource usdtStatusIcon(info)
       }
 
       currentDetails match {
-        case info: UsdtInfo if info.isIncoming => setVisibleIcon(id = R.id.usdtIncoming)
         case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(id = R.id.btcInBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(id = R.id.btcOutBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(id = R.id.btcOutCancelled)
         case info: BtcInfo if info.isIncoming => setVisibleIcon(id = R.id.btcIncoming)
+        case info: UsdtInfo if info.isIncoming => setVisibleIcon(R.id.usdtIncoming)
         case _: UsdtInfo => setVisibleIcon(id = R.id.usdtOutgoing)
         case _: BtcInfo => setVisibleIcon(id = R.id.btcOutgoing)
       }
 
       currentDetails match {
-        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedWithSign(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
         case info: BtcInfo => amount.setText(BtcDenom.directedWithSign(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
+        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedWithSign(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
       }
     }
 
@@ -816,7 +816,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         proceedConfirm(sendView, alert, response) { signedTx =>
           val desc = PlainBtcDescription(uri.address :: Nil, sendView.manager.resultExtraInput orElse uri.label orElse uri.message)
           val broadcastFuture = broadcastTx(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
-          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid, error.message) case None => }
+          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
           alert.dismiss
         }
       }
@@ -868,7 +868,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         proceedConfirm(sendView, alert, response) { signedTx =>
           val desc = PlainBtcDescription(addressToAmount.values.firstItems.toList)
           val broadcastFuture = broadcastTx(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
-          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid, error.message) case None => }
+          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
           alert.dismiss
         }
       }
@@ -909,25 +909,22 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   def bringSignDialog(title: LinearLayout, info: BtcAddressAndPrivKey): EditText = {
     val (container, extraInputLayout, extraInputField, extraOption, extraOptionText) = singleInputPopup
     mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(title, container), sign_sign, dialog_cancel)
-    extraInputLayout.setHint(sign_message)
-
-    setVisMany(true -> extraOptionText, true -> extraOption)
-    extraOptionText.setText(sign_sig_only_info)
-    extraOption.setText(sign_sig_only)
 
     def proceed: Unit = {
       val message = extraInputField.getText.toString.trim
       val hash = drongo.crypto.Bip322.getBip322MessageHash(message)
-      val messageOpt = if (extraOption.isChecked) None else Some(message)
-
-      val ecKey = drongo.crypto.ECKey.fromPrivate(info.privKey.toArray)
-      val scriptType = drongo.address.Address.fromString(drongoNetwork, info.address).getScriptType
-      val sig = drongo.crypto.Bip322.signMessageBip322(scriptType, message, ecKey)
-
-      val data = BIP322VerifyData(info.address, ByteVector.view(hash), sig, messageOpt)
+      val msgOpt = if (extraOption.isChecked) None else Some(message)
+      val signingKey = drongo.crypto.ECKey.fromPrivate(info.privKey.toArray)
+      val scriptType = drongo.address.Address.fromString(drongoNetwork, info.address)
+      val sig = drongo.crypto.Bip322.signMessageBip322(scriptType.getScriptType, message, signingKey)
+      val data = BIP322VerifyData(info.address, ByteVector.view(hash), sig, msgOpt)
       goToWithValue(ClassNames.qrSigActivityClass, data)
     }
 
+    extraInputLayout.setHint(sign_message)
+    setVisMany(true -> extraOptionText, true -> extraOption)
+    extraOptionText.setText(sign_sig_only_info)
+    extraOption.setText(sign_sig_only)
     extraInputField
   }
 
@@ -951,15 +948,15 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   def broadcastTx(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
     val info = BtcInfo(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0, received, sent, fee, seenAt = System.currentTimeMillis,
       updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0)
-    WalletApp.pendingBtcInfos(finalTx.txid) = info
-    WalletApp.seenBtcInfos(finalTx.txid) = info
+    WalletApp.pendingInfos(info.txidString) = info
+    WalletApp.seenInfos(info.txidString) = info
     DbStreams.next(DbStreams.txDbStream)
     ElectrumWallet.broadcast(finalTx)
   }
 
-  def cleanFailedBroadcast(failedTxid: ByteVector32, message: String): Unit = {
-    WalletApp.pendingBtcInfos.remove(failedTxid)
-    WalletApp.seenBtcInfos.remove(failedTxid)
+  def cleanFailedBroadcast(failedKey: String, message: String): Unit = {
+    WalletApp.pendingInfos.remove(failedKey)
+    WalletApp.seenInfos.remove(failedKey)
     DbStreams.next(DbStreams.txDbStream)
     onFail(message)
   }
