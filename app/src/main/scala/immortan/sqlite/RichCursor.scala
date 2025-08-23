@@ -2,7 +2,7 @@ package immortan.sqlite
 
 import java.sql.ResultSet
 
-import immortan.crypto.Tools.Bytes
+import immortan.Tools.Bytes
 import scodec.bits.ByteVector
 
 import scala.util.Try

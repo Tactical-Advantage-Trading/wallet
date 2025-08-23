@@ -1,10 +1,9 @@
-package immortan.crypto
+package immortan
 
-import immortan.crypto.Tools.Bytes
+import immortan.Tools.Bytes
 import scodec.bits.ByteVector
-
 import javax.crypto.Cipher
-import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
+import javax.crypto.spec._
 
 object AES {
   final val ivLength = 16

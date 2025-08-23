@@ -7,7 +7,7 @@ import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.eclair.blockchain.electrum.ElectrumChainSync
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
-import immortan.crypto.Tools.none
+import immortan.Tools.none
 
 
 object WalletEventsCatcher {

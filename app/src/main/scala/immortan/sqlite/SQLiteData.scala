@@ -4,7 +4,7 @@ import java.lang.{Integer => JInt}
 
 import fr.acinq.bitcoin.{BlockHeader, ByteVector32}
 import immortan.WalletSecret
-import immortan.crypto.Tools.Bytes
+import immortan.Tools.Bytes
 import immortan.sqlite.SQLiteData._
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{FeeRatesInfo, FiatRatesInfo}

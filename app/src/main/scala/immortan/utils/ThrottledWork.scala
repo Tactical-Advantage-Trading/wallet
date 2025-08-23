@@ -1,6 +1,6 @@
 package immortan.utils
 
-import immortan.crypto.Tools.{Any2Some, none}
+import immortan.Tools.{Any2Some, none}
 import rx.lang.scala.Subscription
 
 

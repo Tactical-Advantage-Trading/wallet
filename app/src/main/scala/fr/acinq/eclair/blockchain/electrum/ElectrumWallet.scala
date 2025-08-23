@@ -11,9 +11,8 @@ import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
 import fr.acinq.eclair.blockchain.fee.FeeratePerKw
 import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
-import immortan.ConnectionProvider
-import immortan.crypto.CanBeShutDown
-import immortan.crypto.Tools._
+import immortan.{CanBeShutDown, ConnectionProvider}
+import immortan.Tools._
 import immortan.sqlite.{CompleteBtcWalletInfo, SQLiteBtcTx, SQLiteBtcWallet, SQLiteData, SigningWallet}
 import scodec.bits.ByteVector
 

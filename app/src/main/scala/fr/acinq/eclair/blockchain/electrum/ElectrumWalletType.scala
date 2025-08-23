@@ -3,7 +3,7 @@ package fr.acinq.eclair.blockchain.electrum
 import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet._
 import fr.acinq.bitcoin._
-import immortan.crypto.Tools._
+import immortan.Tools._
 import scodec.bits.ByteVector
 
 import scala.util.Try

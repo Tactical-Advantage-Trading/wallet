@@ -2,7 +2,7 @@ package immortan
 
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
 import fr.acinq.eclair._
-import immortan.crypto.Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
+import Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
 import immortan.utils.ImplicitJsonFormats._
 import trading.tacticaladvantage.BaseActivity.StringOps
 

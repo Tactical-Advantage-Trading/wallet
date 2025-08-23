@@ -1,7 +1,7 @@
 package immortan.utils
 
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet
-import immortan.crypto.{CanBeShutDown, Tools}
+import immortan.{CanBeShutDown, Tools}
 import immortan.sqlite.SQLiteData
 import immortan.utils.ImplicitJsonFormats._
 

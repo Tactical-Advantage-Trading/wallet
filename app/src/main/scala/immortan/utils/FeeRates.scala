@@ -3,7 +3,7 @@ package immortan.utils
 import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet
 import fr.acinq.eclair.blockchain.fee._
-import immortan.crypto.CanBeShutDown
+import immortan.CanBeShutDown
 import immortan.sqlite.SQLiteData
 import immortan.utils.FeeRates._
 import immortan.utils.ImplicitJsonFormats._

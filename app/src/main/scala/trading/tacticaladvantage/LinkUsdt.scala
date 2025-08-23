@@ -1,9 +1,8 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
-import immortan.UsdtDescription
-import immortan.crypto.Tools.none
-import immortan.crypto.{CanBeShutDown, StateMachine}
+import immortan.{CanBeShutDown, StateMachine, UsdtDescription}
+import immortan.Tools.none
 import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteUsdtWallet}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx

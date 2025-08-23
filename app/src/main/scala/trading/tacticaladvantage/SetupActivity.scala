@@ -6,7 +6,7 @@ import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
-import immortan.crypto.Tools.{SEPARATOR, StringList, none}
+import immortan.Tools.{SEPARATOR, StringList, none}
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._

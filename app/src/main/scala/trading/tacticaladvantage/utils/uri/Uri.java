@@ -1,4 +1,4 @@
-package immortan.utils.uri;
+package trading.tacticaladvantage.utils.uri;
 
 /*
  * Copyright (C) 2007 The Android Open Source Project

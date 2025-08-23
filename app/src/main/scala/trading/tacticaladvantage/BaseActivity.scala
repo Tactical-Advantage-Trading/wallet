@@ -29,7 +29,7 @@ import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
-import immortan.crypto.Tools._
+import immortan.Tools._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps

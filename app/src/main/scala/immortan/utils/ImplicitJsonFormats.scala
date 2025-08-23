@@ -7,7 +7,7 @@ import fr.acinq.eclair.MilliSatoshi
 import fr.acinq.eclair.blockchain.fee._
 import fr.acinq.eclair.wire.CommonCodecs._
 import immortan._
-import immortan.crypto.Tools.{Fiat2Btc, StringList}
+import Tools.{Fiat2Btc, StringList}
 import immortan.sqlite.SigningWallet
 import immortan.utils.FiatRates.CoinGeckoItemMap
 import scodec.bits.BitVector
@@ -62,6 +62,7 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit object BtcDescriptionFmt extends JsonFormat[BtcDescription] {
     def read(raw: JsValue): BtcDescription = raw.asJsObject.fields(TAG) match {
       case JsString("PlainBtcDescription") => raw.convertTo[PlainBtcDescription]
+      case _ => throw new Exception
     }
 
     def write(internal: BtcDescription): JsValue = internal match {

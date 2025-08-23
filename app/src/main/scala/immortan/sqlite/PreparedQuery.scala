@@ -3,7 +3,7 @@ package immortan.sqlite
 import java.lang.{Double => JDouble, Integer => JInt, Long => JLong}
 import java.sql.PreparedStatement
 
-import immortan.crypto.Tools.Bytes
+import immortan.Tools.Bytes
 
 
 trait PreparedQuery {

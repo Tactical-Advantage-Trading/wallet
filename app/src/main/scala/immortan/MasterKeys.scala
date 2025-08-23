@@ -2,7 +2,7 @@ package immortan
 
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPrivateKey
-import immortan.crypto.Tools.{Bytes, StringList}
+import Tools.{Bytes, StringList}
 import scodec.bits.ByteVector
 import fr.acinq.eclair.wire.CommonCodecs._
 import scodec.Codec

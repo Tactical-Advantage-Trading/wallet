@@ -6,7 +6,7 @@ import trading.tacticaladvantage.BaseActivity.StringOps
 import immortan.sqlite.CompleteUsdtWalletInfo
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils._
-import immortan.crypto.Tools._
+import immortan.Tools._
 
 class QRUsdtActivity extends QRActivity with ExternalDataChecker { me =>
   lazy private[this] val usdtQrCaption = findViewById(R.id.usdtQrCaption).asInstanceOf[TextView]

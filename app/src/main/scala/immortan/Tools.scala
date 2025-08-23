@@ -1,4 +1,4 @@
-package immortan.crypto
+package immortan
 
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 

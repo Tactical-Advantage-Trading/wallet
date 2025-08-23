@@ -1,8 +1,8 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
-import immortan.crypto.Tools.none
-import immortan.crypto.{CanBeShutDown, StateMachine}
+import immortan.{CanBeShutDown, StateMachine}
+import immortan.Tools.none
 import immortan.sqlite.SQLiteData
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx

@@ -4,7 +4,7 @@ import java.lang.Thread.UncaughtExceptionHandler
 
 import android.app.Activity
 import android.content.Intent
-import immortan.crypto.Tools.ThrowableOps
+import immortan.Tools.ThrowableOps
 
 
 object UncaughtHandler {

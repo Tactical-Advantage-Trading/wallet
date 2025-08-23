@@ -10,7 +10,7 @@ import fr.acinq.bitcoin.Btc
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
-import immortan.crypto.Tools._
+import immortan.Tools._
 import immortan.utils.{BtcDenom, Denomination}
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._

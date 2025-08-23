@@ -5,7 +5,7 @@ import java.lang.{Long => JLong}
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
 import fr.acinq.eclair.MilliSatoshi
-import immortan.crypto.Tools.Fiat2Btc
+import immortan.Tools.Fiat2Btc
 import immortan.utils.ImplicitJsonFormats._
 import immortan.{BtcDescription, BtcInfo}
 import spray.json._

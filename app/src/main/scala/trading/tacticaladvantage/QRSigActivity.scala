@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.widget.TextView
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.utils._
-import immortan.crypto.Tools._
+import immortan.Tools._
 
 class QRSigActivity extends QRActivity with ExternalDataChecker { me =>
   lazy private[this] val sigQrCaption = findViewById(R.id.sigQrCaption).asInstanceOf[TextView]

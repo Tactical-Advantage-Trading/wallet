@@ -2,7 +2,6 @@ package immortan
 
 import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
-import immortan.crypto.Tools
 import okhttp3.{MediaType, OkHttpClient, Request, RequestBody, ResponseBody}
 
 

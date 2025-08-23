@@ -9,7 +9,7 @@ import trading.tacticaladvantage.{BaseActivity, R, WalletApp}
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.journeyapps.barcodescanner.{BarcodeCallback, BarcodeResult, BarcodeView}
 import scala.language.implicitConversions
-import immortan.crypto.Tools._
+import immortan.Tools._
 
 
 trait HasBarcodeReader extends BarcodeCallback {

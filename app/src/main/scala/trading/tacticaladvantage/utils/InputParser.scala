@@ -2,9 +2,9 @@ package trading.tacticaladvantage.utils
 
 import fr.acinq.bitcoin.{BtcAmount, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
-import immortan.crypto.Tools._
+import immortan.Tools._
 import immortan.utils.Denomination
-import immortan.utils.uri.Uri
+import trading.tacticaladvantage.utils.uri.Uri
 import org.bouncycastle.util.encoders.Base64
 import scodec.bits.ByteVector
 

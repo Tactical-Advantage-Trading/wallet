@@ -14,7 +14,7 @@ import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, O
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan._
-import immortan.crypto.Tools._
+import Tools._
 import immortan.sqlite.DbStreams
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._

@@ -1,10 +1,10 @@
 package trading.tacticaladvantage.utils
 
 import com.neovisionaries.ws.client._
-import immortan.crypto.Tools.ThrowableOps
-import immortan.crypto.StateMachine
+import immortan.Tools.ThrowableOps
 import scala.util.Try
 import WsListener._
+import immortan.StateMachine
 
 object WsListener {
   type JavaList = java.util.List[String]

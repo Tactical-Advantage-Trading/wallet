@@ -11,7 +11,7 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
 import fr.acinq.eclair.blockchain.electrum._
 import immortan._
-import immortan.crypto.Tools._
+import Tools._
 import immortan.sqlite._
 import immortan.utils._
 import trading.tacticaladvantage.R.string._
