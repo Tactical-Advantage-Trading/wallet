@@ -1,14 +1,12 @@
 package immortan
 
-import java.util.Date
-import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
 import fr.acinq.eclair._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWalletType
-import immortan.crypto.Tools.{Any2Some, ExtPubKeys, Fiat2Btc, SEPARATOR, StringList}
-import immortan.sqlite.CompleteBtcWalletInfo
+import immortan.crypto.Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
 import immortan.utils.ImplicitJsonFormats._
 import trading.tacticaladvantage.BaseActivity.StringOps
+
+import java.util.Date
 
 case class SemanticOrder(id: String, order: Long)
 case class RBFParams(ofTxid: ByteVector32, mode: Long)
@@ -48,19 +46,6 @@ sealed trait ItemDetails {
   val identity: String
 }
 
-// BTC Address
-
-case class BtcAddressDescription(label: Option[String] = None) extends ItemDescription {
-  val semanticOrder: Option[SemanticOrder] = None
-}
-
-case class BtcAddressInfo(ewt: ElectrumWalletType, core: CompleteBtcWalletInfo, pubKey: ExtendedPublicKey, description: BtcAddressDescription) extends ItemDetails {
-  override val identity: String = ewt.textAddress(pubKey)
-  override val isDoubleSpent: Boolean = false
-  override def updatedAt: Long = 0L
-  override def seenAt: Long = 0L
-}
-
 // BTC tx
 
 sealed trait BtcDescription extends ItemDescription {
@@ -89,17 +74,6 @@ case class PlainBtcDescription(addresses: StringList,
   override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) me else copy(semanticOrder = order)
   override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
   override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
-}
-
-// We do not know addresses here
-case class FallbackBtcDescription(label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
-                                  cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
-                                  rbf: Option[RBFParams] = None) extends BtcDescription {
-  override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + label.getOrElse(new String)
-  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = copy(semanticOrder = order)
-  override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
-  override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
-  def addresses: StringList = Nil
 }
 
 case class BtcInfo(txString: String, txidString: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,

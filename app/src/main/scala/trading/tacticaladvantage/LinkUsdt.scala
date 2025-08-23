@@ -2,14 +2,12 @@ package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
 import immortan.UsdtDescription
-import immortan.crypto.Tools.{ThrowableOps, none}
+import immortan.crypto.Tools.none
 import immortan.crypto.{CanBeShutDown, StateMachine}
-import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteData, SQLiteUsdtWallet}
+import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteUsdtWallet}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
-
-import scala.util.Try
 import trading.tacticaladvantage.LinkUsdt._
 import trading.tacticaladvantage.utils.WsListener
 import trading.tacticaladvantage.utils.WsListener._
@@ -140,7 +138,7 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       ws.connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>
-      Rx.delay(5000).foreach(_ => me ! CmdConnect)
+      Rx.delay(3000).foreach(_ => me ! CmdConnect)
       listeners.foreach(_.onDisconnected)
       become(data, DISCONNECTED)
 

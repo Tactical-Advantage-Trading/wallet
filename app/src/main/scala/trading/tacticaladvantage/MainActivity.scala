@@ -8,10 +8,9 @@ import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.sparrowwallet.drongo
-import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
+import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse}
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan._
@@ -35,17 +34,13 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object MainActivity {
-  var filteredBtcAddressInfos: Iterable[BtcAddressInfo] = Nil
-  var btcAddressSpec: BtcAddressSpec = BtcAddressSpec(Map.empty, Nil)
-  case class BtcAddressSpec(amounts: Map[ExtendedPublicKey, Satoshi], addresses: List[BtcAddressInfo] = Nil) {
-    def withBalance: List[BtcAddressInfo] = addresses.filter(address => amounts contains address.pubKey)
-  }
-
   var displayFullIxInfoHistory: Boolean = false
   var alreadySeenBtcTxids: Set[ByteVector32] = Set.empty[ByteVector32]
   case class BtcAccumulator(txids: Set[ByteVector32], txinfos: Vector[BtcInfo] = Vector.empty) {
     def withInfo(info: BtcInfo): BtcAccumulator = BtcAccumulator(txids ++ info.relatedTxids, txinfos :+ info)
   }
+
+  case class BtcAddressAndPrivKey(address: String, privKey: ByteVector32)
 
   var btcTxInfos: Iterable[BtcInfo] = Nil
   var recentBtcInfos: Iterable[BtcInfo] = Nil
@@ -67,8 +62,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   // PAYMENT LIST
 
-  def loadRecentInfos: Unit = {
-    filteredBtcAddressInfos = Nil
+  def loadRecentInfos: Unit =
     if (displayFullIxInfoHistory) {
       // Use wishes to see all txs, we still limit by some sensible number to now slow UI down
       recentBtcInfos = WalletApp.btcTxDataBag.listRecentTxs(500).map(WalletApp.btcTxDataBag.toInfo)
@@ -88,17 +82,15 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       btcTxInfos = accumulator3.txinfos
       alreadySeenBtcTxids ++= accumulator3.txids
     }
-  }
 
   def loadSearchedBtcInfos(query: String): Unit = {
     val query1 = query.replaceAll("\\s", "").toLowerCase
-    filteredBtcAddressInfos = btcAddressSpec.addresses.filter(_.identity.toLowerCase contains query1)
     btcTxInfos = WalletApp.btcTxDataBag.searchTransactions(query1).map(WalletApp.btcTxDataBag.toInfo)
   }
 
   def fillAllInfos: Unit = {
     val pending = WalletApp.pendingBtcInfos.values
-    val displayed = pending.toList ++ btcTxInfos ++ filteredBtcAddressInfos
+    val displayed = pending.toList ++ btcTxInfos
     allInfos = SemanticOrder.makeSemanticOrder(displayed)
   }
 
@@ -135,12 +127,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   class PaymentLineViewHolder(itemView: View) extends RecyclerView.ViewHolder(itemView) { self =>
-    val nonLinkContainer: LinearLayout = itemView.findViewById(R.id.nonLinkContainer).asInstanceOf[LinearLayout]
-    val amountAndMeta: RelativeLayout = itemView.findViewById(R.id.amountAndMeta).asInstanceOf[RelativeLayout]
     val extraInfo: FlowLayout = itemView.findViewById(R.id.extraInfo).asInstanceOf[FlowLayout]
     val description: TextView = itemView.findViewById(R.id.description).asInstanceOf[TextView]
     val statusIcon: ImageView = itemView.findViewById(R.id.statusIcon).asInstanceOf[ImageView]
-    val statusText: TextView = itemView.findViewById(R.id.statusText).asInstanceOf[TextView]
     val labelIcon: ImageView = itemView.findViewById(R.id.labelIcon).asInstanceOf[ImageView]
     val amount: TextView = itemView.findViewById(R.id.amount).asInstanceOf[TextView]
     val meta: TextView = itemView.findViewById(R.id.meta).asInstanceOf[TextView]
@@ -170,7 +159,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         (Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty), currentDetails) match {
           case (labelOpt, info: BtcInfo) => WalletApp.btcTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.txid)
           case (labelOpt, info: UsdtInfo) => WalletApp.usdtTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.hashString)
-          case _ =>
         }
       }
     }
@@ -178,7 +166,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     def shareItem: Unit = currentDetails match {
       case info: BtcInfo => info.description.addresses.headOption.foreach(share)
       case info: UsdtInfo => share(info.description.toAddr)
-      case info: BtcAddressInfo => share(info.identity)
     }
 
     def ractOnTap: Unit = {
@@ -479,28 +466,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
           }
 
-          for (adr <- findBtcInputAddress(info.tx).headOption if adr.ewt.secrets.nonEmpty) {
-            addFlowChip(extraInfo, chipText = getString(sign_sign_message), R.drawable.border_yellow) {
-              val msg = getString(sign_sign_message_title).format(adr.identity.short, info.txidString.humanFour)
-              bringSignDialog(msg.asDefView, adr)
-            }
-          }
-
           addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
           if (info.isIncoming && info.description.addresses.nonEmpty) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
-
-        case info: BtcAddressInfo =>
-          btcAddressSpec.amounts.get(info.pubKey) foreach { balance =>
-            val amount = BtcDenom.parsedWithSign(balance.toMilliSatoshi, cardIn, cardZero)
-            addFlowChip(extraInfo, amount, R.drawable.border_gray, None)
-          }
-
-          def doSign: Unit = bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info)
-          if (info.ewt.secrets.nonEmpty) addFlowChip(extraInfo, getString(sign_sign_message), R.drawable.border_yellow)(doSign)
-          addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
       }
     }
 
@@ -509,9 +479,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       else meta setText WalletApp.app.when(currentDetails.date, WalletApp.app.dateFormat).html
 
       currentDetails match {
-        case info: UsdtInfo => setVisMany(info.description.label.isDefined -> labelIcon, true -> nonLinkContainer, true -> amountAndMeta, true -> statusIcon, false -> statusText)
-        case info: BtcInfo => setVisMany(info.description.label.isDefined -> labelIcon, true -> nonLinkContainer, true -> amountAndMeta, true -> statusIcon, false -> statusText)
-        case _: BtcAddressInfo => setVisMany(false -> labelIcon, true -> nonLinkContainer, false -> amountAndMeta, false -> statusIcon, true -> statusText)
+        case info: UsdtInfo => setVis(info.description.label.isDefined, labelIcon)
+        case info: BtcInfo => setVis(info.description.label.isDefined, labelIcon)
       }
 
       currentDetails match {
@@ -520,7 +489,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => description setText description_rbf_cancel
         case info: UsdtInfo => description setText info.description.label.getOrElse(info.description.toAddr.short0x.html)
         case info: BtcInfo => description setText info.labelOrAddressOpt.getOrElse(me getString tx_btc).html
-        case info: BtcAddressInfo => description setText info.identity.short.html
       }
 
       currentDetails match {
@@ -532,7 +500,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       currentDetails match {
         case info: UsdtInfo => statusIcon setImageResource usdtStatusIcon(info)
         case info: BtcInfo => statusIcon setImageResource btcStatusIcon(info)
-        case _ =>
       }
 
       currentDetails match {
@@ -541,7 +508,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(id = R.id.btcOutBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(id = R.id.btcOutCancelled)
         case info: BtcInfo if info.isIncoming => setVisibleIcon(id = R.id.btcIncoming)
-        case _: BtcAddressInfo => setVisibleIcon(id = R.id.btcAddress)
         case _: UsdtInfo => setVisibleIcon(id = R.id.usdtOutgoing)
         case _: BtcInfo => setVisibleIcon(id = R.id.btcOutgoing)
       }
@@ -549,9 +515,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       currentDetails match {
         case info: UsdtInfo => amount.setText(Denomination.fiatDirectedWithSign(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
         case info: BtcInfo => amount.setText(BtcDenom.directedWithSign(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
-        case info: BtcAddressInfo =>
-          statusText.setText(info.description.label getOrElse "?")
-          if (btcAddressSpec.amounts contains info.pubKey) expand(info)
       }
     }
 
@@ -575,7 +538,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     def usdtStatusIcon(info: UsdtInfo): Int = {
       val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
       val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
-      val isConfirmed = in.exists(_.chainTip - info.block >= 20) || out.exists(_.chainTip - info.block >= 10)
+      val isConfirmed = in.exists(_.chainTip - info.block >= 40) || out.exists(_.chainTip - info.block >= 20)
       val isUnknown = in.isEmpty && out.isEmpty
 
       if (info.isDoubleSpent) R.drawable.block_24
@@ -593,7 +556,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val defaultHeader: LinearLayout = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
     val holder: LinearLayout = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val searchField: EditText = view.findViewById(R.id.searchField).asInstanceOf[EditText]
-    val spinner: ProgressBar = view.findViewById(R.id.spinner).asInstanceOf[ProgressBar]
     val recentActivity: View = view.findViewById(R.id.recentActivity)
     val manager: WalletCardManager = new WalletCardManager(holder)
     // This means search is off at start
@@ -637,21 +599,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   private var stateSubscription = Option.empty[Subscription]
 
-  private val chainListener = new WalletEventsListener {
-    override def onChainSyncing(start: Int, now: Int, maxValue: Int): Unit = UITask {
-      setVis(isVisible = maxValue - now > 2016 * 4, walletCards.spinner)
-      walletCards.spinner.setMax(maxValue - start)
-      walletCards.spinner.setProgress(now - start)
-    }.run
-
-    override def onChainSyncEnded(localTip: Int): Unit = UITask {
-      setVis(isVisible = false, walletCards.spinner)
-    }.run
-
-    override def onWalletReady(event: WalletReady): Unit =
-      DbStreams.next(DbStreams.txDbStream)
-  }
-
   private val fiatRatesListener = new FiatRatesListener {
     def onFiatRates(rates: FiatRatesInfo): Unit = UITask {
       walletCards.fiatUnitPriceAndChange.setAlpha(1F)
@@ -674,7 +621,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   override def onDestroy: Unit = {
-    try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
     try WalletApp.fiatRates.listeners -= fiatRatesListener catch none
     stateSubscription.foreach(_.unsubscribe)
     super.onDestroy
@@ -722,8 +668,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         mkCheckForm(_.dismiss, share(data.serialize), bld, dialog_ok, dialog_share)
 
       case data: BIP32SignData =>
-        runInFutureProcessOnUI(getBtcAddressSpec.addresses.find(addressInfo => data.address == addressInfo.identity), onFail) {
-          case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.identity.short).asDefView, info).setText(data.message)
+        runInFutureProcessOnUI(walletAddresses.find(addressInfo => data.address == addressInfo.address), onFail) {
+          case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.address.short).asDefView, info).setText(data.message)
           case None => WalletApp.app.quickToast(sign_address_not_found)
         }
 
@@ -751,10 +697,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         setContentView(R.layout.activity_main)
 
         WalletApp.fiatRates.listeners += fiatRatesListener
-        ElectrumWallet.catcher ! chainListener
-
-        itemsList.addFooterView(expandContainer)
         itemsList.addHeaderView(walletCards.view)
+        itemsList.addFooterView(expandContainer)
         itemsList.setAdapter(paymentsAdapter)
         itemsList.setDividerHeight(0)
         itemsList.setDivider(null)
@@ -816,17 +760,12 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     walletCards.searchField.setTag(true)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(false -> walletCards.defaultHeader, true -> walletCards.searchField)
-    showKeys(walletCards.searchField)
+    WalletApp.app.showKeys(walletCards.searchField)
+    btcTxInfos = recentBtcInfos.take(3)
+    fillAllInfos
 
-    runInFutureProcessOnUI(getBtcAddressSpec, none) { spec =>
-      filteredBtcAddressInfos = spec.withBalance
-      btcTxInfos = recentBtcInfos.take(3)
-      btcAddressSpec = spec
-      fillAllInfos
-
-      // Update view after filling
-      paymentAdapterDataChanged.run
-    }
+    // Update view after filling
+    paymentAdapterDataChanged.run
   }
 
   def rmSearch(view: View): Unit = {
@@ -976,27 +915,30 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     feeView.worker addWork "MULTI-SEND-INIT-CALL"
   }
 
-  def bringSignDialog(title: LinearLayout, info: BtcAddressInfo): EditText = {
-    val (container, extraInputLayout, extraInput, extraOption, extraOptionText) = singleInputPopup
+  def bringSignDialog(title: LinearLayout, info: BtcAddressAndPrivKey): EditText = {
+    val (container, extraInputLayout, extraInputField, extraOption, extraOptionText) = singleInputPopup
     mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, titleBodyAsViewBuilder(title, container), sign_sign, dialog_cancel)
     extraInputLayout.setHint(sign_message)
-    showKeys(extraInput)
+    showKeys(extraInputField)
 
     setVisMany(true -> extraOptionText, true -> extraOption)
     extraOptionText.setText(sign_sig_only_info)
     extraOption.setText(sign_sig_only)
 
     def proceed: Unit = {
-      val message = extraInput.getText.toString.trim
+      val message = extraInputField.getText.toString.trim
       val hash = drongo.crypto.Bip322.getBip322MessageHash(message)
       val messageOpt = if (extraOption.isChecked) None else Some(message)
-      val scriptType = drongo.address.Address.fromString(drongoNetwork, info.identity).getScriptType
-      val ecKey = drongo.crypto.ECKey.fromPrivate(info.ewt.extPrivKeyFromPub(info.pubKey).privateKey.value.toArray)
-      val data = BIP322VerifyData(info.identity, ByteVector.view(hash), drongo.crypto.Bip322.signMessageBip322(scriptType, message, ecKey), messageOpt)
+
+      val ecKey = drongo.crypto.ECKey.fromPrivate(info.privKey.toArray)
+      val scriptType = drongo.address.Address.fromString(drongoNetwork, info.address).getScriptType
+      val sig = drongo.crypto.Bip322.signMessageBip322(scriptType, message, ecKey)
+
+      val data = BIP322VerifyData(info.address, ByteVector.view(hash), sig, messageOpt)
       goToWithValue(ClassNames.qrSigActivityClass, data)
     }
 
-    extraInput
+    extraInputField
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
@@ -1032,31 +974,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     onFail(message)
   }
 
-  def getBtcAddressSpec = {
-    val amounts = Map.empty[ExtendedPublicKey, Satoshi]
-    val amounts1 = ElectrumWallet.specs.values.flatMap(_.data.utxos).foldLeft(amounts) {
-      case (acc, utxo) => acc.updated(utxo.key, acc.getOrElse(utxo.key, 0L.sat) + utxo.item.value.sat)
-    }
-
-    val addresses = for {
-      spec <- ElectrumWallet.specs.values.toList
-      description = BtcAddressDescription(spec.info.label.asSome)
-      (_, extPubKey) <- spec.data.keys.accountKeyMap ++ spec.data.keys.changeKeyMap
-    } yield BtcAddressInfo(spec.data.keys.ewt, spec.info, extPubKey, description)
-    BtcAddressSpec(amounts1, addresses)
-  }
-
-  def findBtcInputAddress(tx: Transaction): Stream[BtcAddressInfo] = {
-    // Using stream to make computation lazy and don't overcompute
-    // can be used to take the first found value
-
-    for {
-      txIn <- tx.txIn.toStream
-      spec <- ElectrumWallet.specs.valuesIterator
-      extPubKey <- spec.data.extPubKeyFromInput(txIn)
-      description = BtcAddressDescription(spec.info.label.asSome)
-    } yield BtcAddressInfo(spec.data.keys.ewt, spec.info, extPubKey, description)
-  }
+  def walletAddresses = for {
+    keys <- ElectrumWallet.specs.values.map(_.data.keys)
+    (_, extPubKey) <- keys.accountKeyMap ++ keys.changeKeyMap
+    privKey = keys.ewt.extPrivKeyFromPub(extPubKey).privateKey.value
+  } yield BtcAddressAndPrivKey(keys.ewt.textAddress(extPubKey), privKey)
 
   def drongoNetwork = ElectrumWallet.chainHash match {
     case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET

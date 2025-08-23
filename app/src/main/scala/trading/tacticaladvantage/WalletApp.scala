@@ -7,7 +7,7 @@ import android.text.format.DateFormat
 import android.view.inputmethod.InputMethodManager
 import android.widget.{EditText, Toast}
 import androidx.multidex.MultiDex
-import fr.acinq.bitcoin.{Block, ByteVector32, Satoshi, SatoshiLong}
+import fr.acinq.bitcoin.{Block, ByteVector32, Satoshi}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
 import fr.acinq.eclair.blockchain.electrum._
@@ -17,7 +17,6 @@ import immortan.sqlite._
 import immortan.utils._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
-import trading.tacticaladvantage.utils.WsListener
 
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress

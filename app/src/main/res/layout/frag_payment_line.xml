@@ -26,7 +26,6 @@
         style="@style/Card">
 
         <LinearLayout
-            android:visibility="gone"
             style="@style/FillingView"
             android:id="@+id/nonLinkContainer"
             android:orientation="horizontal"
@@ -112,18 +111,11 @@
                         android:id="@+id/description"
                         android:layout_centerVertical="true"
                         android:layout_toEndOf="@+id/labelIcon"
-                        android:layout_toStartOf="@id/statusText"
+                        android:layout_toStartOf="@id/statusIcon"
                         android:layout_marginEnd="3dp"
                         android:textStyle="bold"
                         android:ellipsize="end"
                         android:maxLines="1"/>
-
-                    <TextView
-                        style="@style/ChipTextGray"
-                        android:id="@+id/statusText"
-                        android:layout_centerVertical="true"
-                        android:layout_alignParentEnd="true"
-                        android:layout_toStartOf="@id/statusIcon"/>
 
                     <ImageView
                         style="@style/BoundedView"

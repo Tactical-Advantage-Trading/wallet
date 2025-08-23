@@ -206,7 +206,7 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
       ws.connectAsynchronously
 
     case (CmdDisconnected, CONNECTED) =>
-      Rx.delay(5000).foreach(_ => me ! CmdConnect)
+      Rx.delay(3000).foreach(_ => me ! CmdConnect)
       listeners.foreach(_.onDisconnected)
       become(data, DISCONNECTED)
 

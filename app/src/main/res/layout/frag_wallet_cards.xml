@@ -23,19 +23,6 @@
                 android:layout_centerVertical="true"
                 style="@style/BoundedView"/>
 
-            <ProgressBar
-                android:scaleY="1.5"
-                android:visibility="gone"
-                android:layout_width="80dp"
-                android:layout_height="28dp"
-                android:layout_marginEnd="28dp"
-                android:progressTint="@color/colorAccent"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_toStartOf="@id/enterSearchMode"
-                android:layout_centerVertical="true"
-                android:indeterminate="false"
-                android:id="@+id/spinner"/>
-
             <ImageButton
                 android:padding="6dp"
                 android:onClick="bringSearch"

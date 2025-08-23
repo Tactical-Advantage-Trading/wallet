@@ -62,12 +62,10 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit object BtcDescriptionFmt extends JsonFormat[BtcDescription] {
     def read(raw: JsValue): BtcDescription = raw.asJsObject.fields(TAG) match {
       case JsString("PlainBtcDescription") => raw.convertTo[PlainBtcDescription]
-      case _ => raw.convertTo[FallbackBtcDescription]
     }
 
     def write(internal: BtcDescription): JsValue = internal match {
       case btcDescription: PlainBtcDescription => btcDescription.toJson
-      case btcDescription: FallbackBtcDescription => btcDescription.toJson
       case _ => throw new Exception
     }
   }
@@ -75,10 +73,6 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit val plainBtcDescriptionFmt: JsonFormat[PlainBtcDescription] =
     taggedJsonFmt(jsonFormat[StringList, Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams],
       PlainBtcDescription](PlainBtcDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "PlainBtcDescription")
-
-  implicit val fallbackBtcDescriptionFmt: JsonFormat[FallbackBtcDescription] =
-    taggedJsonFmt(jsonFormat[Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams],
-      FallbackBtcDescription](FallbackBtcDescription.apply, "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "FallbackBtcDescription")
 
   // USDT description
 
