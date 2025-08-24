@@ -60,17 +60,17 @@ object LinkUsdt {
 
   sealed trait ResponseArguments { def tag: String }
   case class UsdtFailure(failureCode: FailureCode) extends ResponseArguments { val tag = "UsdtFailure" }
-  case class UsdtTransfers(transfers: List[UsdtTransfer], chainTip: Long) extends ResponseArguments { val tag = "UsdtTransfers" }
-  case class UsdtBalanceNonce(address: String, balance: String, nonce: String, chainTip: Long) extends ResponseArguments { val tag = "UsdtBalanceNonce" }
+  case class UsdtTransfers(transfers: List[UsdtTransfer] = Nil) extends ResponseArguments { val tag = "UsdtTransfers" }
+  case class UsdtBalanceNonce(address: String, balance: String, nonce: String) extends ResponseArguments { val tag = "UsdtBalanceNonce" }
 
   implicit val usdtFailureFormat: JsonFormat[UsdtFailure] = taggedJsonFmt(jsonFormat[FailureCode,
     UsdtFailure](UsdtFailure.apply, "failureCode"), "UsdtFailure")
 
-  implicit val usdtTransfersFormat: JsonFormat[UsdtTransfers] = taggedJsonFmt(jsonFormat[List[UsdtTransfer], Long,
-    UsdtTransfers](UsdtTransfers.apply, "transfers", "chainTip"), "UsdtTransfers")
+  implicit val usdtTransfersFormat: JsonFormat[UsdtTransfers] = taggedJsonFmt(jsonFormat[List[UsdtTransfer],
+    UsdtTransfers](UsdtTransfers.apply, "transfers"), "UsdtTransfers")
 
-  implicit val usdtBalanceNonceFormat: JsonFormat[UsdtBalanceNonce] = taggedJsonFmt(jsonFormat[String, String, String, Long,
-    UsdtBalanceNonce](UsdtBalanceNonce.apply, "address", "balance", "nonce", "chainTip"), "UsdtBalanceNonce")
+  implicit val usdtBalanceNonceFormat: JsonFormat[UsdtBalanceNonce] = taggedJsonFmt(jsonFormat[String, String, String,
+    UsdtBalanceNonce](UsdtBalanceNonce.apply, "address", "balance", "nonce"), "UsdtBalanceNonce")
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
     def read(json: JsValue): ResponseArguments = json.asJsObject.fields(TAG) match {
@@ -117,9 +117,9 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       usdtWalletBag.addUpdateWallet(info)
       become(data1, state)
 
-    case (UsdtBalanceNonce(address, balance, nonce, tip), _) =>
+    case (UsdtBalanceNonce(address, balance, nonce), _) =>
       data.wallets.find(_.address == address).foreach { walletInfo =>
-        me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce, chainTip = tip)
+        me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce)
       }
 
     case (CmdEnsureUsdtAccounts, _) =>
@@ -127,6 +127,13 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
         biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv).foreach { response =>
           me ! Request(UsdtSubscribe(response.smartAccountAddress, 0L), USDT_UPDATE)
           me !! walletInfo.copy(address = response.smartAccountAddress)
+        }
+      }
+
+    case (bin: BinaryMessage, _) =>
+      bin.asLongTry.foreach { chainTip =>
+        data.wallets.foreach { walletInfo =>
+          me !! walletInfo.copy(chainTip = chainTip)
         }
       }
 

@@ -88,7 +88,7 @@ case class BtcInfo(txString: String, txidString: String, extPubsString: String, 
   lazy val txid: ByteVector32 = ByteVector32.fromValidHex(txidString)
   lazy val tx: Transaction = Transaction.read(txString)
 
-  lazy val relatedTxids: Set[ByteVector32] = description.rbf.map(_.ofTxid).toSet ++ description.cpfpBy ++ description.cpfpOf + txid
+  lazy val relatedTxids: Set[String] = (description.rbf.map(_.ofTxid).toSet ++ description.cpfpBy ++ description.cpfpOf).map(_.toHex) + txidString
   lazy val labelOrAddressOpt: Option[String] = description.label orElse description.addresses.headOption.map(_.short)
 }
 

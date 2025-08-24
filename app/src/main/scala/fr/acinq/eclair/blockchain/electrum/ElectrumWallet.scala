@@ -195,12 +195,6 @@ object ElectrumWallet extends CanBeShutDown {
     else spendAll(pubKeyScript, prevScriptToAmount, specs.flatMap(_.data.utxos), feeRatePerKw, OPT_IN_FULL_RBF)
   }
 
-  private def emptyUtxo(pubKeyScript: ByteVector): TxOut = TxOut(Satoshi(0L), pubKeyScript)
-  def stampHashes(utxo: Utxo, hashes: Set[ByteVector32], pubKeyScript: ByteVector, feeRatePerKw: FeeratePerKw): GenerateTxResponse = {
-    val preimageTxOuts = hashes.toList.map(_.bytes).map(OP_PUSHDATA.apply).grouped(2).map(OP_RETURN :: _).map(Script.write).map(emptyUtxo).toList
-    spendAll(pubKeyScript, Map.empty, List(utxo), feeRatePerKw, OPT_IN_FULL_RBF, preimageTxOuts)
-  }
-
   def makeCPFP(specs: Seq[WalletSpec], fromOutpoints: Set[OutPoint], pubKeyScript: ByteVector, feeRatePerKw: FeeratePerKw): GenerateTxResponse = {
     // We might select one largest UTXO to be CPFPd but most often we will only have one anyway and we can run into fee bump issues with less usable UTXOs
     val usableInUtxos = specs.flatMap(_.data.utxos).filter(utxo => fromOutpoints contains utxo.item.outPoint)
@@ -516,9 +510,10 @@ case class MemoizedKeys(ewt: ElectrumWalletType, accountKeys: Vector[ExtendedPub
   }
 }
 
-case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutPoints: List[OutPoint] = Nil, status: Map[ByteVector32, String] = Map.empty, transactions: Map[ByteVector32, Transaction] = Map.empty,
-                        overriddenPendingTxids: Map[ByteVector32, ByteVector32] = Map.empty, history: Map[ByteVector32, ElectrumWallet.TxHistoryItemList] = Map.empty, proofs: Map[ByteVector32, GetMerkleResponse] = Map.empty,
-                        pendingHistoryRequests: Set[ByteVector32] = Set.empty, pendingTransactionRequests: Set[ByteVector32] = Set.empty, pendingHeadersRequests: Set[GetHeaders] = Set.empty, pendingTransactions: List[Transaction] = Nil,
+case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutPoints: List[OutPoint] = Nil,
+                        status: Map[ByteVector32, String] = Map.empty, transactions: Map[ByteVector32, Transaction] = Map.empty, overriddenPendingTxids: Map[ByteVector32, ByteVector32] = Map.empty,
+                        history: Map[ByteVector32, ElectrumWallet.TxHistoryItemList] = Map.empty, proofs: Map[ByteVector32, GetMerkleResponse] = Map.empty, pendingHistoryRequests: Set[ByteVector32] = Set.empty,
+                        pendingTransactionRequests: Set[ByteVector32] = Set.empty, pendingHeadersRequests: Set[GetHeaders] = Set.empty, pendingTransactions: List[Transaction] = Nil,
                         pendingMerkleResponses: Set[GetMerkleResponse] = Set.empty, lastReadyMessage: Option[ElectrumWallet.WalletReady] = None) {
 
   lazy val currentReadyMessage: ElectrumWallet.WalletReady = ElectrumWallet.WalletReady(balance, blockchain.tip.height, proofs.hashCode + transactions.hashCode, keys.ewt.xPub, unExcludedUtxos, excludedOutPoints)

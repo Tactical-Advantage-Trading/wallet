@@ -34,28 +34,28 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object MainActivity {
-  var displayFullIxInfoHistory: Boolean = false
-  var alreadySeenBtcTxids: Set[ByteVector32] = Set.empty[ByteVector32]
-  case class BtcAccumulator(txids: Set[ByteVector32], txinfos: Vector[BtcInfo] = Vector.empty) {
-    def withInfo(info: BtcInfo): BtcAccumulator = BtcAccumulator(txids ++ info.relatedTxids, txinfos :+ info)
+  case class BtcAddressAndPrivKey(address: String, privKey: ByteVector32)
+  case class BtcAccumulator(txids: Set[String], infos: Vector[BtcInfo] = Vector.empty) {
+    def withInfo(info: BtcInfo): BtcAccumulator = BtcAccumulator(txids ++ info.relatedTxids, infos :+ info)
   }
 
-  case class BtcAddressAndPrivKey(address: String, privKey: ByteVector32)
-
-  var btcTxInfos: Iterable[BtcInfo] = Nil
-  var recentBtcInfos: Iterable[BtcInfo] = Nil
+  var displayFullIxInfoHistory: Boolean = false
+  var idsToDisplayAnyway: Set[String] = Set.empty
+  var infosToDisplay: Iterable[ItemDetails] = Nil
+  var btcInfosToConsider: Iterable[BtcInfo] = Nil
   var allInfos: Seq[ItemDetails] = Nil
 }
 
 class MainActivity extends BaseActivity with ExternalDataChecker { me =>
-  private[this] lazy val paymentTypeIconIds = List(R.id.btcAddress, R.id.btcIncoming, R.id.btcInBoosted,
-    R.id.btcOutBoosted, R.id.btcOutCancelled, R.id.btcOutgoing, R.id.usdtIncoming, R.id.usdtOutgoing)
-
   private[this] lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
   private[this] lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
   private[this] lazy val expandContainer = getLayoutInflater.inflate(R.layout.frag_expand, null, false)
   private[this] lazy val expand = expandContainer.findViewById(R.id.expand).asInstanceOf[ImageButton]
+
+  private[this] lazy val paymentTypeIconIds =
+    List(R.id.btcAddress, R.id.btcIncoming, R.id.btcInBoosted, R.id.btcOutBoosted,
+      R.id.btcOutCancelled, R.id.btcOutgoing, R.id.usdtIncoming, R.id.usdtOutgoing)
 
   lazy val walletCards = new WalletCardsViewHolder
   var openListItems = Set.empty[String]
@@ -65,32 +65,33 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   def loadRecentInfos: Unit =
     if (displayFullIxInfoHistory) {
       // Use wishes to see all txs, we still limit by some sensible number to now slow UI down
-      recentBtcInfos = WalletApp.btcTxDataBag.listRecentTxs(500).map(WalletApp.btcTxDataBag.toInfo)
-      btcTxInfos = recentBtcInfos
+      btcInfosToConsider = WalletApp.btcTxDataBag.listRecentTxs(500).map(WalletApp.btcTxDataBag.toInfo)
+      infosToDisplay = btcInfosToConsider
     } else {
-      val initialAccumulator = BtcAccumulator(alreadySeenBtcTxids)
-      recentBtcInfos = WalletApp.btcTxDataBag.listRecentTxs(10).map(WalletApp.btcTxDataBag.toInfo)
-      val accumulator2 = recentBtcInfos.take(3).foldLeft(initialAccumulator)(_ withInfo _)
+      val initialAccumulator = BtcAccumulator(idsToDisplayAnyway)
+      btcInfosToConsider = WalletApp.btcTxDataBag.listRecentTxs(10).map(WalletApp.btcTxDataBag.toInfo)
+      val accumulator2 = btcInfosToConsider.take(3).foldLeft(initialAccumulator)(_ withInfo _)
 
-      val accumulator3 = recentBtcInfos.drop(3).foldLeft(accumulator2) {
+      // Now we actually may take more BTC infos if it makes sense
+      val accumulator3 = btcInfosToConsider.drop(3).foldLeft(accumulator2) {
         case (acc, info) if acc.txids.intersect(info.relatedTxids).nonEmpty => acc.withInfo(info)
+        case (acc, info) if idsToDisplayAnyway.contains(info.txidString) => acc.withInfo(info)
         case (acc, info) if !info.isConfirmed && !info.isDoubleSpent => acc.withInfo(info)
-        case (acc, info) if alreadySeenBtcTxids.contains(info.txid) => acc.withInfo(info)
         case (acc, _) => acc
       }
 
-      btcTxInfos = accumulator3.txinfos
-      alreadySeenBtcTxids ++= accumulator3.txids
+      infosToDisplay = accumulator3.infos
+      idsToDisplayAnyway ++= accumulator3.txids
     }
 
   def loadSearchedBtcInfos(query: String): Unit = {
     val query1 = query.replaceAll("\\s", "").toLowerCase
-    btcTxInfos = WalletApp.btcTxDataBag.searchTransactions(query1).map(WalletApp.btcTxDataBag.toInfo)
+    infosToDisplay = WalletApp.btcTxDataBag.searchTransactions(query1).map(WalletApp.btcTxDataBag.toInfo)
   }
 
   def fillAllInfos: Unit = {
     val pending = WalletApp.pendingInfos.values
-    val displayed = pending.toList ++ btcTxInfos
+    val displayed = pending.toList ++ infosToDisplay
     allInfos = SemanticOrder.makeSemanticOrder(displayed)
   }
 
@@ -537,12 +538,12 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     def usdtStatusIcon(info: UsdtInfo): Int = {
       val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
       val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
-      val isConfirmed = in.exists(_.chainTip - info.block >= 40) || out.exists(_.chainTip - info.block >= 20)
+      val isDeeplyBuried = in.exists(_.chainTip - info.block >= 50) || out.exists(_.chainTip - info.block >= 25)
       val isUnknown = in.isEmpty && out.isEmpty
 
-      if (info.isDoubleSpent) R.drawable.block_24
-      else if (isUnknown) R.drawable.question_24
-      else if (isConfirmed) R.drawable.done_24
+      if (info.isDoubleSpent && isDeeplyBuried) R.drawable.block_24
+      else if (info.isDoubleSpent || isUnknown) R.drawable.question_24
+      else if (isDeeplyBuried) R.drawable.done_24
       else R.drawable.hourglass_empty_24
     }
   }
@@ -722,11 +723,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           if (!isSearchOn) loadRecent
 
           for {
-            txInfo <- recentBtcInfos if !txInfo.isDoubleSpent && !txInfo.isConfirmed
-            relatedSpec <- txInfo.extPubs.flatMap(ElectrumWallet.specs.get).headOption
-            doubleSpent = ElectrumWallet.doubleSpent(relatedSpec.data.keys.ewt.xPub, txInfo.tx)
-            if doubleSpent.depth != txInfo.depth || doubleSpent.isDoubleSpent != txInfo.isDoubleSpent
-          } WalletApp.btcTxDataBag.updStatus(txInfo.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
+            info <- btcInfosToConsider if !info.isDoubleSpent && !info.isConfirmed
+            relatedSpec <- info.extPubs.flatMap(ElectrumWallet.specs.get).headOption
+            doubleSpent = ElectrumWallet.doubleSpent(relatedSpec.data.keys.ewt.xPub, info.tx)
+            if doubleSpent.depth != info.depth || doubleSpent.isDoubleSpent != info.isDoubleSpent
+          } WalletApp.btcTxDataBag.updStatus(info.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
 
           UITask(walletCards.updateView).run
           paymentAdapterDataChanged.run
@@ -929,7 +930,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    val expandHideCases = displayFullIxInfoHistory || isSearchOn || recentBtcInfos.size <= allInfos.size
+    val expandHideCases = displayFullIxInfoHistory || isSearchOn || btcInfosToConsider.size <= allInfos.size
     setVisMany(allInfos.nonEmpty -> walletCards.recentActivity, !expandHideCases -> expandContainer)
     paymentsAdapter.notifyDataSetChanged
   }
@@ -967,9 +968,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     privKey = keys.ewt.extPrivKeyFromPub(extPubKey).privateKey.value
   } yield BtcAddressAndPrivKey(keys.ewt.textAddress(extPubKey), privKey)
 
-  def drongoNetwork = ElectrumWallet.chainHash match {
-    case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
-    case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
-    case _ => drongo.Network.REGTEST
+  def drongoNetwork = {
+    ElectrumWallet.chainHash match {
+      case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
+      case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
+      case _ => drongo.Network.REGTEST
+    }
   }
 }
