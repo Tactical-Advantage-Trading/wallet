@@ -168,10 +168,9 @@ object WalletApp {
       }
 
       override def onConnected: Unit = {
-        println("linkUsdt onConnected")
         for (info <- linkUsdt.data.withRealAddress) {
-          val sub = LinkUsdt.UsdtSubscribe(info.address.toLowerCase, info.chainTip)
-          println(s"linkUsdt sub=$sub")
+          val lowCaseAddress = info.address.toLowerCase.trim
+          val sub = LinkUsdt.UsdtSubscribe(lowCaseAddress, info.chainTip)
           linkUsdt ! LinkUsdt.Request(sub, id)
         }
       }

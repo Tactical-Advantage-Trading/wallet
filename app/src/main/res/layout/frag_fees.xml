@@ -27,12 +27,6 @@
             style="@style/ChipTextGrayMargin"
             android:background="@drawable/border_yellow"
             android:visibility="invisible"
-            android:id="@+id/bitcoinFee"/>
-
-        <TextView
-            style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_yellow"
-            android:visibility="invisible"
             android:id="@+id/fiatFee"/>
 
     </org.apmem.tools.layouts.FlowLayout>

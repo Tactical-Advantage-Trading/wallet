@@ -91,10 +91,12 @@ object LinkUsdt {
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none
+    def onChainTip(chainTip: Long): Unit = none
     def onDisconnected: Unit = none
     def onConnected: Unit = none
   }
 
+  case class CmdRemove(listener: Listener)
   case object CmdEnsureUsdtAccounts
 }
 
@@ -111,11 +113,11 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
 
   def !!(change: Any): Unit = (change, state) match {
     case (listener: Listener, _) => listeners = listeners :+ listener
+    case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
 
     case (info: CompleteUsdtWalletInfo, _) =>
-      val data1 = data.copy(data.wallets - info + info)
+      data = data.copy(data.wallets - info + info)
       usdtWalletBag.addUpdateWallet(info)
-      become(data1, state)
 
     case (UsdtBalanceNonce(address, balance, nonce), _) =>
       data.wallets.find(_.address.toLowerCase == address).foreach { walletInfo =>
@@ -131,11 +133,9 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       }
 
     case (bin: BinaryMessage, _) =>
-      bin.asLongTry.foreach { chainTip =>
-        data.wallets.foreach { walletInfo =>
-          println(s"chainTip=$chainTip")
-          me !! walletInfo.copy(chainTip = chainTip)
-        }
+      for (chainTip <- bin.asLongTry) {
+        for (info <- data.wallets) me !! info.copy(chainTip = chainTip)
+        for (listener <- listeners) listener.onChainTip(chainTip)
       }
 
     case (CmdConnect, DISCONNECTED) =>
@@ -152,12 +152,10 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       listeners.foreach(_.onConnected)
       become(data, CONNECTED)
 
-    case (req: Request, CONNECTED) =>
-      println(s"linkUsdt sending $VERSION${req.toJson.compactPrint}")
-      ws.sendText(s"$VERSION${req.toJson.compactPrint}")
+    case (req: Request, CONNECTED) => ws.sendText(s"$VERSION${req.toJson.compactPrint}")
     case (req: Request, DISCONNECTED) => listeners.filter(_.id == req.id).foreach(_.onDisconnected)
     case (Response(arguments, id), CONNECTED) => listeners.filter(_.id == id).foreach(_ onResponse arguments)
-    case _ => println(s"linkUsdt missed change=$change, state=$state")
+    case _ =>
   }
 
   data = WalletManager(Set.empty)

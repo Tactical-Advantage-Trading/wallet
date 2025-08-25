@@ -424,7 +424,6 @@ trait BaseActivity extends AppCompatActivity { me =>
   class FeeView[T](from: FeeratePerByte, val content: View) {
     val feeRate: TextView = content.findViewById(R.id.feeRate).asInstanceOf[TextView]
     val txIssues: TextView = content.findViewById(R.id.txIssues).asInstanceOf[TextView]
-    val bitcoinFee: TextView = content.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
     val fiatFee: TextView = content.findViewById(R.id.fiatFee).asInstanceOf[TextView]
 
     val customFeerate: Slider = content.findViewById(R.id.customFeerate).asInstanceOf[Slider]
@@ -434,13 +433,8 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = {
       feeRate setText getString(dialog_fee_sat_vbyte).format(FeeratePerByte(rate).feerate.toLong).html
-      setVisMany(feeOpt.isDefined -> bitcoinFee, feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
-
-      feeOpt.foreach { fee =>
-        val humanFee = BtcDenom.parsedTT(fee, cardIn, cardZero).html
-        fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
-        bitcoinFee setText humanFee
-      }
+      feeOpt.foreach(fee => fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html)
+      setVisMany(feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
     }
 
     private val revealSlider = onButtonTap {
@@ -489,8 +483,8 @@ trait BaseActivity extends AppCompatActivity { me =>
     val inputChain: LinearLayout = host.findViewById(R.id.inputChain).asInstanceOf[LinearLayout]
 
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
-    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
     val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
+    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
 
     manager.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
     manager.hintDenom setText getString(dialog_up_to).format(canSend).html

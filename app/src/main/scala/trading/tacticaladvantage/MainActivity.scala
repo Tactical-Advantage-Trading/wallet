@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.sparrowwallet.drongo
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse}
+import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan._
@@ -258,7 +258,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
     def doBoostRBF(specs: Seq[WalletSpec], info: BtcInfo): Unit = {
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
-      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
+      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
       val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
@@ -346,7 +346,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
 
       val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
-      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
+      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView: FeeView[RBFResponse] = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.host) {
@@ -442,11 +442,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             for (wallet <- WalletApp.linkUsdt.data.withRealAddress if wallet isRelatedToInfo info)
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
-          if (info.feeUsdtString > "0") {
-            val fee = Denomination.fiat("0", info.feeUsdtString, cardOut, cardIn, isIncoming = false)
-            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
-          }
-
           addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
           if (info.isIncoming) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
 
@@ -461,16 +456,14 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           val txid = getString(popup_btc_txid).format(info.txidString.short)
           addFlowChip(extraInfo, chipText = txid, R.drawable.border_gray, info.txidString.asSome)
 
-          if (info.feeSat > 0L.sat) {
-            val fee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardZero)
-            addFlowChip(extraInfo, getString(popup_fee).format(fee), R.drawable.border_gray, None)
-          }
-
           addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
-          if (info.isIncoming && info.description.addresses.nonEmpty) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
+
+          if (info.isIncoming && info.description.addresses.nonEmpty) {
+            addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
+          }
       }
     }
 
@@ -595,7 +588,20 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   private var stateSubscription = Option.empty[Subscription]
 
-  private val fiatRatesListener = new FiatRatesListener {
+  private val chainListener = new WalletEventsListener {
+    override def onWalletReady(event: WalletReady): Unit =
+      DbStreams.next(DbStreams.txDbStream)
+  }
+
+  private val usdtListener = new LinkUsdt.Listener(LinkUsdt.GENERAL_ERROR) {
+    override def onChainTip(chainTip: Long): Unit = paymentAdapterDataChanged.run
+    override def onResponse(args: Option[LinkUsdt.ResponseArguments] = None): Unit = args.foreach {
+      case usdtFailure: LinkUsdt.UsdtFailure => WalletApp.app.quickToast(usdtFailure.failureCode.getClass.getName)
+      case _ => // Not interested in anything else
+    }
+  }
+
+  private val fiatListener = new FiatRatesListener {
     def onFiatRates(rates: FiatRatesInfo): Unit = UITask {
       walletCards.fiatUnitPriceAndChange.setAlpha(1F)
       walletCards.updateView
@@ -617,7 +623,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   override def onDestroy: Unit = {
-    try WalletApp.fiatRates.listeners -= fiatRatesListener catch none
+    try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
+    try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
+    try WalletApp.fiatRates.listeners -= fiatListener catch none
     stateSubscription.foreach(_.unsubscribe)
     super.onDestroy
   }
@@ -692,7 +700,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       case true if WalletApp.isOperational =>
         setContentView(R.layout.activity_main)
 
-        WalletApp.fiatRates.listeners += fiatRatesListener
+        ElectrumWallet.catcher ! chainListener
+        WalletApp.fiatRates.listeners += fiatListener
+        WalletApp.linkUsdt ! usdtListener
+
         itemsList.addHeaderView(walletCards.view)
         itemsList.addFooterView(expandContainer)
         itemsList.setAdapter(paymentsAdapter)
@@ -711,9 +722,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
         // STREAMS
 
-        val window = 500.millis
-        timer.scheduleAtFixedRate(paymentAdapterDataChanged, 30000, 30000)
-        stateSubscription = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txDbStream, window).subscribe { _ =>
+        stateSubscription = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txDbStream, 500.millis).subscribe { _ =>
           // After each delayed update we check if pending txs got confirmed or double-spent
           // do this check specifically after updating txInfos with new items
           if (!isSearchOn) loadRecent
