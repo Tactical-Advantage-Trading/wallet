@@ -53,9 +53,9 @@ trait MnemonicActivity { me: BaseActivity =>
   }
 }
 
-class SetupActivity extends BaseActivity with MnemonicActivity {
+class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   lazy val activityContainer = findViewById(R.id.activitySetupMain).asInstanceOf[LinearLayout]
-  lazy val devInfo = findViewById(R.id.devInfo).asInstanceOf[TextView]
+  lazy val devInfo = me clickableTextField findViewById(R.id.devInfo).asInstanceOf[TextView]
 
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)

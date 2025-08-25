@@ -16,6 +16,7 @@ import immortan.sqlite._
 import immortan.utils._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
+import trading.tacticaladvantage.utils.WsListener
 
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
@@ -166,11 +167,14 @@ object WalletApp {
         case _ => // Not interested in anything else
       }
 
-      override def onConnected: Unit =
+      override def onConnected: Unit = {
+        println("linkUsdt onConnected")
         for (info <- linkUsdt.data.withRealAddress) {
-          val sub = LinkUsdt.UsdtSubscribe(info.address, info.chainTip)
+          val sub = LinkUsdt.UsdtSubscribe(info.address.toLowerCase, info.chainTip)
+          println(s"linkUsdt sub=$sub")
           linkUsdt ! LinkUsdt.Request(sub, id)
         }
+      }
     }
 
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
@@ -254,7 +258,7 @@ object WalletApp {
 
     if (linkUsdt.data.wallets.nonEmpty) {
       linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
-//      linkUsdt ! WsListener.CmdConnect
+      linkUsdt ! WsListener.CmdConnect
     }
 
 //    if (showTaCard) {

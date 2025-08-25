@@ -29,16 +29,29 @@ object WsListener {
 }
 
 class WsListener[T, V](host: StateMachine[T], parse: String => Try[V], errorFun: String => Unit) extends WebSocketAdapter {
-  override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = host ! CmdDisconnected
-  override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = host ! CmdDisconnected
-  override def onConnected(ws: WebSocket, headers: JavaMap): Unit = host ! CmdConnected
+  override def onDisconnected(ws: WebSocket, scf: WebSocketFrame, ccf: WebSocketFrame, bySrv: Boolean): Unit = {
+    println(s"onDisconnected bySrv=$bySrv")
+    host ! CmdDisconnected
+  }
+  override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = {
+    println(s"onConnectError exception=$exception")
+    host ! CmdDisconnected
+  }
+  override def onConnected(ws: WebSocket, headers: JavaMap): Unit = {
+    println("onConnected")
+    host ! CmdConnected
+  }
 
-  override def onTextMessage(ws: WebSocket, message: String): Unit =
-    parse(message).map(host ! _).recover { case exception =>
+  override def onTextMessage(ws: WebSocket, text: String): Unit = {
+    println(s"onTextMessage text=$text")
+    parse(text).map(host ! _).recover { case exception =>
       errorFun(exception.stackTraceAsString)
       ws.disconnect
     }
+  }
 
-  override def onBinaryMessage(websocket: WebSocket, binary: Bytes): Unit =
+  override def onBinaryMessage(ws: WebSocket, binary: Bytes): Unit = {
+    println(s"onBinaryMessage binary=${binary.mkString("Array(", ", ", ")")}")
     host ! BinaryMessage(binary)
+  }
 }

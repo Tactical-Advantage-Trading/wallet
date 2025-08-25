@@ -15,33 +15,37 @@ object Denomination {
   def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * BtcDenom.factor).toLong.msat
   def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / BtcDenom.factor
 
-  def fiatDirectedWithSign(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String = {
-    val (sign, color, amount) = if (isIncoming) ("+&#160;", inColor, incoming) else ("-&#160;", outColor, outgoing)
+  def fiat(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean) = {
+    val (color, amount) = if (isIncoming) (inColor, incoming) else (outColor, outgoing)
     val (whole, decimal) = amount.splitAt(amount indexOf ".")
 
-    val whole1 = if (amount == decimal) amount else whole
-    val whole2 = formatFiatShort format BigDecimal(whole1)
-    s"$sign<font color=$color>$whole2$decimal</font>"
+    val (whole1, decimal1) = if (amount == decimal) (amount, new String) else (whole, decimal take 3)
+    s"<font color=$color>${formatFiatShort format whole1.toDouble}<small>$decimal1</small></font>"
   }
 
-  def fiatDirectedWithSignTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String =
-    "<tt>" + fiatDirectedWithSign(incoming, outgoing, inColor, outColor, isIncoming) + "</tt>"
+  def fiatTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String =
+    "<tt>" + fiat(incoming, outgoing, inColor, outColor, isIncoming) + "</tt>"
+
+  def fiatDirectedTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String = {
+    val base = fiatTT(incoming, outgoing, inColor, outColor, isIncoming)
+    val direction = if (isIncoming) "+&#160;" else "-&#160;"
+    s"$direction$base"
+  }
 }
 
 trait Denomination {
-  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
-  def parsedWithSignTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
-  def parsedWithSign(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
   def fromMsat(amount: MilliSatoshi): BigDecimal = BigDecimal(amount.toLong) / factor
+  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
+  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
 
-  def directedWithSign(incoming: MilliSatoshi, outgoing: MilliSatoshi,
-                       inColor: String, outColor: String, zeroColor: String,
-                       isIncoming: Boolean): String = {
+  def directedTT(incoming: MilliSatoshi, outgoing: MilliSatoshi,
+               inColor: String, outColor: String, zeroColor: String,
+               isIncoming: Boolean): String = {
 
-    if (isIncoming && incoming == 0L.msat) parsedWithSignTT(incoming, inColor, zeroColor)
-    else if (isIncoming) "+&#160;" + parsedWithSignTT(incoming, inColor, zeroColor)
-    else if (outgoing == 0L.msat) parsedWithSignTT(outgoing, outColor, zeroColor)
-    else "-&#160;" + parsedWithSignTT(outgoing, outColor, zeroColor)
+    if (isIncoming && incoming == 0L.msat) parsedTT(incoming, inColor, zeroColor)
+    else if (isIncoming) "+&#160;" + parsedTT(incoming, inColor, zeroColor)
+    else if (outgoing == 0L.msat) parsedTT(outgoing, outColor, zeroColor)
+    else "-&#160;" + parsedTT(outgoing, outColor, zeroColor)
   }
 
   val fmt: DecimalFormat
@@ -55,11 +59,8 @@ object BtcDenom extends Denomination { me =>
   val factor = 100000000000L
   val sign = "btc"
 
-  def parsedWithSignTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
+  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
     if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
-
-  def parsedWithSign(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "0" else parsed(msat, mainColor, zeroColor)
 
   protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String = {
     // Alpha channel does not work on Android when set as HTML attribute

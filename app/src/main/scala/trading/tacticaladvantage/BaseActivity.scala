@@ -132,7 +132,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val title = new TitleView(caption)
 
     for (amount <- uri.amount) {
-      val amountHuman = BtcDenom.parsedWithSignTT(amount, cardIn, signCardZero)
+      val amountHuman = BtcDenom.parsedTT(amount, cardIn, signCardZero)
       val requested = getString(dialog_requested).format(args = amountHuman)
       addFlowChip(title.flow, requested, R.drawable.border_gray, None)
     }
@@ -437,7 +437,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       setVisMany(feeOpt.isDefined -> bitcoinFee, feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
 
       feeOpt.foreach { fee =>
-        val humanFee = BtcDenom.parsedWithSign(fee, cardIn, cardZero).html
+        val humanFee = BtcDenom.parsedTT(fee, cardIn, cardZero).html
         fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
         bitcoinFee setText humanFee
       }
@@ -489,7 +489,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val inputChain: LinearLayout = host.findViewById(R.id.inputChain).asInstanceOf[LinearLayout]
 
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
-    val canSend = BtcDenom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
+    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
     val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
 
     manager.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
@@ -528,8 +528,8 @@ trait BaseActivity extends AppCompatActivity { me =>
       chainConfirmView.chainButtonsView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
       chainConfirmView.chainButtonsView.chainEditButton setOnClickListener onButtonTap(me switchToDefault alert)
 
-      chainConfirmView.confirmFee.secondItem setText BtcDenom.parsedWithSignTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
-      chainConfirmView.confirmAmount.secondItem setText BtcDenom.parsedWithSignTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
+      chainConfirmView.confirmFee.secondItem setText BtcDenom.parsedTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
+      chainConfirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
       chainConfirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(response.transferred.toMilliSatoshi).html
 
       switchButtons(alert, on = false)
@@ -549,7 +549,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       def onWalletTap: Unit = runAnd { isSelected = !isSelected } {
         updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
         val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
-        val formatted = BtcDenom.parsedWithSignTT(totalCanSend, cardIn, cardZero)
+        val formatted = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
         if (totalCanSend > 0L.msat) info.setText(s"∑ $formatted".html)
         else info.setText(select_wallets)
         updateView
@@ -669,7 +669,7 @@ abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) ex
     val bgResource = if (isSelected) R.drawable.border_card_signing_on else R.color.cardBitcoinSigning
     infoWalletNotice setText { if (spec.info.core.attachedMaster.isDefined) attached_wallet else tap_to_receive }
     infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString bitcoin_wallet)
-    balanceWallet setText BtcDenom.parsedWithSignTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
+    balanceWallet setText BtcDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
     balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
     host.setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
     infoContainer setBackgroundResource bgResource
@@ -680,14 +680,14 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
   infoContainer setBackgroundResource R.color.usdt
   imageTip.setImageResource(R.drawable.add_24)
   infoWalletNotice setText tap_to_receive
-  balanceWalletFiat setText "Polygon"
 
   def updateView: Unit = {
     val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
     infoWalletLabel setText info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString usdt_wallet)
-    balanceWallet setText Denomination.fiatDirectedWithSignTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
+    balanceWallet setText Denomination.fiatTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
     host.setVis(info.lastBalance.toDouble > 0D, balanceContainer)
     host.setVis(info.lastBalance.toDouble <= 0D, imageTip)
+    host.setVis(isVisible = false, balanceWalletFiat)
   }
 }
 

@@ -10,13 +10,13 @@
     <string name="recent_activity">Recent activity</string>
     <string translatable="false" name="wallet_send">Send</string>
 
-    <string name="bitcoin_wallet">Bitcoin</string>
+    <string name="bitcoin_wallet">BTC</string>
     <string name="usdt_wallet">USDt</string>
 
     <string name="ta_earn_label">Earn account</string>
     <string name="ta_client_login">Tap to login</string>
 
-    <string name="usdt_not_ready">Not ready to receive, please wait a bit</string>
+    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn">Please make sure USDt is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
     <string name="usdt_polygon_warn_title">Polygon network only</string>
 
@@ -34,7 +34,7 @@
 
     <string name="typing_hints">Bitcoin or USDT address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
-    <string name="search_recent">My transactions and addresses</string>
+    <string name="search_recent">Search recent transactions</string>
     <string name="emergency_mode">Something went wrong</string>
     <string name="error_log">Export error logs</string>
 

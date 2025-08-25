@@ -118,7 +118,7 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       become(data1, state)
 
     case (UsdtBalanceNonce(address, balance, nonce), _) =>
-      data.wallets.find(_.address == address).foreach { walletInfo =>
+      data.wallets.find(_.address.toLowerCase == address).foreach { walletInfo =>
         me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce)
       }
 
@@ -133,17 +133,17 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
     case (bin: BinaryMessage, _) =>
       bin.asLongTry.foreach { chainTip =>
         data.wallets.foreach { walletInfo =>
+          println(s"chainTip=$chainTip")
           me !! walletInfo.copy(chainTip = chainTip)
         }
       }
 
     case (CmdConnect, DISCONNECTED) =>
-      val endpoint = "wss://tactical-advantage.trading/usdt"
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket(endpoint, 443).addListener(wsListener)
+      ws = factory.createSocket("ws://10.0.2.2:9001").addListener(wsListener)
       ws.connectAsynchronously
 
-    case (CmdDisconnected, CONNECTED) =>
+    case (CmdDisconnected, _) if !ws.isOpen =>
       Rx.delay(3000).foreach(_ => me ! CmdConnect)
       listeners.foreach(_.onDisconnected)
       become(data, DISCONNECTED)
@@ -152,10 +152,12 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       listeners.foreach(_.onConnected)
       become(data, CONNECTED)
 
-    case (req: Request, CONNECTED) => ws.sendText(s"$VERSION${req.toJson.compactPrint}")
+    case (req: Request, CONNECTED) =>
+      println(s"linkUsdt sending $VERSION${req.toJson.compactPrint}")
+      ws.sendText(s"$VERSION${req.toJson.compactPrint}")
     case (req: Request, DISCONNECTED) => listeners.filter(_.id == req.id).foreach(_.onDisconnected)
     case (Response(arguments, id), CONNECTED) => listeners.filter(_.id == id).foreach(_ onResponse arguments)
-    case _ =>
+    case _ => println(s"linkUsdt missed change=$change, state=$state")
   }
 
   data = WalletManager(Set.empty)

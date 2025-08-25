@@ -201,8 +201,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         }
 
         override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-          val currentAmount = BtcDenom.directedWithSign(incoming = receivedMsat, outgoing = 0L.msat, cardOut, cardIn, cardZero, isIncoming = true)
-          val afterAmount = BtcDenom.directedWithSign(feeOpt.map(receivedMsat.-).getOrElse(receivedMsat), 0L.msat, cardOut, cardIn, cardZero, isIncoming = true)
+          val currentAmount = BtcDenom.directedTT(incoming = receivedMsat, outgoing = 0L.msat, cardOut, cardIn, cardZero, isIncoming = true)
+          val afterAmount = BtcDenom.directedTT(feeOpt.map(receivedMsat.-).getOrElse(receivedMsat), 0L.msat, cardOut, cardIn, cardZero, isIncoming = true)
           sendView.cpfpView.cpfpCurrent.secondItem.setText(currentAmount.html)
           sendView.cpfpView.cpfpAfter.secondItem.setText(afterAmount.html)
           updatePopupButton(getPositiveButton(alert), feeOpt.isDefined)
@@ -258,7 +258,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
     def doBoostRBF(specs: Seq[WalletSpec], info: BtcInfo): Unit = {
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
-      val currentFee = BtcDenom.parsedWithSignTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
+      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
 
       val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
@@ -346,8 +346,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
 
       val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
+      val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
-      val currentFee = BtcDenom.parsedWithSignTT(info.feeSat.toMilliSatoshi, cardOut, cardIn)
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView: FeeView[RBFResponse] = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.host) {
         rate = target
@@ -443,7 +443,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
           if (info.feeUsdtString > "0") {
-            val fee = Denomination.fiatDirectedWithSign("0", info.feeUsdtString, cardOut, cardIn, isIncoming = false)
+            val fee = Denomination.fiat("0", info.feeUsdtString, cardOut, cardIn, isIncoming = false)
             addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
           }
 
@@ -462,8 +462,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           addFlowChip(extraInfo, chipText = txid, R.drawable.border_gray, info.txidString.asSome)
 
           if (info.feeSat > 0L.sat) {
-            val fee = BtcDenom.directedWithSign(0L.msat, info.feeSat.toMilliSatoshi, cardOut, cardIn, cardZero, isIncoming = false)
-            addFlowChip(extraInfo, chipText = getString(popup_fee) format fee, R.drawable.border_gray, None)
+            val fee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardOut, cardZero)
+            addFlowChip(extraInfo, getString(popup_fee).format(fee), R.drawable.border_gray, None)
           }
 
           addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
@@ -475,13 +475,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def updateDetails: Unit = {
+      setVis(currentDetails.description.label.isDefined, labelIcon)
       if (currentDetails.isDoubleSpent) meta setText getString(state_double_spent).html
       else meta setText WalletApp.app.when(currentDetails.date, WalletApp.app.dateFormat).html
-
-      currentDetails match {
-        case info: BtcInfo => setVis(info.description.label.isDefined, labelIcon)
-        case info: UsdtInfo => setVis(info.description.label.isDefined, labelIcon)
-      }
 
       currentDetails match {
         case info: BtcInfo if info.description.cpfpOf.isDefined => description setText description_cpfp
@@ -513,8 +509,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       currentDetails match {
-        case info: BtcInfo => amount.setText(BtcDenom.directedWithSign(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
-        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedWithSign(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
+        case info: BtcInfo => amount.setText(BtcDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
+        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedTT(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
       }
     }
 
@@ -895,7 +891,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     for (address \ amount <- addressToAmount.values.reverse) {
-      val humanAmount = BtcDenom.parsedWithSignTT(amount.toMilliSatoshi, cardIn, cardZero)
+      val humanAmount = BtcDenom.parsedTT(amount.toMilliSatoshi, cardIn, cardZero)
       val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item, null)
       new TwoSidedItem(parent, address.short.html, humanAmount.html)
       sendView.chainEditView.host.addView(parent, 0)
