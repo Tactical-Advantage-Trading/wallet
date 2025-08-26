@@ -3,7 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import immortan.{CanBeShutDown, StateMachine, UsdtDescription}
 import immortan.Tools.none
-import immortan.sqlite.{CompleteUsdtWalletInfo, SQLiteUsdtWallet}
+import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams, SQLiteUsdtWallet}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
@@ -17,8 +17,8 @@ object LinkUsdt {
   val VERSION: Char = '1'
 
   case class WalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
-    lazy val withRealAddress: Set[CompleteUsdtWalletInfo] = wallets.filterNot(_.address == CompleteUsdtWalletInfo.NOADDRESS)
-    lazy val okWallets: Map[String, CompleteUsdtWalletInfo] = withRealAddress.map(wallet => wallet.address -> wallet).toMap
+    lazy val withRealAddress: Set[CompleteUsdtWalletInfo] = wallets.filterNot(_.lcAddress == CompleteUsdtWalletInfo.NOADDRESS)
+    lazy val okWallets: Map[String, CompleteUsdtWalletInfo] = withRealAddress.map(wallet => wallet.lcAddress -> wallet).toMap
     lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
   }
 
@@ -120,12 +120,13 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       usdtWalletBag.addUpdateWallet(info)
 
     case (UsdtBalanceNonce(address, balance, nonce), _) =>
-      data.wallets.find(_.address.toLowerCase == address).foreach { walletInfo =>
+      data.wallets.find(_.lcAddress == address).foreach { walletInfo =>
         me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce)
+        DbStreams.next(DbStreams.txDbStream)
       }
 
     case (CmdEnsureUsdtAccounts, _) =>
-      data.wallets.find(_.address == CompleteUsdtWalletInfo.NOADDRESS).foreach { walletInfo =>
+      data.wallets.find(_.lcAddress == CompleteUsdtWalletInfo.NOADDRESS).foreach { walletInfo =>
         biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv).foreach { response =>
           me ! Request(UsdtSubscribe(response.smartAccountAddress, 0L), USDT_UPDATE)
           me !! walletInfo.copy(address = response.smartAccountAddress)

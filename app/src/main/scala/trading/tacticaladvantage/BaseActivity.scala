@@ -54,11 +54,10 @@ object BaseActivity {
       val len = source.length
       val firstFirst = source.slice(0, 4)
       val secondFirst = source.slice(4, 8)
-      val firstLast = source.slice(len - 8, len - 4)
       val secondLast = source.slice(len - 4, len)
 
       val doubleSmall = "<sup><small><small>&#8230;</small></small></sup>"
-      s"<tt>$firstFirst&#160;$secondFirst&#160;$doubleSmall&#160;$firstLast&#160;$secondLast</tt>"
+      s"<tt>$firstFirst&#160;$secondFirst&#160;$doubleSmall&#160;$secondLast</tt>"
     }
   }
 }

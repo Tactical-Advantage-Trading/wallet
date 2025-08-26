@@ -14,8 +14,6 @@ trait ConnectionProvider {
 
   def doWhenReady(action: => Unit): Unit
 
-  def notifyAppAvailable: Unit = Tools.none
-
   def get(url: String): ResponseBody = {
     val request = (new Request.Builder).url(url)
     okHttpClient.newCall(request.get.build).execute.body

@@ -97,7 +97,7 @@
 
     <style name="Tag">
         <item name="android:visibility">gone</item>
-        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_width">70dp</item>
         <item name="android:layout_height">50dp</item>
     </style>
 
