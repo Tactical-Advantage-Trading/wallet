@@ -424,6 +424,7 @@ trait BaseActivity extends AppCompatActivity { me =>
   class FeeView[T](from: FeeratePerByte, val content: View) {
     val feeRate: TextView = content.findViewById(R.id.feeRate).asInstanceOf[TextView]
     val txIssues: TextView = content.findViewById(R.id.txIssues).asInstanceOf[TextView]
+    val bitcoinFee: TextView = content.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
     val fiatFee: TextView = content.findViewById(R.id.fiatFee).asInstanceOf[TextView]
 
     val customFeerate: Slider = content.findViewById(R.id.customFeerate).asInstanceOf[Slider]
@@ -433,8 +434,13 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = {
       feeRate setText getString(dialog_fee_sat_vbyte).format(FeeratePerByte(rate).feerate.toLong).html
-      feeOpt.foreach(fee => fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html)
-      setVisMany(feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
+      setVisMany(feeOpt.isDefined -> bitcoinFee, feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
+
+      feeOpt.foreach { fee =>
+        val humanFee = BtcDenom.parsed(fee, cardIn, cardZero).html
+        fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
+        bitcoinFee setText humanFee
+      }
     }
 
     private val revealSlider = onButtonTap {

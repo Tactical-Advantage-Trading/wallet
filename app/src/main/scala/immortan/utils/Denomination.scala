@@ -34,9 +34,9 @@ object Denomination {
 }
 
 trait Denomination {
-  def fromMsat(amount: MilliSatoshi): BigDecimal = BigDecimal(amount.toLong) / factor
-  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
+  def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
   def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
+  def fromMsat(amount: MilliSatoshi): BigDecimal = BigDecimal(amount.toLong) / factor
 
   def directedTT(incoming: MilliSatoshi, outgoing: MilliSatoshi,
                inColor: String, outColor: String, zeroColor: String,
@@ -62,7 +62,7 @@ object BtcDenom extends Denomination { me =>
   def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
     if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
 
-  protected def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String = {
+  def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String = {
     // Alpha channel does not work on Android when set as HTML attribute
     // hence zero color is supplied to match different backgrounds well
 

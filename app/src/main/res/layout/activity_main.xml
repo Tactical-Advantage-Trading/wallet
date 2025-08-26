@@ -15,7 +15,7 @@
 
     <com.ornach.nobobutton.NoboButton
         android:layout_width="110sp"
-        android:layout_marginBottom="30dp"
+        android:layout_marginBottom="20dp"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"
         app:nb_text="@string/wallet_send"

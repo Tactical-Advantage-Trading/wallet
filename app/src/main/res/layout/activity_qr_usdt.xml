@@ -19,7 +19,7 @@
 
         <include
             android:id="@+id/usdtQr"
-            android:layout_marginBottom="110dp"
+            android:layout_marginBottom="100dp"
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             layout="@layout/frag_qr"/>
@@ -30,7 +30,6 @@
         android:orientation="vertical"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"
-        android:background="@drawable/border_yellow"
         android:layout_height="wrap_content"
         android:layout_marginBottom="60dp"
         android:layout_width="340dp"

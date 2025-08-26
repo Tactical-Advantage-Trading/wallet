@@ -18,6 +18,12 @@
 
         <TextView
             style="@style/ChipTextGrayMargin"
+            android:background="@drawable/border_yellow"
+            android:visibility="invisible"
+            android:id="@+id/bitcoinFee"/>
+
+        <TextView
+            style="@style/ChipTextGrayMargin"
             android:background="@drawable/border_gray"
             android:text="@string/dialog_insufficient_funds"
             android:visibility="invisible"

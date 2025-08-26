@@ -161,18 +161,18 @@ object WalletApp {
         case _ => // Unrelated to our current wallet state
       }
 
-      override def onResponse(arguments: Option[LinkUsdt.ResponseArguments] = None): Unit = arguments.foreach {
-        case usdtUpdate: LinkUsdt.UsdtTransfers => usdtTxDataBag.db.txWrap { usdtUpdate.transfers foreach addTx }
-        case usdtUpdate: LinkUsdt.UsdtBalanceNonce => linkUsdt ! usdtUpdate
-        case _ => // Not interested in anything else
-      }
-
       override def onConnected: Unit = {
         for (info <- linkUsdt.data.withRealAddress) {
           val lowCaseAddress = info.address.toLowerCase.trim
           val sub = LinkUsdt.UsdtSubscribe(lowCaseAddress, info.chainTip)
           linkUsdt ! LinkUsdt.Request(sub, id)
         }
+      }
+
+      override def onResponse(arguments: Option[LinkUsdt.ResponseArguments] = None): Unit = arguments.foreach {
+        case usdtUpdate: LinkUsdt.UsdtTransfers => usdtTxDataBag.db.txWrap { usdtUpdate.transfers foreach addTx }
+        case usdtUpdate: LinkUsdt.UsdtBalanceNonce => linkUsdt ! usdtUpdate
+        case _ => // Not interested in anything else
       }
     }
 
