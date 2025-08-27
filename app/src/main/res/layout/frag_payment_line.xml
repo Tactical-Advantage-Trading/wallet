@@ -13,13 +13,6 @@
         android:layout_height="10dp"
         android:layout_width="match_parent"/>
 
-    <View
-        android:id="@+id/spacer1"
-        android:layout_height="1dp"
-        android:background="@color/bg"
-        android:layout_width="match_parent"
-        android:layout_marginBottom="-1dp"/>
-
     <androidx.cardview.widget.CardView
         card_view:cardCornerRadius="@dimen/corner_radius"
         android:id="@+id/paymentCardContainer"
@@ -90,51 +83,19 @@
             <LinearLayout
                 style="@style/FillingView"
                 android:orientation="vertical"
-                android:paddingBottom="11dp"
+                android:paddingBottom="17dp"
                 android:paddingStart="0dp"
-                android:paddingTop="10dp"
+                android:paddingTop="17dp"
                 android:paddingEnd="15dp">
 
                 <!-- Top line -->
 
-                <RelativeLayout style="@style/FillingView">
-
-                    <ImageView
-                        style="@style/BoundedView"
-                        android:id="@+id/labelIcon"
-                        android:layout_marginEnd="3dp"
-                        android:layout_centerVertical="true"
-                        android:src="@drawable/label_24"/>
-
-                    <TextView
-                        style="@style/FillingView"
-                        android:id="@+id/description"
-                        android:layout_centerVertical="true"
-                        android:layout_toEndOf="@+id/labelIcon"
-                        android:layout_toStartOf="@id/statusIcon"
-                        android:layout_marginEnd="3dp"
-                        android:textStyle="bold"
-                        android:ellipsize="end"
-                        android:maxLines="1"/>
-
-                    <ImageView
-                        style="@style/BoundedView"
-                        android:id="@+id/statusIcon"
-                        android:layout_centerVertical="true"
-                        android:layout_alignParentEnd="true"/>
-
-                </RelativeLayout>
-
-                <!-- Bottom line -->
-
                 <RelativeLayout
-                    android:layout_marginTop="11dp"
-                    android:id="@+id/amountAndMeta"
-                    style="@style/FillingView">
+                    style="@style/FillingView"
+                    android:id="@+id/amountAndMeta">
 
                     <TextView
                         android:maxLines="1"
-                        android:ellipsize="end"
                         android:id="@+id/amount"
                         android:textStyle="bold"
                         android:layout_toStartOf="@+id/meta"
@@ -145,16 +106,23 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
+                        android:layout_marginEnd="15dp"
                         android:layout_centerVertical="true"
-                        android:layout_alignParentEnd="true"
+                        android:layout_toStartOf="@id/statusIcon"
                         style="@style/BoundedView"/>
+
+                    <ImageView
+                        style="@style/BoundedView"
+                        android:id="@+id/statusIcon"
+                        android:layout_centerVertical="true"
+                        android:layout_alignParentEnd="true"/>
 
                 </RelativeLayout>
 
                 <!-- Extra details -->
 
                 <org.apmem.tools.layouts.FlowLayout
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="10dp"
                     android:id="@+id/extraInfo"
                     style="@style/FillingView"
                     android:visibility="gone"

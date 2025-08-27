@@ -10,8 +10,8 @@ import fr.acinq.bitcoin.{Block, Satoshi}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
 import fr.acinq.eclair.blockchain.electrum._
+import immortan.Tools._
 import immortan._
-import Tools._
 import immortan.sqlite._
 import immortan.utils._
 import trading.tacticaladvantage.R.string._
@@ -21,7 +21,6 @@ import trading.tacticaladvantage.utils.WsListener
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
-import java.util.Date
 import scala.collection.mutable
 import scala.util.Try
 
@@ -60,8 +59,10 @@ object WalletApp {
 
   def freePossiblyUsedRuntimeResouces: Unit = {
     try ElectrumWallet.becomeShutDown catch none
+
     try fiatRates.becomeShutDown catch none
     try feeRates.becomeShutDown catch none
+
     try linkClient.becomeShutDown catch none
     try linkUsdt.becomeShutDown catch none
     // non-alive and non-operational
@@ -286,29 +287,16 @@ class WalletApp extends Application { me =>
   lazy val scrWidth: Double = metrics.widthPixels.toDouble / metrics.densityDpi
   lazy val maxDialog: Double = metrics.densityDpi * 2.3
 
-  import android.provider.Settings.System.{FONT_SCALE, getFloat}
-  // Special handling for cases when user has chosen large font and screen size is constrained
-  lazy val tooFewSpace: Boolean = getFloat(getContentResolver, FONT_SCALE, 1) > 1.15 || scrWidth < 2.4
-
-  lazy val dateFormat: SimpleDateFormat = DateFormat.is24HourFormat(me) match {
-    case false if tooFewSpace => new SimpleDateFormat("MM/dd/yy")
-    case true if tooFewSpace => new SimpleDateFormat("dd/MM/yy")
-    case false => new SimpleDateFormat("MMM dd, yyyy")
-    case true => new SimpleDateFormat("d MMM yyyy")
+  lazy val dateFormat: SimpleDateFormat = {
+    val is24HourFormat = DateFormat.is24HourFormat(me)
+    if (is24HourFormat) new SimpleDateFormat("dd/MM/yy")
+    else new SimpleDateFormat("MM/dd/yy")
   }
 
   override def attachBaseContext(base: Context): Unit = {
     super.attachBaseContext(base)
     MultiDex.install(me)
   }
-
-  def when(thenDate: Date, simpleFormat: SimpleDateFormat): String =
-    System.currentTimeMillis - thenDate.getTime match {
-      case ago if ago > 12960000 => simpleFormat.format(thenDate)
-      case ago if ago < android.text.format.DateUtils.MINUTE_IN_MILLIS => "now"
-      case ago if ago < android.text.format.DateUtils.HOUR_IN_MILLIS => s"${ago / android.text.format.DateUtils.MINUTE_IN_MILLIS}m ago"
-      case ago if ago < android.text.format.DateUtils.DAY_IN_MILLIS => s"${ago / android.text.format.DateUtils.HOUR_IN_MILLIS}h ago"
-    }
 
   def quickToast(code: Int): Unit = quickToast(me getString code)
   def quickToast(msg: CharSequence): Unit = Toast.makeText(me, msg, Toast.LENGTH_LONG).show
@@ -333,6 +321,7 @@ class WalletApp extends Application { me =>
       else if (reminder10 == 1) phraseOptions(1)
       else phraseOptions(3)
   }
+
   def plurOrZero(opts: Array[String], number: Int) =
     if (number > 0) plur(opts, number).format(number)
     else opts(0)

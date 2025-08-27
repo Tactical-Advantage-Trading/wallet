@@ -137,9 +137,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     override def getView(pos: Int, savedView: View, parent: ViewGroup): View = getItem(pos) match { case item =>
       val view = if (null == savedView) getLayoutInflater.inflate(R.layout.frag_payment_line, null) else savedView
       val holder = if (null == view.getTag) new PaymentLineViewHolder(view) else view.getTag.asInstanceOf[PaymentLineViewHolder]
-
       if (openListItems contains item.identity) holder.expand(item) else holder.collapse(item)
-      setVisMany(item.isExpandedItem -> holder.spacer, !item.isExpandedItem -> holder.spacer1)
+      setVis(item.isExpandedItem, holder.spacer)
       holder.currentDetails = item
       holder.updateDetails
       view
@@ -148,15 +147,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   class PaymentLineViewHolder(itemView: View) extends RecyclerView.ViewHolder(itemView) { self =>
     val extraInfo: FlowLayout = itemView.findViewById(R.id.extraInfo).asInstanceOf[FlowLayout]
-    val description: TextView = itemView.findViewById(R.id.description).asInstanceOf[TextView]
     val statusIcon: ImageView = itemView.findViewById(R.id.statusIcon).asInstanceOf[ImageView]
-    val labelIcon: ImageView = itemView.findViewById(R.id.labelIcon).asInstanceOf[ImageView]
     val amount: TextView = itemView.findViewById(R.id.amount).asInstanceOf[TextView]
     val meta: TextView = itemView.findViewById(R.id.meta).asInstanceOf[TextView]
-
     val spacer: View = itemView.findViewById(R.id.spacer)
-    val spacer1: View = itemView.findViewById(R.id.spacer1)
-    spacer1.setZ(Float.MaxValue)
     itemView.setTag(this)
 
     val paymentTypeIconViews: List[View] = paymentTypeIconIds.map(itemView.findViewById)
@@ -168,19 +162,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     paymentCardContainer setOnClickListener onButtonTap(ractOnTap)
 
     // MENU BUTTONS
-
-    def setItemLabel: Unit = {
-      val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
-      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
-      extraInputLayout.setHint(dialog_set_label)
-
-      def proceed: Unit = {
-        (Option(extraInput.getText.toString).map(trimmed).filter(_.nonEmpty), currentDetails) match {
-          case (labelOpt, info: BtcInfo) => WalletApp.btcTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.txid)
-          case (labelOpt, info: UsdtInfo) => WalletApp.usdtTxDataBag.updDescription(info.description.withNewLabel(labelOpt), info.hashString)
-        }
-      }
-    }
 
     def shareItem: Unit = currentDetails match {
       case info: BtcInfo => info.description.addresses.headOption.foreach(share)
@@ -446,14 +427,12 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       setVis(isVisible = false, extraInfo)
       extraInfo.removeAllViewsInLayout
       openListItems -= item.identity
-      description.setMaxLines(1)
     }
 
     def expand[T <: ItemDetails](item: T): Unit = {
       setVis(isVisible = true, extraInfo)
       extraInfo.removeAllViewsInLayout
       openListItems += item.identity
-      description.setMaxLines(3)
 
       item match {
         case info: UsdtInfo =>
@@ -461,10 +440,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             for (wallet <- WalletApp.linkUsdt.data.withRealAddress if wallet isRelatedToInfo info)
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
-          val txid = getString(popup_txid).format(info.hashString.short0x)
-          addFlowChip(extraInfo, txid, R.drawable.border_gray, info.hashString.asSome)
-
-          addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
+          addFlowChip(extraInfo, getString(popup_txid).format(info.hashString.short0x), R.drawable.border_gray, info.hashString.asSome)
           if (info.isIncoming) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
 
         case info: BtcInfo =>
@@ -478,7 +454,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           val txid = getString(popup_txid).format(info.txidString.short)
           addFlowChip(extraInfo, txid, R.drawable.border_gray, info.txidString.asSome)
 
-          addFlowChip(extraInfo, getString(dialog_set_label), R.drawable.border_yellow)(setItemLabel)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
@@ -490,17 +465,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def updateDetails: Unit = {
-      setVis(currentDetails.description.label.isDefined, labelIcon)
-      if (currentDetails.isDoubleSpent) meta setText getString(state_double_spent).html
-      else meta setText WalletApp.app.when(currentDetails.date, WalletApp.app.dateFormat).html
-
-      currentDetails match {
-        case info: BtcInfo if info.description.cpfpOf.isDefined => description setText description_cpfp
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => description setText description_rbf_boost
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => description setText description_rbf_cancel
-        case info: UsdtInfo => description setText info.description.label.getOrElse(info.description.toAddr.short0x.html)
-        case info: BtcInfo => description setText info.labelOrAddressOpt.getOrElse(me getString tx_btc).html
-      }
+      meta setText WalletApp.app.dateFormat.format(currentDetails.date).html
 
       currentDetails match {
         case info: BtcInfo if WalletApp.pendingInfos.contains(info.txidString) => itemView.setAlpha(0.6F)
