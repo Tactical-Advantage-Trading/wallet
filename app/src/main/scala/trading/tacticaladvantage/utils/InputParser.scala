@@ -38,6 +38,7 @@ object InputParser {
   def parse(rawInput: String): Any = rawInput take 2880 match {
     case bip322Sign(_, rawData) => BIP322Data.parseSign(rawData)
     case bip322Verify(_, rawData) => BIP322Data.parseVerify(rawData)
+    case _ if rawInput.startsWith("0x") => rawInput
 
     case _ =>
       val withoutSlashes = removePrefix(rawInput).trim

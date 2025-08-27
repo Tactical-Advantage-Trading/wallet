@@ -52,20 +52,6 @@
         style="@style/XMarginFillingView"
         android:id="@+id/hintDenom"/>
 
-    <!-- Extra input -->
-
-    <include layout="@layout/frag_hint_input"/>
-
-    <TextView
-        style="@style/XMarginFillingView"
-        android:id="@+id/extraInputOption"
-        android:layout_marginTop="25dp"
-        android:textStyle="bold"/>
-
-    <TextView
-        style="@style/XMarginFillingView"
-        android:id="@+id/extraInputVisibility"/>
-
     <View
         android:layout_marginTop="25dp"
         style="@style/GrayDivider"/>

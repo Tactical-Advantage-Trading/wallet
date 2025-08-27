@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.sparrowwallet.drongo
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
+import org.web3j.crypto.Keys.toChecksumAddress
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
@@ -206,7 +207,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val fromOutPoints = for (idx <- info.tx.txOut.indices) yield OutPoint(info.tx.hash, idx)
       val receivedMsat = info.receivedSat.toMilliSatoshi
 
-      val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
+      val sendView = new BtcSendView(specs)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(target), sendView.cpfpView.host) {
@@ -278,7 +279,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
-      val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
+      val sendView = new BtcSendView(specs)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView: FeeView[RBFResponse] = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.host) {
@@ -363,7 +364,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
 
-      val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
+      val sendView = new BtcSendView(specs)
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
@@ -659,11 +660,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
     val usable = ElectrumWallet.specs.values.filter(_.usable).toList
 
-    def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new WalletSelector(me titleViewFromUri bitcoinUri) {
+    def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new BtcWalletSelector(me titleViewFromUri bitcoinUri) {
       def onOk: Unit = bringSendBitcoinPopup(chosenCards.toList, bitcoinUri)
     }
 
-    def bringMultiAddressSelector(a2a: MultiAddressParser.AddressToAmount) = new WalletSelector(me getString dialog_send_btc_many) {
+    def bringMultiAddressSelector(a2a: MultiAddressParser.AddressToAmount) = new BtcWalletSelector(me getString dialog_send_btc_many) {
       def onOk: Unit = bringSendMultiBitcoinPopup(chosenCards.toList, a2a)
     }
 
@@ -673,7 +674,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         else if (usable.size == 1) bringSendBitcoinPopup(usable, bitcoinUri)
         else bringSingleAddressSelector(bitcoinUri)
 
-      case a2a: MultiAddressParser.AddressToAmount =>
+      case a2a: MultiAddressParser.AddressToAmount if a2a.values.nonEmpty =>
         val dustAmount = a2a.values.secondItems.find(amount => ElectrumWallet.params.dustLimit > amount)
         val badAddress = a2a.values.firstItems.find(address => Try(ElectrumWallet addressToPubKeyScript address).isFailure)
 
@@ -696,6 +697,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.address.short).asDefView, info).setText(data.message)
           case None => WalletApp.app.quickToast(sign_address_not_found)
         }
+
+      case data: String if toChecksumAddress(data) == data =>
+        bringSendUsdtPopup(data)
 
       case _ =>
         whenNone.run
@@ -830,17 +834,24 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     println("settings mode on")
   }
 
+  def bringSendUsdtPopup(address: String): Unit = {
+    val sendView = new UsdtSendView
+    val title = new TitleView(getString(dialog_send_usdt) format address.short0x)
+    val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.usdt), sendView.body)
+    mkCheckForm(identity, none, builder, dialog_ok, dialog_cancel)
+  }
+
   def bringSendBitcoinPopup(specs: Seq[WalletSpec], uri: BitcoinUri): Unit = {
-    val sendView = new ChainSendView(specs, getString(dialog_set_label).asSome, dialog_visibility_private)
     val pubKeyScript = ElectrumWallet.addressToPubKeyScript(uri.address)
     val changeTo = ElectrumWallet.orderByImportance(specs).head
+    val sendView = new BtcSendView(specs)
 
     def attempt(alert: AlertDialog): Unit =
       runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.manager.resultMsat.truncateToSatoshi, Map.empty, feeView.rate), onFail) { response =>
         // This may be a signing or a hardware wallet, in case if it's a hardware wallet we need additional UI action so we use this proxy method here
 
         proceedConfirm(sendView, alert, response) { signedTx =>
-          val desc = PlainBtcDescription(uri.address :: Nil, sendView.manager.resultExtraInput orElse uri.label orElse uri.message)
+          val desc = PlainBtcDescription(uri.address :: Nil, uri.label orElse uri.message)
           val broadcastFuture = broadcastTx(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
           runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
           alert.dismiss
@@ -855,7 +866,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, neutralRes)
     }
 
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.chainEditView.host) {
+    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.defaultView.host) {
       rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
 
       worker = new ThrottledWork[String, GenerateTxResponse] {
@@ -884,8 +895,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   def bringSendMultiBitcoinPopup(specs: Seq[WalletSpec], addressToAmount: MultiAddressParser.AddressToAmount): Unit = {
     val scriptToAmount = addressToAmount.values.firstItems.map(ElectrumWallet.addressToPubKeyScript).zip(addressToAmount.values.secondItems).toMap
-    val sendView = new ChainSendView(specs, badge = None, visibilityRes = -1)
     val changeTo = ElectrumWallet.orderByImportance(specs).head
+    val sendView = new BtcSendView(specs)
 
     def attempt(alert: AlertDialog): Unit =
       runInFutureProcessOnUI(ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, feeView.rate), onFail) { response =>
@@ -904,7 +915,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body), dialog_ok, dialog_cancel)
     }
 
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.chainEditView.host) {
+    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.defaultView.host) {
       rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
 
       worker = new ThrottledWork[String, GenerateTxResponse] {
@@ -923,11 +934,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val humanAmount = BtcDenom.parsedTT(amount.toMilliSatoshi, cardIn, cardZero)
       val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item, null)
       new TwoSidedItem(parent, address.short.html, humanAmount.html)
-      sendView.chainEditView.host.addView(parent, 0)
+      sendView.editChain.addView(parent, 0)
     }
 
-    // Hide address facility, we display a list of addresses instead
-    setVis(isVisible = false, sendView.chainEditView.inputChain)
+    setVis(isVisible = false, sendView.inputChain)
     feeView.update(feeOpt = None, showIssue = false)
     feeView.worker addWork "MULTI-SEND-INIT-CALL"
   }
@@ -961,9 +971,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     paymentsAdapter.notifyDataSetChanged
   }
 
-  def proceedConfirm(sendView: ChainSendView, alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
-    val finalSendButton = sendView.chainConfirmView.chainButtonsView.chainNextButton
-    finalSendButton setOnClickListener onButtonTap(process apply response.tx)
+  def proceedConfirm(sendView: BtcSendView, alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
+    sendView.confirmView.chainButtonsView.chainNextButton setOnClickListener onButtonTap(process apply response.tx)
     sendView.switchToConfirm(alert, response)
   }
 

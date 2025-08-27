@@ -68,11 +68,12 @@
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
     <string name="dialog_insufficient_funds">missing funds</string>
 
+    <string name="dialog_send_usdt"><![CDATA[Send <b>USDt</b> to address<br>%1$s]]></string>
     <string name="dialog_send_btc"><![CDATA[Send <b>Bitcoin</b> to address<br>%1$s%2$s]]></string>
     <string name="dialog_send_btc_many"><![CDATA[Send <b>Bitcoin</b><br><b>to many addresses</b>]]></string>
-    <string name="dialog_send_btc_confirm_amount">Send amount</string>
+    <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_btc_confirm_fiat">Fiat value</string>
-    <string name="dialog_send_btc_confirm_fee">Chain fee</string>
+    <string name="dialog_send_confirm_fee">Chain fee</string>
 
     <string name="recovery_phrase_warning">Tap to save wallet recovery phrase in case you ever lose or replace your device.</string>
 

@@ -1,8 +1,7 @@
 [versions]
-agp = "8.12.0"
-coreKtx = "1.16.0"
+agp = "8.12.1"
+coreKtx = "1.17.0"
 akkaActor = "2.3.14"
-bcprovJdk15to18 = "1.81"
 commonsCodec = "1.19.0"
 guava = "33.4.8-android"
 json4sNative = "4.0.6"
@@ -21,11 +20,11 @@ nvWebsocketClient = "2.14"
 rxscala = "0.27.0"
 multidex = "2.0.1"
 material = "1.12.0"
+web3j = "5.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 akka-actor = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akkaActor" }
-bcprov-jdk15to18 = { module = "org.bouncycastle:bcprov-jdk15to18", version.ref = "bcprovJdk15to18" }
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 json4s-native = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative" }
@@ -44,6 +43,7 @@ multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 rxscala = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 websocket = { group = "com.neovisionaries", name = "nv-websocket-client", version.ref = "nvWebsocketClient" }
+web3j = { group = "org.web3j", name = "core", version.ref = "web3j" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

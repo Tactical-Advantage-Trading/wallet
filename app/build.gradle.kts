@@ -27,10 +27,8 @@ android {
         }
 
         ndk {
-            abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
             abiFilters.add("x86_64")
-            abiFilters.add("x86")
         }
     }
 
@@ -79,10 +77,10 @@ dependencies {
     implementation(libs.quicklens)
     implementation(libs.websocket)
     implementation(libs.rxscala)
+    implementation(libs.web3j)
 
     implementation(libs.spray.json)
     implementation(libs.json4s.native)
-    implementation(libs.bcprov.jdk15to18)
     implementation(libs.commons.codec)
     implementation(libs.netty.all)
     implementation(libs.okhttp)

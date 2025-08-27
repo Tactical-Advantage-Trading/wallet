@@ -2,7 +2,7 @@ package trading.tacticaladvantage
 
 import android.os.Bundle
 import android.view.ViewGroup
-import android.widget.TextView
+import android.widget.{LinearLayout, TextView}
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.azoft.carousellayoutmanager._
@@ -62,9 +62,11 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     val maxMsat = Btc(21e6).toSatoshi.toMilliSatoshi
     val canReceiveHuman = BtcDenom.parsedTT(maxMsat, cardIn, cardZero)
     val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(maxMsat)
-    val body = getLayoutInflater.inflate(R.layout.frag_input_fiat_converter, null).asInstanceOf[ViewGroup]
-    lazy val manager = new RateManager(body, getString(dialog_add_description).asSome, dialog_visibility_sender, WalletApp.fiatRates.info.rates, WalletApp.fiatCode)
-    mkCheckForm(proceed, none, titleBodyAsViewBuilder(getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning), manager.content), dialog_ok, dialog_cancel)
+    val body = getLayoutInflater.inflate(R.layout.frag_input_fiat_converter, null).asInstanceOf[LinearLayout]
+    val title = getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning)
+    lazy val manager = new RateManager(body, WalletApp.fiatCode)
+
+    mkCheckForm(proceed, none, titleBodyAsViewBuilder(title, manager.content), dialog_ok, dialog_cancel)
     manager.hintFiatDenom.setText(getString(dialog_up_to).format(canReceiveFiatHuman).html)
     manager.hintDenom.setText(getString(dialog_up_to).format(canReceiveHuman).html)
     bu.amount.foreach(manager.updateText)
@@ -72,11 +74,13 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     def proceed(alert: AlertDialog): Unit = {
       val uriBuilder = bu.uri.get.buildUpon.clearQuery
       val resultMsat = manager.resultMsat.truncateToSatoshi.toMilliSatoshi
-      val uriBuilder1 = if (resultMsat > ElectrumWallet.params.dustLimit) uriBuilder.appendQueryParameter("amount", Denomination.msat2BtcBigDecimal(resultMsat).toString) else uriBuilder
-      val uriBuilder2 = manager.resultExtraInput match { case Some(resultExtraInput) => uriBuilder1.appendQueryParameter("label", resultExtraInput) case None => uriBuilder1 }
+      val uriBuilder1 = if (resultMsat > ElectrumWallet.params.dustLimit) {
+        val amount = Denomination.msat2BtcBigDecimal(resultMsat).toString
+        uriBuilder.appendQueryParameter("amount", amount)
+      } else uriBuilder
 
       addresses = addresses map {
-        case oldUri if oldUri.address == bu.uri.get.getHost => BitcoinUri(Success(uriBuilder2.build), oldUri.address)
+        case oldUri if oldUri.address == bu.uri.get.getHost => BitcoinUri(Success(uriBuilder1.build), oldUri.address)
         case oldUri => BitcoinUri(oldUri.uri.map(_.buildUpon.clearQuery.build), oldUri.address)
       }
 
