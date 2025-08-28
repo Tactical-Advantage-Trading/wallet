@@ -90,7 +90,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       // Finally, pick the rest of BTC txs with relation to chosen
       val accumulator3 = btcInfosToConsider.foldLeft(accumulator2) {
         case (acc, info) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
-        case (acc, info) if idsToDisplayAnyway.contains(info.txidString) => acc.withBtcInfo(info)
+        case (acc, info) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
         case (acc, info) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
         case (acc, _) => acc
       }
@@ -162,11 +162,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     paymentCardContainer setOnClickListener onButtonTap(ractOnTap)
 
     // MENU BUTTONS
-
-    def shareItem: Unit = currentDetails match {
-      case info: BtcInfo => info.description.addresses.headOption.foreach(share)
-      case info: UsdtInfo => share(info.description.toAddr)
-    }
 
     def ractOnTap: Unit = {
       val isVisible = extraInfo.getVisibility == View.VISIBLE
@@ -440,8 +435,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             for (wallet <- WalletApp.linkUsdt.data.withRealAddress if wallet isRelatedToInfo info)
               addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
 
-          addFlowChip(extraInfo, getString(popup_txid).format(info.hashString.short0x), R.drawable.border_gray, info.hashString.asSome)
-          if (info.isIncoming) addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
+          val hash = getString(popup_txid).format(info.identity.short0x)
+          addFlowChip(extraInfo, hash, R.drawable.border_gray, info.identity.asSome)
 
         case info: BtcInfo =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
@@ -451,16 +446,12 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
             for (wallet <- info.extPubs flatMap ElectrumWallet.specs.get)
               addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray, None)
 
-          val txid = getString(popup_txid).format(info.txidString.short)
-          addFlowChip(extraInfo, txid, R.drawable.border_gray, info.txidString.asSome)
+          val txid = getString(popup_txid).format(info.identity.short)
+          addFlowChip(extraInfo, txid, R.drawable.border_gray, info.identity.asSome)
 
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
-
-          if (info.isIncoming && info.description.addresses.nonEmpty) {
-            addFlowChip(extraInfo, getString(dialog_share_address), R.drawable.border_yellow)(shareItem)
-          }
       }
     }
 
@@ -468,8 +459,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       meta setText WalletApp.app.dateFormat.format(currentDetails.date).html
 
       currentDetails match {
-        case info: BtcInfo if WalletApp.pendingInfos.contains(info.txidString) => itemView.setAlpha(0.6F)
+        case info: BtcInfo if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
         case info: UsdtInfo if WalletApp.pendingInfos.contains(info.description.fromAddr) => itemView.setAlpha(0.6F)
+        case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
 
@@ -489,6 +481,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       currentDetails match {
+        case info: BtcInfo if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
+        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
+        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
         case info: BtcInfo => amount.setText(BtcDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
         case info: UsdtInfo => amount.setText(Denomination.fiatDirectedTT(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
       }
@@ -514,7 +509,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     def usdtStatusIcon(info: UsdtInfo): Int = {
       val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
       val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
-      val isDeeplyBuried = in.exists(_.chainTip - info.block >= 20) || out.exists(_.chainTip - info.block >= 20)
+      val isDeeplyBuried = (in ++ out).exists(_.chainTip - info.block >= 20)
       val isUnknown = in.isEmpty && out.isEmpty
 
       if (info.isDoubleSpent && isDeeplyBuried) R.drawable.block_24
@@ -949,8 +944,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   def broadcastTx(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
     val info = BtcInfo(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0, received, sent, fee, seenAt = System.currentTimeMillis,
       updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0)
-    WalletApp.pendingInfos(info.txidString) = info
-    WalletApp.seenInfos(info.txidString) = info
+    WalletApp.pendingInfos(info.identity) = info
+    WalletApp.seenInfos(info.identity) = info
     DbStreams.next(DbStreams.txDbStream)
     ElectrumWallet.broadcast(finalTx)
   }

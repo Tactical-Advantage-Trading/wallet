@@ -76,20 +76,22 @@ case class PlainBtcDescription(addresses: StringList,
   override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
 }
 
-case class BtcInfo(txString: String, txidString: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
+case class BtcInfo(txString: String, identity: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
                    feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: BtcDescription, balanceSnapshot: MilliSatoshi,
                    fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
   override val isDoubleSpent: Boolean = 1L == doubleSpent
-  override val identity: String = txidString
   val isIncoming: Boolean = 1L == incoming
   val isConfirmed: Boolean = depth > 0
 
   lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
-  lazy val txid: ByteVector32 = ByteVector32.fromValidHex(txidString)
+  lazy val txid: ByteVector32 = ByteVector32.fromValidHex(identity)
   lazy val tx: Transaction = Transaction.read(txString)
 
-  lazy val relatedTxids: Set[String] = (description.rbf.map(_.ofTxid).toSet ++ description.cpfpBy ++ description.cpfpOf).map(_.toHex) + identity
-  lazy val labelOrAddressOpt: Option[String] = description.label orElse description.addresses.headOption.map(_.short)
+  lazy val relatedTxids: Set[String] = {
+    val rbfs = description.rbf.map(_.ofTxid).toSet
+    val cpfps = rbfs ++ description.cpfpBy ++ description.cpfpOf
+    cpfps.map(_.toHex) + identity
+  }
 }
 
 // USDT tx
@@ -105,10 +107,9 @@ case class UsdtDescription(fromAddr: String, toAddr: String, label: Option[Strin
   val semanticOrder: Option[SemanticOrder] = None
 }
 
-case class UsdtInfo(hashString: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,
+case class UsdtInfo(identity: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,
                     feeUsdtString: String, seenAt: Long, updatedAt: Long, description: UsdtDescription, balanceUsdt: Long,
                     incoming: Long, doubleSpent: Long) extends ItemDetails {
   override val isDoubleSpent: Boolean = 1L == doubleSpent
-  override val identity: String = hashString
   val isIncoming: Boolean = 1L == incoming
 }

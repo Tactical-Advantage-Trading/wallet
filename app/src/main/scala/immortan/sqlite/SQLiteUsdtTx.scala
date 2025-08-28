@@ -37,7 +37,7 @@ class SQLiteUsdtTx(val db: DBInterface) {
   }
 
   def toInfo(rc: RichCursor): UsdtInfo = {
-    UsdtInfo(hashString = rc string UsdtTxTable.hash, network = rc int UsdtTxTable.network, block = rc long UsdtTxTable.block,
+    UsdtInfo(identity = rc string UsdtTxTable.hash, network = rc int UsdtTxTable.network, block = rc long UsdtTxTable.block,
       receivedUsdtString = rc string UsdtTxTable.receivedUsdt, sentUsdtString = rc string UsdtTxTable.sentUsdt, feeUsdtString = rc string UsdtTxTable.feeUsdt,
       seenAt = rc long UsdtTxTable.seenAt, updatedAt = rc long UsdtTxTable.updatedAt, description = to[UsdtDescription](rc string UsdtTxTable.description),
       balanceUsdt = rc long UsdtTxTable.balanceUsdt, incoming = rc long UsdtTxTable.incoming, doubleSpent = rc long UsdtTxTable.doubleSpent)
