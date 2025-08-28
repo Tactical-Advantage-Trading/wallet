@@ -10,16 +10,16 @@ import androidx.recyclerview.widget.RecyclerView
 import com.sparrowwallet.drongo
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
-import org.web3j.crypto.Keys.toChecksumAddress
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
+import immortan.Tools._
 import immortan._
-import Tools._
 import immortan.sqlite.DbStreams
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
+import org.web3j.crypto.Keys.toChecksumAddress
 import rx.lang.scala.Subscription
 import scodec.bits.ByteVector
 import spray.json._
@@ -153,17 +153,13 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val spacer: View = itemView.findViewById(R.id.spacer)
     itemView.setTag(this)
 
+    val paymentCardContainer: View = itemView.findViewById(R.id.paymentCardContainer)
     val paymentTypeIconViews: List[View] = paymentTypeIconIds.map(itemView.findViewById)
     val iconMap: Map[Int, View] = paymentTypeIconIds.zip(paymentTypeIconViews).toMap
     var currentDetails: ItemDetails = _
     var lastVisibleIconId: Int = -1
 
-    val paymentCardContainer: View = itemView.findViewById(R.id.paymentCardContainer)
-    paymentCardContainer setOnClickListener onButtonTap(ractOnTap)
-
-    // MENU BUTTONS
-
-    def ractOnTap: Unit = {
+    paymentCardContainer setOnClickListener onButtonTap {
       val isVisible = extraInfo.getVisibility == View.VISIBLE
       if (isVisible) collapse(currentDetails) else expand(currentDetails)
     }
@@ -186,7 +182,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val sendView = new BtcSendView(specs)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
-      lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(target), sendView.cpfpView.host) {
+      lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(target), sendView.cpfpView.fvc) {
         rate = target
 
         worker = new ThrottledWork[String, GenerateTxResponse] {
@@ -241,7 +237,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       }
 
       feeView.update(feeOpt = None, showIssue = false)
-      feeView.customFeerateOption.performClick
+      feeView.fvc.customFeerateOption.performClick
       sendView.defaultView = sendView.cpfpView
       sendView.switchToDefault(alert)
     }
@@ -258,7 +254,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val sendView = new BtcSendView(specs)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
-      lazy val feeView: FeeView[RBFResponse] = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.host) {
+      lazy val feeView = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.fvc) {
         rate = target
 
         worker = new ThrottledWork[String, RBFResponse] {
@@ -325,7 +321,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       sendView.rbfView.rbfCurrent.secondItem.setText(currentFee.html)
       feeView.update(feeOpt = Option.empty, showIssue = false)
-      feeView.customFeerateOption.performClick
+      feeView.fvc.customFeerateOption.performClick
       sendView.defaultView = sendView.rbfView
       sendView.switchToDefault(alert)
     }
@@ -344,7 +340,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
-      lazy val feeView: FeeView[RBFResponse] = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.host) {
+      lazy val feeView = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.fvc) {
         rate = target
 
         worker = new ThrottledWork[String, RBFResponse] {
@@ -411,7 +407,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       sendView.rbfView.rbfCurrent.secondItem.setText(currentFee.html)
       feeView.update(feeOpt = Option.empty, showIssue = false)
-      feeView.customFeerateOption.performClick
+      feeView.fvc.customFeerateOption.performClick
       sendView.defaultView = sendView.rbfView
       sendView.switchToDefault(alert)
     }
@@ -807,7 +803,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     val sendView = new BtcSendView(specs)
 
     def attempt(alert: AlertDialog): Unit =
-      runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.manager.resultMsat.truncateToSatoshi, Map.empty, feeView.rate), onFail) { response =>
+      runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, feeView.rate), onFail) { response =>
         // This may be a signing or a hardware wallet, in case if it's a hardware wallet we need additional UI action so we use this proxy method here
 
         proceedConfirm(sendView, alert, response) { signedTx =>
@@ -822,17 +818,17 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val title = titleViewFromUri(uri)
       val neutralRes = if (uri.amount.isDefined) -1 else dialog_max
       val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.cardBitcoinSigning), sendView.body)
-      def useMax(alert: AlertDialog): Unit = sendView.manager.updateText(specs.map(_.info.lastBalance).sum.toMilliSatoshi)
+      def useMax(alert: AlertDialog): Unit = sendView.rm.updateText(specs.map(_.info.lastBalance).sum.toMilliSatoshi)
       mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, neutralRes)
     }
 
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.defaultView.host) {
+    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
       rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
 
       worker = new ThrottledWork[String, GenerateTxResponse] {
         // This is a generic sending facility which may send to non-segwit, so always use a safer high dust threshold
-        override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.manager.resultMsat.truncateToSatoshi, Map.empty, rate)
-        override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = sendView.manager.resultMsat >= ElectrumWallet.params.dustLimit)
+        override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, rate)
+        override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = sendView.rm.resultMsat >= ElectrumWallet.params.dustLimit)
         override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
       }
 
@@ -843,13 +839,13 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     // Automatically update a candidate transaction each time user changes amount value
-    sendView.manager.inputAmount addTextChangedListener onTextChange(feeView.worker.addWork)
+    sendView.rm.rmc.inputAmount addTextChangedListener onTextChange(feeView.worker.addWork)
     feeView.update(feeOpt = None, showIssue = false)
 
     uri.amount foreach { asked =>
-      sendView.manager.updateText(value = asked)
-      sendView.manager.inputAmount.setEnabled(false)
-      sendView.manager.fiatInputAmount.setEnabled(false)
+      sendView.rm.updateText(value = asked)
+      sendView.rm.rmc.inputAmount.setEnabled(false)
+      sendView.rm.rmc.fiatInputAmount.setEnabled(false)
     }
   }
 
@@ -875,7 +871,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body), dialog_ok, dialog_cancel)
     }
 
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.defaultView.host) {
+    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
       rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
 
       worker = new ThrottledWork[String, GenerateTxResponse] {
@@ -932,7 +928,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def proceedConfirm(sendView: BtcSendView, alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
-    sendView.confirmView.chainButtonsView.chainNextButton setOnClickListener onButtonTap(process apply response.tx)
+    sendView.confirmView.chainNextButton setOnClickListener onButtonTap(process apply response.tx)
     sendView.switchToConfirm(alert, response)
   }
 

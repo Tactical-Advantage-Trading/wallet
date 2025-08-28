@@ -7,7 +7,7 @@
     <LinearLayout style="@style/StandardLinearLayout">
 
         <LinearLayout android:paddingTop="10dp" style="@style/StandardLinearLayout" android:id="@+id/editChain">
-            <include layout="@layout/frag_input_fiat_converter" android:id="@+id/inputChain"/>
+            <include layout="@layout/frag_input_converter" android:id="@+id/inputChain"/>
             <include layout="@layout/frag_fees"/>
             <View style="@style/GrayDivider"/>
         </LinearLayout>

@@ -328,25 +328,26 @@ trait BaseActivity extends AppCompatActivity { me =>
     button.setAlpha(alpha)
   }
 
-  class RateManager(val content: LinearLayout, fiatCode: String) {
-    val fiatInputAmount = content.findViewById(R.id.fiatInputAmount).asInstanceOf[CurrencyEditText]
-    val inputAmount = content.findViewById(R.id.inputAmount).asInstanceOf[CurrencyEditText]
+  class RateManagerContent(val container: View) {
+    val fiatInputAmount = container.findViewById(R.id.fiatInputAmount).asInstanceOf[CurrencyEditText]
+    val fiatInputAmountHint = container.findViewById(R.id.fiatInputAmountHint).asInstanceOf[TextView]
+    val inputAmount = container.findViewById(R.id.inputAmount).asInstanceOf[CurrencyEditText]
+    val inputAmountHint = container.findViewById(R.id.inputAmountHint).asInstanceOf[TextView]
+    val hintFiatDenom = clickableTextField(container findViewById R.id.hintFiatDenom)
+    val hintDenom = clickableTextField(container findViewById R.id.hintDenom)
+  }
 
-    val fiatInputAmountHint = content.findViewById(R.id.fiatInputAmountHint).asInstanceOf[TextView]
-    val inputAmountHint = content.findViewById(R.id.inputAmountHint).asInstanceOf[TextView]
-
-    val hintFiatDenom = clickableTextField(content findViewById R.id.hintFiatDenom)
-    val hintDenom = clickableTextField(content findViewById R.id.hintDenom)
+  class RateManager(val rmc: RateManagerContent, fiatCode: String) {
     val rates = WalletApp.fiatRates.info.rates
 
     def updateText(value: MilliSatoshi): Unit = {
       val amount = BtcDenom.fromMsat(value).toString
-      runAnd(inputAmount.requestFocus)(inputAmount setText amount)
+      runAnd(rmc.inputAmount.requestFocus)(rmc.inputAmount setText amount)
       updateFiatInput
     }
 
     def bigDecimalFrom(input: CurrencyEditText): BigDecimal = BigDecimal(input.getNumericValueBigDecimal)
-    def resultMsat: MilliSatoshi = (bigDecimalFrom(inputAmount) * BtcDenom.factor).toLong.msat
+    def resultMsat: MilliSatoshi = (bigDecimalFrom(rmc.inputAmount) * BtcDenom.factor).toLong.msat
 
     def updatedFiatFromBtc: String =
       WalletApp.msatInFiat(rates, fiatCode)(resultMsat)
@@ -355,33 +356,33 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     def updatedBtcFromFiat: String =
       WalletApp.currentRate(rates, fiatCode)
-        .map(perBtc => bigDecimalFrom(fiatInputAmount) / perBtc)
+        .map(perBtc => bigDecimalFrom(rmc.fiatInputAmount) / perBtc)
         .filter(0.000000001D <= _).map(Denomination.btcBigDecimal2MSat)
         .map(BtcDenom.fromMsat).map(_.toString)
         .getOrElse("0.00")
 
     def updateFiatInput: Unit = {
-      fiatInputAmount setText updatedFiatFromBtc
-      fiatInputAmount setMaxNumberOfDecimalDigits 2
+      rmc.fiatInputAmount setText updatedFiatFromBtc
+      rmc.fiatInputAmount setMaxNumberOfDecimalDigits 2
     }
 
     def updateBtcInput: Unit = {
-      inputAmount setText updatedBtcFromFiat
-      inputAmount setMaxNumberOfDecimalDigits 8
+      rmc.inputAmount setText updatedBtcFromFiat
+      rmc.inputAmount setMaxNumberOfDecimalDigits 8
     }
 
-    fiatInputAmount addTextChangedListener onTextChange { _ =>
-      if (fiatInputAmount.hasFocus) updateBtcInput
+    rmc.fiatInputAmount addTextChangedListener onTextChange { _ =>
+      if (rmc.fiatInputAmount.hasFocus) updateBtcInput
     }
 
-    inputAmount addTextChangedListener onTextChange { _ =>
-      if (inputAmount.hasFocus) updateFiatInput
+    rmc.inputAmount addTextChangedListener onTextChange { _ =>
+      if (rmc.inputAmount.hasFocus) updateFiatInput
     }
 
-    inputAmountHint setText BtcDenom.sign.toUpperCase
-    fiatInputAmountHint setText fiatCode.toUpperCase
-    fiatInputAmount setLocale Denomination.locale
-    inputAmount setLocale Denomination.locale
+    rmc.inputAmountHint setText BtcDenom.sign.toUpperCase
+    rmc.fiatInputAmountHint setText fiatCode.toUpperCase
+    rmc.fiatInputAmount setLocale Denomination.locale
+    rmc.inputAmount setLocale Denomination.locale
   }
 
   class TwoSidedItem(val parent: View, firstText: CharSequence, secondText: CharSequence) {
@@ -391,43 +392,46 @@ trait BaseActivity extends AppCompatActivity { me =>
     firstItem.setText(firstText)
   }
 
-  class FeeView[T](from: FeeratePerByte, val content: View) {
-    val feeRate = content.findViewById(R.id.feeRate).asInstanceOf[TextView]
-    val txIssues = content.findViewById(R.id.txIssues).asInstanceOf[TextView]
-    val bitcoinFee = content.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
-    val fiatFee = content.findViewById(R.id.fiatFee).asInstanceOf[TextView]
+  class FeeViewContent(val container: View) {
+    val feeRate = container.findViewById(R.id.feeRate).asInstanceOf[TextView]
+    val txIssues = container.findViewById(R.id.txIssues).asInstanceOf[TextView]
+    val bitcoinFee = container.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
+    val fiatFee = container.findViewById(R.id.fiatFee).asInstanceOf[TextView]
 
-    val customFeerate = content.findViewById(R.id.customFeerate).asInstanceOf[Slider]
-    val customFeerateOption = content.findViewById(R.id.customFeerateOption).asInstanceOf[TextView]
+    val customFeerate = container.findViewById(R.id.customFeerate).asInstanceOf[Slider]
+    val customFeerateOption = container.findViewById(R.id.customFeerateOption).asInstanceOf[TextView]
+  }
+
+  class FeeView[T](from: FeeratePerByte, val fvc: FeeViewContent) {
     var worker: ThrottledWork[String, T] = _
     var rate: FeeratePerKw = _
 
     def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = {
-      feeRate setText getString(dialog_fee_sat_vbyte).format(FeeratePerByte(rate).feerate.toLong).html
-      setVisMany(feeOpt.isDefined -> bitcoinFee, feeOpt.isDefined -> fiatFee, showIssue -> txIssues)
+      fvc.feeRate setText getString(dialog_fee_sat_vbyte).format(FeeratePerByte(rate).feerate.toLong).html
+      setVisMany(feeOpt.isDefined -> fvc.bitcoinFee, feeOpt.isDefined -> fvc.fiatFee, showIssue -> fvc.txIssues)
 
       feeOpt.foreach { fee =>
-        val humanFee = BtcDenom.parsed(fee, cardIn, cardZero).html
-        fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
-        bitcoinFee setText humanFee
+        fvc.fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
+        fvc.bitcoinFee setText BtcDenom.parsed(fee, cardIn, cardZero).html
       }
     }
 
     private val revealSlider = onButtonTap {
       val currentFeerate = FeeratePerByte(rate).feerate.toLong
-      setVisMany(false -> customFeerateOption, true -> customFeerate)
-      customFeerate.setValueFrom(from.feerate.toLong)
-      customFeerate.setValueTo(currentFeerate * 10)
-      customFeerate.setValue(currentFeerate)
+      setVisMany(false -> fvc.customFeerateOption, true -> fvc.customFeerate)
+      fvc.customFeerate.setValueFrom(from.feerate.toLong)
+      fvc.customFeerate.setValueTo(currentFeerate * 10)
+      fvc.customFeerate.setValue(currentFeerate)
     }
 
-    setVis(isVisible = true, customFeerateOption)
-    customFeerateOption.setOnClickListener(revealSlider)
-    feeRate.setOnClickListener(revealSlider)
+    setVis(isVisible = true, fvc.customFeerateOption)
+    fvc.customFeerateOption.setOnClickListener(revealSlider)
+    fvc.feeRate.setOnClickListener(revealSlider)
 
-    customFeerate addOnChangeListener new Slider.OnChangeListener {
+    fvc.customFeerate addOnChangeListener new Slider.OnChangeListener {
       override def onValueChange(slider: Slider, value: Float, fromUser: Boolean): Unit = {
-        rate = FeeratePerKw(FeeratePerByte(value.toLong.sat))
+        val feeratePerByte = FeeratePerByte(value.toLong.sat)
+        rate = FeeratePerKw(feeratePerByte)
         worker addWork "SLIDER-CHANGE"
       }
     }
@@ -435,56 +439,47 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   // Chan TX popup for wallets
 
-  class ChainButtonsView(host: View) {
-    val chainNextButton = host.findViewById(R.id.chainNextButton).asInstanceOf[NoboButton]
-    val chainEditButton = host.findViewById(R.id.chainEditButton).asInstanceOf[NoboButton]
-    val chainCancelButton = host.findViewById(R.id.chainCancelButton).asInstanceOf[NoboButton]
-  }
-
   sealed trait HasHostView {
     val host: View
   }
 
+  class EditView(val host: View) extends HasHostView {
+    val rmc = new RateManagerContent(host)
+    val fvc = new FeeViewContent(host)
+  }
+
+  class CPFPView(val host: View) extends HasHostView {
+    val cpfpCurrent = new TwoSidedItem(host.findViewById(R.id.cpfpCurrent), getString(tx_cpfp_current), new String)
+    val cpfpAfter = new TwoSidedItem(host.findViewById(R.id.cpfpAfter), getString(tx_cpfp_rbf_after), new String)
+    val fvc = new FeeViewContent(host)
+  }
+
+  class RBFView(val host: View) extends HasHostView {
+    val rbfCurrent = new TwoSidedItem(host.findViewById(R.id.rbfCurrent), getString(tx_rbf_current), new String)
+    val rbfIssue = host.findViewById(R.id.rbfIssue).asInstanceOf[TextView]
+    val fvc = new FeeViewContent(host)
+  }
+
   class ConfirmView(val host: View) extends HasHostView {
+    val chainNextButton = host.findViewById(R.id.chainNextButton).asInstanceOf[NoboButton]
+    val chainEditButton = host.findViewById(R.id.chainEditButton).asInstanceOf[NoboButton]
+    val chainCancelButton = host.findViewById(R.id.chainCancelButton).asInstanceOf[NoboButton]
     val confirmFiat = new TwoSidedItem(host.findViewById(R.id.confirmFiat), getString(dialog_send_btc_confirm_fiat), new String)
     val confirmAmount = new TwoSidedItem(host.findViewById(R.id.confirmAmount), getString(dialog_send_confirm_amount), new String)
     val confirmFee = new TwoSidedItem(host.findViewById(R.id.confirmFee), getString(dialog_send_confirm_fee), new String)
-    val chainButtonsView = new ChainButtonsView(host)
   }
 
-  class BtcEditView(val host: LinearLayout, specs: Seq[WalletSpec], manager: RateManager) extends HasHostView {
-    val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
-    val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
-    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
-
-    manager.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
-    manager.hintDenom setText getString(dialog_up_to).format(canSend).html
-  }
-
-  class CPFPView(val host: LinearLayout) extends HasHostView {
-    val cpfpCurrent = new TwoSidedItem(host.findViewById(R.id.cpfpCurrent), getString(tx_cpfp_current), new String)
-    val cpfpAfter = new TwoSidedItem(host.findViewById(R.id.cpfpAfter), getString(tx_cpfp_rbf_after), new String)
-  }
-
-  class RBFView(val host: LinearLayout) extends HasHostView {
-    val rbfCurrent = new TwoSidedItem(host.findViewById(R.id.rbfCurrent), getString(tx_rbf_current), new String)
-    val rbfIssue = host.findViewById(R.id.rbfIssue).asInstanceOf[TextView]
-  }
-
-  class UsdtEditView(val host: LinearLayout, manager: RateManager) extends HasHostView {
-    setVisMany(false -> manager.inputAmount, false -> manager.inputAmountHint)
-    setVis(isVisible = false, host findViewById R.id.customFeerateOption)
-    val feeRate = host.findViewById(R.id.feeRate).asInstanceOf[TextView]
-  }
-
-  trait SendView {
-    var defaultView: HasHostView = _
+  sealed trait SendView {
     val body = getLayoutInflater.inflate(R.layout.frag_input_chain, null)
-    val confirmView = new ConfirmView(body findViewById R.id.confirmChain)
     val editChain = body.findViewById(R.id.editChain).asInstanceOf[LinearLayout]
-    val inputChain = editChain.findViewById(R.id.inputChain).asInstanceOf[LinearLayout]
-    val manager = new RateManager(editChain, WalletApp.fiatCode)
-    val views: List[HasHostView]
+    val inputChain = body.findViewById(R.id.inputChain).asInstanceOf[LinearLayout]
+
+    val editView = new EditView(editChain)
+    val rbfView = new RBFView(body findViewById R.id.rbf)
+    val cpfpView = new CPFPView(body findViewById R.id.cpfp)
+    val confirmView = new ConfirmView(body findViewById R.id.confirmChain)
+    val views = List(editView, rbfView, cpfpView, confirmView)
+    var defaultView: HasHostView = editView
 
     def switchTo(visibleSection: HasHostView): Unit = for (candidateSection <- views) setVis(isVisible = candidateSection == visibleSection, candidateSection.host)
     def switchButtons(alert: AlertDialog, on: Boolean): Unit = setVisMany(on -> getPositiveButton(alert), on -> getNegativeButton(alert), on -> getNeutralButton(alert), true -> body)
@@ -495,30 +490,29 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
   }
 
-  class UsdtSendView extends SendView {
-    setVis(isVisible = false, confirmView.confirmFiat.parent)
-    defaultView = new UsdtEditView(editChain, manager)
-    val views = List(defaultView, confirmView)
-  }
-
   class BtcSendView(val specs: Seq[WalletSpec] = Nil) extends SendView { me =>
-    val cpfpView = new CPFPView(body findViewById R.id.cpfp)
-    val rbfView = new RBFView(body findViewById R.id.rbf)
+    val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
+    val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
+    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
+    val rm = new RateManager(editView.rmc, WalletApp.fiatCode)
 
-    defaultView = new BtcEditView(editChain, specs, manager)
-    val views = List(defaultView, cpfpView, rbfView, confirmView)
+    editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
+    editView.rmc.hintDenom setText getString(dialog_up_to).format(canSend).html
 
     def switchToConfirm(alert: AlertDialog, resp: ElectrumWallet.GenerateTxResponse): Unit = {
-      confirmView.chainButtonsView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
-      confirmView.chainButtonsView.chainEditButton setOnClickListener onButtonTap(me switchToDefault alert)
-
       confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(resp.fee.toMilliSatoshi, cardIn, cardZero).html
       confirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(resp.transferred.toMilliSatoshi, cardIn, cardZero).html
       confirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(resp.transferred.toMilliSatoshi).html
-
+      confirmView.chainEditButton setOnClickListener onButtonTap(me switchToDefault alert)
+      confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
       switchButtons(alert, on = false)
       switchTo(confirmView)
     }
+  }
+
+  class UsdtSendView extends SendView {
+    setVis(isVisible = false, editView.fvc.customFeerateOption)
+    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint)
   }
 
   abstract class BtcWalletSelector(title: TitleView) {

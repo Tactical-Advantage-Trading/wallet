@@ -62,18 +62,18 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     val maxMsat = Btc(21e6).toSatoshi.toMilliSatoshi
     val canReceiveHuman = BtcDenom.parsedTT(maxMsat, cardIn, cardZero)
     val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(maxMsat)
-    val body = getLayoutInflater.inflate(R.layout.frag_input_fiat_converter, null).asInstanceOf[LinearLayout]
+    val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
     val title = getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning)
-    lazy val manager = new RateManager(body, WalletApp.fiatCode)
+    lazy val rm = new RateManager(new RateManagerContent(body), WalletApp.fiatCode)
 
-    mkCheckForm(proceed, none, titleBodyAsViewBuilder(title, manager.content), dialog_ok, dialog_cancel)
-    manager.hintFiatDenom.setText(getString(dialog_up_to).format(canReceiveFiatHuman).html)
-    manager.hintDenom.setText(getString(dialog_up_to).format(canReceiveHuman).html)
-    bu.amount.foreach(manager.updateText)
+    mkCheckForm(proceed, none, titleBodyAsViewBuilder(title, rm.rmc.container), dialog_ok, dialog_cancel)
+    rm.rmc.hintFiatDenom.setText(getString(dialog_up_to).format(canReceiveFiatHuman).html)
+    rm.rmc.hintDenom.setText(getString(dialog_up_to).format(canReceiveHuman).html)
+    bu.amount.foreach(rm.updateText)
 
     def proceed(alert: AlertDialog): Unit = {
       val uriBuilder = bu.uri.get.buildUpon.clearQuery
-      val resultMsat = manager.resultMsat.truncateToSatoshi.toMilliSatoshi
+      val resultMsat = rm.resultMsat.truncateToSatoshi.toMilliSatoshi
       val uriBuilder1 = if (resultMsat > ElectrumWallet.params.dustLimit) {
         val amount = Denomination.msat2BtcBigDecimal(resultMsat).toString
         uriBuilder.appendQueryParameter("amount", amount)
