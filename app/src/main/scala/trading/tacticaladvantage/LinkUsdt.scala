@@ -19,7 +19,7 @@ object LinkUsdt {
   case class WalletManager(wallets: Set[CompleteUsdtWalletInfo] = Set.empty) {
     lazy val withRealAddress: Set[CompleteUsdtWalletInfo] = wallets.filterNot(_.lcAddress == CompleteUsdtWalletInfo.NOADDRESS)
     lazy val okWallets: Map[String, CompleteUsdtWalletInfo] = withRealAddress.map(wallet => wallet.lcAddress -> wallet).toMap
-    lazy val totalBalance: Double = withRealAddress.map(_.lastBalance.toDouble).sum
+    lazy val totalBalance: BigDecimal = withRealAddress.map(_.lastBalanceNoDust).sum
   }
 
   // Failure codes

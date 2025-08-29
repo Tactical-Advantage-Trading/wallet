@@ -15,7 +15,7 @@ import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan.Tools._
 import immortan._
-import immortan.sqlite.DbStreams
+import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
@@ -30,6 +30,7 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils._
 
 import java.util.TimerTask
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -71,14 +72,11 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   def loadRecentInfos: Unit = {
     usdtInfosToConsider = WalletApp.usdtTxDataBag.listRecentTxs(10).map(WalletApp.usdtTxDataBag.toInfo)
     btcInfosToConsider = WalletApp.btcTxDataBag.listRecentTxs(10).map(WalletApp.btcTxDataBag.toInfo)
+    infosFromDb = usdtInfosToConsider ++ btcInfosToConsider
 
-    if (displayFullIxInfoHistory) {
-      // Simply display everything we obtained from db
-      infosFromDb = usdtInfosToConsider ++ btcInfosToConsider
-    } else {
-      // First, we order all items chronologically to pick 3 recent ones
-      val candidates = usdtInfosToConsider.take(ITEMS) ++ btcInfosToConsider.take(ITEMS)
-      val sortedCandidates = candidates.toList.sortBy(_.seenAt)(Ordering[Long].reverse).take(ITEMS)
+    if (!displayFullIxInfoHistory) {
+      // First, select a number of most recent chronological items to display by default
+      val sortedCandidates = infosFromDb.toList.sortBy(_.seenAt)(Ordering[Long].reverse).take(ITEMS)
 
       // Then, we init accumulator with those
       val accumulator1 = Accumulator(idsToDisplayAnyway)
@@ -87,11 +85,12 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         case (acc, info: BtcInfo) => acc.withBtcInfo(info)
       }
 
-      // Finally, pick the rest of BTC txs with relation to chosen
-      val accumulator3 = btcInfosToConsider.foldLeft(accumulator2) {
-        case (acc, info) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
-        case (acc, info) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
-        case (acc, info) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
+      // Then see if any dropped ones should be displayed
+      val accumulator3 = infosFromDb.foldLeft(accumulator2) {
+        case (acc, info: UsdtInfo) if idsToDisplayAnyway.contains(info.identity) => acc.withUsdtInfo(info)
+        case (acc, info: BtcInfo) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
+        case (acc, info: BtcInfo) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
+        case (acc, info: BtcInfo) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
         case (acc, _) => acc
       }
 
@@ -167,7 +166,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     // CPFP / RBF
 
     def boostCPFP(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      case Nil => WalletApp.app.quickToast(error_btc_no_wallet)
+      case Nil => WalletApp.app.quickToast(error_no_wallet)
       case wallets => doBoostCPFP(wallets, info)
     }
 
@@ -216,7 +215,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
           proceedWithoutConfirm(alert, response) { signedTx =>
             val desc = PlainBtcDescription(address :: Nil, label = None, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
-            runFutureProcessOnUI(broadcastTx(desc, signedTx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
+            runFutureProcessOnUI(broadcastBtc(desc, signedTx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
 
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
@@ -243,7 +242,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def boostRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      case res if res.size < info.extPubs.size => WalletApp.app.quickToast(error_btc_no_wallet)
+      case res if res.size < info.extPubs.size => WalletApp.app.quickToast(error_no_wallet)
       case specs => doBoostRBF(specs, info)
     }
 
@@ -298,7 +297,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
           proceedWithoutConfirm(alert, response) { signedTx =>
             val desc = PlainBtcDescription(Nil, label = None, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
-            runFutureProcessOnUI(broadcastTx(desc, signedTx, received = Satoshi(0L), info.sentSat, response.fee, incoming = 0), onFail) {
+            runFutureProcessOnUI(broadcastBtc(desc, signedTx, received = Satoshi(0L), info.sentSat, response.fee, incoming = 0), onFail) {
 
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
@@ -327,7 +326,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     }
 
     def cancelRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
-      case Nil => WalletApp.app.quickToast(error_btc_no_wallet)
+      case Nil => WalletApp.app.quickToast(error_no_wallet)
       case specs => doCancelRBF(specs, info)
     }
 
@@ -384,7 +383,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
           proceedWithoutConfirm(alert, response) { signedTx =>
             val desc = PlainBtcDescription(addresses = Nil, label = None, rbfBumpOrder.asSome, None, None, rbfParams.asSome)
-            runFutureProcessOnUI(broadcastTx(desc, signedTx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
+            runFutureProcessOnUI(broadcastBtc(desc, signedTx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
 
               case Some(error) =>
                 // We revert the whole description back since CPFP has failed
@@ -456,7 +455,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       currentDetails match {
         case info: BtcInfo if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
-        case info: UsdtInfo if WalletApp.pendingInfos.contains(info.description.fromAddr) => itemView.setAlpha(0.6F)
+        case info: UsdtInfo if info.identity == CompleteUsdtWalletInfo.NOIDENTITY => itemView.setAlpha(0.6F)
         case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
@@ -506,7 +505,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
       val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
       val isDeeplyBuried = (in ++ out).exists(_.chainTip - info.block >= 20)
-      val isUnknown = in.isEmpty && out.isEmpty
+      val isUnknown = info.identity == CompleteUsdtWalletInfo.NOIDENTITY
 
       if (info.isDoubleSpent && isDeeplyBuried) R.drawable.block_24
       else if (info.isDoubleSpent || isUnknown) R.drawable.question_24
@@ -608,9 +607,9 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   type GrantResults = Array[Int]
-  override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: GrantResults): Unit = {
-    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED) bringScanner(null)
-  }
+  override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: GrantResults): Unit =
+    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED)
+      bringScanner(null)
 
   override def checkExternalData(whenNone: Runnable): Unit = {
     val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
@@ -655,7 +654,10 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
         }
 
       case data: String if toChecksumAddress(data) == data =>
-        bringSendUsdtPopup(data)
+        WalletApp.linkUsdt.data.withRealAddress.headOption match {
+          case Some(info) => bringSendUsdtPopup(new UsdtSendView(info), data)
+          case None => WalletApp.app.quickToast(error_no_wallet)
+        }
 
       case _ =>
         whenNone.run
@@ -787,14 +789,64 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def enterSettingsMode(view: View): Unit = {
-    println("settings mode on")
+    androidx.transition.TransitionManager.beginDelayedTransition(walletCards.defaultHeader)
+    val settingsContainer = walletCards.view.findViewById(R.id.settingsContainer).asInstanceOf[FlowLayout]
+    if (settingsContainer.getVisibility == View.VISIBLE) {
+      setVis(isVisible = false, settingsContainer)
+      settingsContainer.removeAllViewsInLayout
+    } else {
+      addFlowChip(settingsContainer, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
+      addFlowChip(settingsContainer, getString(settings_attach_btc_wallet), R.drawable.border_blue)(println)
+      setVis(isVisible = true, settingsContainer)
+    }
   }
 
-  def bringSendUsdtPopup(address: String): Unit = {
-    val sendView = new UsdtSendView
+  def bringSendUsdtPopup(sendView: UsdtSendView, address: String): Unit = {
     val title = new TitleView(getString(dialog_send_usdt) format address.short0x)
     val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.usdt), sendView.body)
-    mkCheckForm(identity, none, builder, dialog_ok, dialog_cancel)
+    var fee = BigDecimal(-1)
+
+    def reactOnInput(unused: String): BigDecimal = {
+      val value = BigDecimal(sendView.editView.rmc.fiatInputAmount.getNumericValueBigDecimal)
+      val canProceed = value >= CompleteUsdtWalletInfo.DUST_THRESHOLD && value <= sendView.info.lastBalanceNoDust
+      updatePopupButton(getPositiveButton(alert), fee >= 0 && canProceed)
+      value
+    }
+
+    def attempt(alert: AlertDialog): Unit = {
+      val inputAmount = reactOnInput(unused = null)
+      val finalAmount = if (inputAmount + fee > sendView.info.lastBalanceDecimal) sendView.info.lastBalanceDecimal - fee else inputAmount
+      sendView.confirmView.confirmAmount.secondItem setText Denomination.fiatTT("0", finalAmount.toString, null, cardIn, isIncoming = false).html
+      sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
+      sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
+      sendView.switchButtons(alert, on = false)
+      sendView.switchTo(sendView.confirmView)
+
+      sendView.confirmView.chainNextButton setOnClickListener onButtonTap {
+        val desc = UsdtDescription(fromAddr = sendView.info.lcAddress, toAddr = address)
+        val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, recipient = address, Biconomy.USDt, amount = (BigDecimal(10).pow(6) * finalAmount).toBigInt.toString)
+        runFutureProcessOnUI(broadcastUsdt(desc, req, finalAmount, fee), onFail) { case None => cleanFailedBroadcast(desc.fromAddr, "USDt transfer failed") case _ => }
+        alert.dismiss
+      }
+    }
+
+    def useMax(unused: AlertDialog): Unit = sendView.editView.rmc.updateFiatText(sendView.info.lastBalanceNoDust.toString)
+    lazy val alert = mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, dialog_max)
+    sendView.editView.rmc.fiatInputAmount addTextChangedListener onTextChange(reactOnInput)
+    updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
+
+    val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, address, Biconomy.USDt)
+    runInFutureProcessOnUI(WalletApp.biconomy.estimateTxGas(req), onFail) {
+      case Some(response) =>
+        fee = BigDecimal(response.feeAmount).max(fee) + CompleteUsdtWalletInfo.DUST_THRESHOLD
+        val humanFee = Denomination.fiatTT("0", fee.toString, null, cardIn, isIncoming = false)
+        sendView.editView.fvc.feeRate setText getString(dialog_fee).format(humanFee).html
+        sendView.confirmView.confirmFee.secondItem setText humanFee.html
+        reactOnInput(unused = null)
+      case None =>
+        val errorMsg = s"<font color=$cardZero>${me getString dialog_fee_error}</font>"
+        sendView.editView.fvc.feeRate setText getString(dialog_fee).format(errorMsg).html
+    }
   }
 
   def bringSendBitcoinPopup(specs: Seq[WalletSpec], uri: BitcoinUri): Unit = {
@@ -808,17 +860,21 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
         proceedConfirm(sendView, alert, response) { signedTx =>
           val desc = PlainBtcDescription(uri.address :: Nil, uri.label orElse uri.message)
-          val broadcastFuture = broadcastTx(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
+          val broadcastFuture = broadcastBtc(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
           runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
           alert.dismiss
         }
       }
 
+    def useMax(alert: AlertDialog): Unit = {
+      val totalBalance = specs.map(_.info.lastBalance).sum
+      sendView.rm.updateText(totalBalance.toMilliSatoshi)
+    }
+
     lazy val alert = {
       val title = titleViewFromUri(uri)
       val neutralRes = if (uri.amount.isDefined) -1 else dialog_max
       val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.cardBitcoinSigning), sendView.body)
-      def useMax(alert: AlertDialog): Unit = sendView.rm.updateText(specs.map(_.info.lastBalance).sum.toMilliSatoshi)
       mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, neutralRes)
     }
 
@@ -860,7 +916,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
         proceedConfirm(sendView, alert, response) { signedTx =>
           val desc = PlainBtcDescription(addressToAmount.values.firstItems.toList)
-          val broadcastFuture = broadcastTx(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
+          val broadcastFuture = broadcastBtc(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
           runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
           alert.dismiss
         }
@@ -928,8 +984,14 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def proceedConfirm(sendView: BtcSendView, alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
+    sendView.confirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
+    sendView.confirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(response.transferred.toMilliSatoshi).html
+    sendView.confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
+    sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
     sendView.confirmView.chainNextButton setOnClickListener onButtonTap(process apply response.tx)
-    sendView.switchToConfirm(alert, response)
+    sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
+    sendView.switchButtons(alert, on = false)
+    sendView.switchTo(sendView.confirmView)
   }
 
   def proceedWithoutConfirm(alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
@@ -937,13 +999,23 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
     alert.dismiss
   }
 
-  def broadcastTx(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
-    val info = BtcInfo(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0, received, sent, fee, seenAt = System.currentTimeMillis,
-      updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0)
+  def broadcastBtc(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
+    val info = BtcInfo(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0L, received, sent, fee, seenAt = System.currentTimeMillis,
+      updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0L)
     WalletApp.pendingInfos(info.identity) = info
     WalletApp.seenInfos(info.identity) = info
     DbStreams.next(DbStreams.txDbStream)
     ElectrumWallet.broadcast(finalTx)
+  }
+
+  def broadcastUsdt(desc: UsdtDescription, req: Biconomy.TxDetailsRequest, amount: BigDecimal, fee: BigDecimal) = Future {
+    val info = UsdtInfo(identity = CompleteUsdtWalletInfo.NOIDENTITY, network = UsdtDescription.POLYGON, block = Long.MaxValue, receivedUsdtString = "0",
+      sentUsdtString = amount.toString, feeUsdtString = fee.toString, seenAt = System.currentTimeMillis, updatedAt = System.currentTimeMillis,
+      desc, WalletApp.linkUsdt.data.totalBalance.toLong, incoming = 0L, doubleSpent = 0L)
+    WalletApp.pendingInfos(desc.fromAddr) = info
+    WalletApp.seenInfos(desc.fromAddr) = info
+    DbStreams.next(DbStreams.txDbStream)
+    WalletApp.biconomy.send(req)
   }
 
   def cleanFailedBroadcast(failedKey: String, message: String): Unit = {

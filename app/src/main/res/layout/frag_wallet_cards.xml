@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    style="@style/StandardLinearLayout"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<LinearLayout style="@style/StandardLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:f="http://schemas.android.com/apk/res-auto">
 
     <!-- Default view -->
 
@@ -38,19 +38,28 @@
                 android:padding="6dp"
                 android:id="@+id/settingsButton"
                 android:onClick="enterSettingsMode"
+                android:src="@drawable/settings_24"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
-                android:src="@drawable/settings_24"
                 android:background="?android:selectableItemBackground"
                 style="@style/BoundedView"/>
 
         </RelativeLayout>
 
+        <!-- Settings -->
+
+        <org.apmem.tools.layouts.FlowLayout
+            style="@style/XMarginFillingView"
+            android:id="@+id/settingsContainer"
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="5dp"
+            android:visibility="gone"
+            f:layout_newLine="true"/>
+
         <!-- List of cards -->
 
         <LinearLayout
             style="@style/FillingView"
-            android:layout_marginTop="15dp"
             android:layout_marginBottom="5dp"
             android:id="@+id/chainCardsContainer"
             android:orientation="vertical"/>

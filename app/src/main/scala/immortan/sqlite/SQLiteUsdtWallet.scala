@@ -1,13 +1,24 @@
 package immortan.sqlite
 
 import immortan.UsdtInfo
+import immortan.sqlite.CompleteUsdtWalletInfo._
 
-object CompleteUsdtWalletInfo { val NOADDRESS = "noaddress" }
+object CompleteUsdtWalletInfo {
+  val NOADDRESS: String = "noaddress"
+  val NOIDENTITY: String = "0x000000000000"
+  val DUST_THRESHOLD: BigDecimal = 0.01
+}
+
 case class CompleteUsdtWalletInfo(address: String, xPriv: String, label: String, lastBalance: String = "0", lastNonce: String = "0", chainTip: Long = 0) {
+  def isRelatedToInfo(usdtInfo: UsdtInfo): Boolean = lcAddress == usdtInfo.description.toAddr || lcAddress == usdtInfo.description.fromAddr
   override def equals(other: Any): Boolean = other match { case that: CompleteUsdtWalletInfo => xPriv == that.xPriv case _ => false }
-  def isRelatedToInfo(info: UsdtInfo): Boolean = lcAddress == info.description.toAddr || lcAddress == info.description.fromAddr
-  lazy val lcAddress: String = address.toLowerCase
   override def hashCode: Int = xPriv.hashCode
+
+  lazy val lcAddress: String = address.toLowerCase
+  lazy val lastBalanceDecimal: BigDecimal = BigDecimal(lastBalance)
+  lazy val lastBalanceDust: BigDecimal = lastBalanceDecimal % DUST_THRESHOLD
+  lazy val lastBalanceNoDust: BigDecimal = lastBalanceDecimal - lastBalanceDust
+  lazy val isDust: Boolean = lastBalanceDecimal <= DUST_THRESHOLD * 2
 }
 
 class SQLiteUsdtWallet(val db: DBInterface) {

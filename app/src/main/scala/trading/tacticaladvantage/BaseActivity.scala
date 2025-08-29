@@ -30,6 +30,7 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
 import immortan.Tools._
+import immortan.sqlite.CompleteUsdtWalletInfo
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
@@ -55,7 +56,6 @@ object BaseActivity {
       val firstFirst = source.slice(0, 4)
       val secondFirst = source.slice(4, 8)
       val secondLast = source.slice(len - 4, len)
-
       val doubleSmall = "<sup><small><small>&#8230;</small></small></sup>"
       s"<tt>$firstFirst&#160;$secondFirst&#160;$doubleSmall&#160;$secondLast</tt>"
     }
@@ -329,6 +329,8 @@ trait BaseActivity extends AppCompatActivity { me =>
   }
 
   class RateManagerContent(val container: View) {
+    def updateFiatText(value: String): Unit = runAnd(fiatInputAmount.requestFocus)(fiatInputAmount setText value)
+    def updateBtcText(value: String): Unit = runAnd(inputAmount.requestFocus)(inputAmount setText value)
     val fiatInputAmount = container.findViewById(R.id.fiatInputAmount).asInstanceOf[CurrencyEditText]
     val fiatInputAmountHint = container.findViewById(R.id.fiatInputAmountHint).asInstanceOf[TextView]
     val inputAmount = container.findViewById(R.id.inputAmount).asInstanceOf[CurrencyEditText]
@@ -341,8 +343,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val rates = WalletApp.fiatRates.info.rates
 
     def updateText(value: MilliSatoshi): Unit = {
-      val amount = BtcDenom.fromMsat(value).toString
-      runAnd(rmc.inputAmount.requestFocus)(rmc.inputAmount setText amount)
+      rmc.updateBtcText(BtcDenom.fromMsat(value).toString)
       updateFiatInput
     }
 
@@ -394,7 +395,6 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   class FeeViewContent(val container: View) {
     val feeRate = container.findViewById(R.id.feeRate).asInstanceOf[TextView]
-    val txIssues = container.findViewById(R.id.txIssues).asInstanceOf[TextView]
     val bitcoinFee = container.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
     val fiatFee = container.findViewById(R.id.fiatFee).asInstanceOf[TextView]
 
@@ -407,8 +407,9 @@ trait BaseActivity extends AppCompatActivity { me =>
     var rate: FeeratePerKw = _
 
     def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = {
-      fvc.feeRate setText getString(dialog_fee_sat_vbyte).format(FeeratePerByte(rate).feerate.toLong).html
-      setVisMany(feeOpt.isDefined -> fvc.bitcoinFee, feeOpt.isDefined -> fvc.fiatFee, showIssue -> fvc.txIssues)
+      val satPerVirtualByteFee = getString(dialog_fee).format(FeeratePerByte(rate).feerate.toLong)
+      setVisMany(feeOpt.isDefined -> fvc.bitcoinFee, feeOpt.isDefined -> fvc.fiatFee)
+      fvc.feeRate.setText(s"$satPerVirtualByteFee sat/vB".html)
 
       feeOpt.foreach { fee =>
         fvc.fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
@@ -490,7 +491,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
   }
 
-  class BtcSendView(val specs: Seq[WalletSpec] = Nil) extends SendView { me =>
+  class BtcSendView(val specs: Seq[WalletSpec] = Nil) extends SendView { self =>
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
     val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
     val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
@@ -498,21 +499,14 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
     editView.rmc.hintDenom setText getString(dialog_up_to).format(canSend).html
-
-    def switchToConfirm(alert: AlertDialog, resp: ElectrumWallet.GenerateTxResponse): Unit = {
-      confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(resp.fee.toMilliSatoshi, cardIn, cardZero).html
-      confirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(resp.transferred.toMilliSatoshi, cardIn, cardZero).html
-      confirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(resp.transferred.toMilliSatoshi).html
-      confirmView.chainEditButton setOnClickListener onButtonTap(me switchToDefault alert)
-      confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
-      switchButtons(alert, on = false)
-      switchTo(confirmView)
-    }
   }
 
-  class UsdtSendView extends SendView {
-    setVis(isVisible = false, editView.fvc.customFeerateOption)
-    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint)
+  class UsdtSendView(val info: CompleteUsdtWalletInfo) extends SendView { self =>
+    setVisMany(false -> confirmView.confirmFiat.parent, false -> editView.fvc.customFeerateOption)
+    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint, false -> editView.rmc.hintDenom)
+    editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(Denomination.fiatTT("0", info.lastBalance, null, cardIn, isIncoming = false).trim).html
+    editView.fvc.feeRate setText getString(dialog_fee).format(s"<font color=$cardZero>${me getString dialog_fee_estimating}</font>").html
+    editView.rmc.fiatInputAmountHint setText usdt_wallet
   }
 
   abstract class BtcWalletSelector(title: TitleView) {
@@ -663,9 +657,7 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
     val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
     infoWalletLabel setText info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString usdt_wallet)
     balanceWallet setText Denomination.fiatTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
-    host.setVis(info.lastBalance.toDouble > 0D, balanceContainer)
-    host.setVis(info.lastBalance.toDouble <= 0D, imageTip)
-    host.setVis(isVisible = false, balanceWalletFiat)
+    host.setVisMany(info.isDust -> imageTip, !info.isDust -> balanceContainer, false -> balanceWalletFiat)
   }
 }
 

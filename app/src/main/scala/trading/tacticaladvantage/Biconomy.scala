@@ -1,28 +1,28 @@
 package trading.tacticaladvantage
 
-import immortan.ConnectionProvider
-import immortan.utils.ImplicitJsonFormats._
 import spray.json._
 import trading.tacticaladvantage.Biconomy._
-
+import immortan.utils.ImplicitJsonFormats._
 import scala.concurrent.ExecutionContext.Implicits.global
+import immortan.ConnectionProvider
 import scala.concurrent.Future
 
 object Biconomy {
   var isRunning: Boolean = false
+  final val USDt = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
 
   case class AccountAddressRequest(pk: String)
-  case class TxDetailsRequest(pk: String, token: String, recipient: String, amount: String)
+  case class TxDetailsRequest(pk: String, recipient: String, token: String, amount: String = "1000")
 
   implicit val accountAddressRequestFormat: JsonFormat[AccountAddressRequest] = jsonFormat[String, AccountAddressRequest](AccountAddressRequest.apply, "pk")
-  implicit val txDetailsRequestFormat: JsonFormat[TxDetailsRequest] = jsonFormat[String, String, String, String, TxDetailsRequest](TxDetailsRequest.apply, "pk", "token", "recipient", "amount")
+  implicit val txDetailsRequestFormat: JsonFormat[TxDetailsRequest] = jsonFormat[String, String, String, String, TxDetailsRequest](TxDetailsRequest.apply, "pk", "recipient", "token", "amount")
 
   case class AccountAddressResponse(smartAccountAddress: String)
-  case class EstimateGasResponse(usdcFeeAmount: String)
+  case class EstimateGasResponse(feeAmount: String)
   case class OpHashResponse(userOpHash: String)
 
   implicit val accountAddressResponseFormat: JsonFormat[AccountAddressResponse] = jsonFormat[String, AccountAddressResponse](AccountAddressResponse.apply, "smartAccountAddress")
-  implicit val estimateGasResponseFormat: JsonFormat[EstimateGasResponse] = jsonFormat[String, EstimateGasResponse](EstimateGasResponse.apply, "usdcFeeAmount")
+  implicit val estimateGasResponseFormat: JsonFormat[EstimateGasResponse] = jsonFormat[String, EstimateGasResponse](EstimateGasResponse.apply, "feeAmount")
   implicit val opHashResponseFormat: JsonFormat[OpHashResponse] = jsonFormat[String, OpHashResponse](OpHashResponse.apply, "userOpHash")
 }
 

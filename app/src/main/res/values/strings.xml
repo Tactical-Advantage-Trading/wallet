@@ -64,7 +64,9 @@
     <string name="dialog_receive_address"><![CDATA[Your address]]></string>
 
     <string name="dialog_up_to"><![CDATA[<b>up to</b> %1$s]]></string>
-    <string name="dialog_fee_sat_vbyte"><![CDATA[<b>fee</b> %1$s sat/vB]]></string>
+    <string name="dialog_fee"><![CDATA[<b>fee</b> %1$s]]></string>
+    <string name="dialog_fee_error">error</string>
+    <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
     <string name="dialog_insufficient_funds">missing funds</string>
 
@@ -79,7 +81,7 @@
 
     <!-- errors -->
 
-    <string name="error_btc_no_wallet">Bitcoin wallet is not found</string>
+    <string name="error_no_wallet">Related wallet is not found</string>
     <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
     <string name="error_nothing_useful">Nothing useful is found</string>
 
@@ -104,11 +106,10 @@
 
     <!-- Settings activity -->
 
-    <string name="settings_fiat_currency">Fiat currency</string>
-    <string name="settings_attached_label">Set attached wallet label</string>
-    <string name="settings_chain_wallets">Attach another BIP39 wallet</string>
+    <string name="settings_set_btc_label">Set wallet label</string>
+    <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
+    <string name="settings_view_revocery_phrase">View recovery phrase</string>
     <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
-    <string name="settings_view_revocery_phrase">View BIP39 recovery phrase</string>
 
     <!-- /Settings activity -->
 
