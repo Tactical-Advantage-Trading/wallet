@@ -515,16 +515,40 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
     val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
     val manager = new WalletCardManager(holder)
-    // This means search is off at start
-    searchField.setTag(false)
 
     // Settings fragment
     val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
+    val appName = s"${me getString app_name} <font color=$cardZero>V1</font>"
+    val btc = 100000000000L.msat
 
-    def makeCards: List[WalletCard] = {
+    devInfo.setText(getString(dev_info).html)
+    nameAndVer.setText(appName.html)
+    searchField.setTag(false)
+
+    def attachWallet =
+      showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
+        val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
+        val keys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
+        mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
+        extraInputLayout.setHint(dialog_set_label)
+
+        def proceed: Unit = {
+          if (WalletApp.secret.keys.bitcoinMaster == keys.bitcoinMaster) return
+          val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
+          val ewt = ElectrumWalletType.makeSigningType(core.walletType, master = keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
+          val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = extraInput.getText.toString.trim)
+          WalletApp.btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+          ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
+          spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
+          ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
+          walletCards.resetCards
+        }
+      }
+
+    def makeCards = {
       val btcCards = for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(me, xPub) {
         override def onWalletTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
       }
@@ -541,20 +565,26 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }.asSome else None
 
       btcCards ++ usdtCards ++ taCardOpt
-    }.toList
+    }
 
     def resetCards: Unit = {
       holder.removeAllViewsInLayout
-      manager init makeCards
+      manager init makeCards.toList
       updateView
     }
 
     def updateView: Unit = {
       androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
       val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
-      val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, 100000000000L.msat, Denomination.formatFiatShort)
+      val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
+      for (view <- walletCards.manager.cardViews) setVis(isVisible = isSettingsOn, view.cardButtons)
       fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
       manager.cardViews.foreach(_.updateView)
+
+      settingsButtons.removeAllViewsInLayout
+      setVis(isVisible = isSettingsOn, settingsButtons)
+      if (isSettingsOn) addFlowChip(settingsButtons, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
+      if (isSettingsOn) addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachWallet)
     }
   }
 
@@ -670,9 +700,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     } else super.onBackPressed
   }
 
-  def isSearchOn: Boolean = {
-    walletCards.searchField.getTag.asInstanceOf[Boolean]
-  }
+  def isSearchOn: Boolean = walletCards.searchField.getTag.asInstanceOf[Boolean]
+  def isSettingsOn: Boolean = walletCards.settingsContainer.getVisibility == View.VISIBLE
 
   override def START(state: Bundle): Unit =
     WalletApp.isAlive match {
@@ -741,9 +770,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // VIEW HANDLERS
 
   def bringSearch(view: View): Unit = {
-    walletCards.searchField.setTag(true)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(false -> walletCards.defaultHeader, true -> walletCards.searchField)
+    walletCards.searchField.setTag(true)
   }
 
   def rmSearch(view: View): Unit = {
@@ -785,39 +814,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     callScanner(sheet)
   }
 
-  def enterSettingsMode(view: View): Unit = {
-    def attachWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
-      val keys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-
-      val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
-      val bld = titleBodyAsViewBuilder(getString(settings_set_btc_label).asDefView, container)
-      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, bld, dialog_ok, dialog_cancel)
-      extraInputLayout.setHint(dialog_set_label)
-
-      def proceed: Unit = {
-        if (WalletApp.secret.keys.bitcoinMaster == keys.bitcoinMaster) return
-        val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
-        val ewt = ElectrumWalletType.makeSigningType(core.walletType, master = keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
-        val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = extraInput.getText.toString.trim)
-        WalletApp.btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-        ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
-        spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
-        ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
-        walletCards.resetCards
-      }
-    }
-
-    androidx.transition.TransitionManager.beginDelayedTransition(walletCards.defaultHeader)
-    if (walletCards.settingsContainer.getVisibility == View.VISIBLE) {
-      setVis(isVisible = false, walletCards.settingsContainer)
-      walletCards.settingsButtons.removeAllViewsInLayout
-    } else {
-      walletCards.devInfo.setText(getString(dev_info).html)
-      walletCards.nameAndVer.setText(s"${me getString app_name} <font color=$cardZero>V1</font>".html)
-      addFlowChip(walletCards.settingsButtons, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-      addFlowChip(walletCards.settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachWallet)
-      setVis(isVisible = true, walletCards.settingsContainer)
-    }
+  def toggleSettingsMode(view: View): Unit = {
+    setVis(isVisible = !isSettingsOn, walletCards.settingsContainer)
+    walletCards.updateView
   }
 
   def bringSendUsdtPopup(sendView: UsdtSendView, address: String): Unit = {
@@ -844,7 +843,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       sendView.confirmView.chainNextButton setOnClickListener onButtonTap {
         val desc = UsdtDescription(fromAddr = sendView.info.lcAddress, toAddr = address)
         val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, recipient = address, Biconomy.USDt, amount = (BigDecimal(10).pow(6) * finalAmount).toBigInt.toString)
-        runFutureProcessOnUI(broadcastUsdt(desc, req, finalAmount, fee), onFail) { case None => cleanFailedBroadcast(desc.fromAddr, "USDt transfer failed") case _ => }
+        runFutureProcessOnUI(broadcastUsdt(desc, req, finalAmount, fee), onFail) { case None => cleanFailedBroadcast(desc.fromAddr, "USD₮ transfer failed") case _ => }
         alert.dismiss
       }
     }
@@ -885,7 +884,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
       }
 
-    def useMax(alert: AlertDialog): Unit = {
+    def useMax(unused: AlertDialog): Unit = {
       val totalBalance = specs.map(_.info.lastBalance).sum
       sendView.rm.updateText(totalBalance.toMilliSatoshi)
     }

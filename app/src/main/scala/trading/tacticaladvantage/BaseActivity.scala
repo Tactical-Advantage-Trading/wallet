@@ -615,12 +615,15 @@ abstract class WalletCard(host: BaseActivity) {
   val balanceContainer: LinearLayout = cardWrap.findViewById(R.id.balanceContainer).asInstanceOf[LinearLayout]
   val balanceWalletFiat: TextView = cardWrap.findViewById(R.id.balanceWalletFiat).asInstanceOf[TextView]
   val balanceWallet: TextView = cardWrap.findViewById(R.id.balanceWallet).asInstanceOf[TextView]
+  val cardButtons: FlowLayout = cardWrap.findViewById(R.id.cardButtons).asInstanceOf[FlowLayout]
 
   def onWalletTap: Unit
   def updateView: Unit
 }
 
 abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) extends WalletCard(host) {
+  host.addFlowChip(cardButtons, host.getString(dialog_set_label), R.drawable.border_blue)(println)
+  host.addFlowChip(cardButtons, host.getString(dialog_remove), R.drawable.border_blue)(println)
   imageTip.setImageResource(R.drawable.add_24)
   var isSelected: Boolean = false
 
@@ -637,6 +640,8 @@ abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) ex
 }
 
 abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends WalletCard(host) {
+  host.addFlowChip(cardButtons, host.getString(dialog_set_label), R.drawable.border_blue)(println)
+  host.addFlowChip(cardButtons, host.getString(dialog_remove), R.drawable.border_blue)(println)
   infoContainer setBackgroundResource R.color.usdt
   imageTip.setImageResource(R.drawable.add_24)
 
@@ -651,10 +656,12 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
 abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
   lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
   lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
+
+  host.addFlowChip(cardButtons, host.getString(dialog_hide), R.drawable.border_blue)(println)
   infoContainer setBackgroundResource R.drawable.border_gray
   infoWalletLabel setText ta_earn_label
 
-  def updateView: Unit =
+  def updateView: Unit = {
     WalletApp.linkClient.data match {
       case stat: LinkClient.UserStatus =>
         imageTip.setImageResource(R.drawable.info_24)
@@ -668,4 +675,5 @@ abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
         host.setVisMany(false -> balanceContainer, true -> imageTip)
         infoWalletNotice setText ta_client_login
     }
+  }
 }

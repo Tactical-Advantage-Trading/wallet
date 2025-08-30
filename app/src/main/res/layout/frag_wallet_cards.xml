@@ -37,7 +37,7 @@
             <ImageButton
                 android:padding="6dp"
                 android:id="@+id/settingsButton"
-                android:onClick="enterSettingsMode"
+                android:onClick="toggleSettingsMode"
                 android:src="@drawable/settings_24"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"

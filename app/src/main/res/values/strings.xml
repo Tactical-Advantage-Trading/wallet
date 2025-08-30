@@ -10,13 +10,13 @@
     <string translatable="false" name="wallet_send">Send</string>
 
     <string name="bitcoin_wallet">BTC</string>
-    <string name="usdt_wallet">USDt</string>
+    <string name="usdt_wallet">USD₮</string>
 
     <string name="ta_earn_label">Earn account</string>
     <string name="ta_client_login">Tap to login</string>
 
     <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
-    <string name="usdt_polygon_warn">Please make sure USDt is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
+    <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
     <string name="usdt_polygon_warn_title">Polygon network only</string>
 
     <array name="ta_loans">
@@ -31,7 +31,7 @@
         <item>%1$s days left</item>
     </array>
 
-    <string name="typing_hints">Bitcoin or USDT address</string>
+    <string name="typing_hints">Bitcoin or USD₮ address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="search_recent">Type address / transaction id / hash</string>
     <string name="emergency_mode">Something went wrong</string>
@@ -47,8 +47,9 @@
     <string name="action_recovery_phrase_hint">Type recovery words</string>
 
     <string name="dialog_ok">OK</string>
+    <string name="dialog_hide">Hide</string>
     <string name="dialog_share">Share</string>
-    <string name="dialog_share_address">Share my address</string>
+    <string name="dialog_remove">Remove</string>
     <string name="dialog_set_label">Set label</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_boost">Boost</string>
@@ -69,7 +70,7 @@
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
     <string name="dialog_insufficient_funds">missing funds</string>
 
-    <string name="dialog_send_usdt"><![CDATA[Send <b>USDt</b> to address<br>%1$s]]></string>
+    <string name="dialog_send_usdt"><![CDATA[Send <b>USD₮</b> to address<br>%1$s]]></string>
     <string name="dialog_send_btc"><![CDATA[Send <b>Bitcoin</b> to address<br>%1$s%2$s]]></string>
     <string name="dialog_send_btc_many"><![CDATA[Send <b>Bitcoin</b><br><b>to many addresses</b>]]></string>
     <string name="dialog_send_confirm_amount">Send amount</string>
@@ -105,7 +106,6 @@
 
     <!-- Settings activity -->
 
-    <string name="settings_set_btc_label">Set wallet label</string>
     <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
     <string name="settings_view_revocery_phrase">View recovery phrase</string>
     <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
