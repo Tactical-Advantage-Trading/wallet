@@ -2,7 +2,6 @@
 <resources>
     <string name="lang">eng</string>
     <string name="app_name">Key wallet</string>
-    <string name="attached_wallet">Attached wallet</string>
     <string name="select_wallets">Select wallets</string>
 
     <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage Trading</b></a>]]></string>

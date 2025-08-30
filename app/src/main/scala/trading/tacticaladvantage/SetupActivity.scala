@@ -1,19 +1,19 @@
 package trading.tacticaladvantage
 
+import android.content.DialogInterface
 import android.os.Bundle
-import android.view.View
-import android.widget._
+import android.view.{View, WindowManager}
 import androidx.appcompat.app.AlertDialog
 import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
-import immortan.Tools.{SEPARATOR, StringList, none}
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.BaseActivity.StringOps
+import trading.tacticaladvantage.Colors.cardZero
 import trading.tacticaladvantage.R.string._
+import android.widget._
+import immortan.Tools._
 
 trait MnemonicActivity { me: BaseActivity =>
-  val activityContainer: LinearLayout
-
   def showMnemonicInput(titleRes: Int)(proceedWithMnemonics: StringList => Unit): Unit = {
     val mnemonicWrap = getLayoutInflater.inflate(R.layout.frag_mnemonic, null).asInstanceOf[LinearLayout]
     val recoveryPhrase = mnemonicWrap.findViewById(R.id.recoveryPhrase).asInstanceOf[com.hootsuite.nachos.NachoTextView]
@@ -47,6 +47,19 @@ trait MnemonicActivity { me: BaseActivity =>
     }
   }
 
+  def viewRecoveryCode: Unit = {
+    val content = new TitleView(me getString settings_view_revocery_phrase_ext)
+    getWindow.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+    new AlertDialog.Builder(me).setView(content.view).show setOnDismissListener new DialogInterface.OnDismissListener {
+      override def onDismiss(dialog: DialogInterface): Unit = getWindow.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    for (mnemonicWord \ mnemonicIndex <- WalletApp.secret.mnemonic.zipWithIndex) {
+      val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
+      addFlowChip(content.flow, oneWord, R.drawable.border_blue, None)
+    }
+  }
+
   lazy val englishWordList: Array[String] = {
     val rawData = getAssets.open("bip39_english_wordlist.txt")
     scala.io.Source.fromInputStream(rawData, "UTF-8").getLines.toArray
@@ -54,7 +67,6 @@ trait MnemonicActivity { me: BaseActivity =>
 }
 
 class SetupActivity extends BaseActivity with MnemonicActivity { me =>
-  lazy val activityContainer = findViewById(R.id.activitySetupMain).asInstanceOf[LinearLayout]
   lazy val devInfo = me clickableTextField findViewById(R.id.devInfo).asInstanceOf[TextView]
   lazy val fancyAppName = findViewById(R.id.fancyAppName).asInstanceOf[TextView]
 
@@ -66,9 +78,6 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     WalletApp.createBtcWallet(secret, ord = 0L)
     WalletApp.createUsdtWallet(secret, ord = 0L)
     WalletApp.assetToInternal("server.js", "server.js")
-
-    TransitionManager.beginDelayedTransition(activityContainer)
-    activityContainer.setVisibility(View.GONE)
     exitTo(ClassNames.mainActivityClass)
   }
 

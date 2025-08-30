@@ -4,12 +4,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <LinearLayout
-        style="@style/StandardLinearLayout"
-        android:id="@+id/activitySetupMain">
-
-        <LinearLayout
-            style="@style/StandardXYMarginLinearLayout">
+    <LinearLayout style="@style/StandardLinearLayout">
+        <LinearLayout style="@style/StandardXYMarginLinearLayout">
 
             <TextView
                 android:layout_marginTop="@dimen/chip_default_padding_edge"

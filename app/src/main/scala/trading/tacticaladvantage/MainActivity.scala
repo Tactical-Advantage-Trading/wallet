@@ -11,11 +11,11 @@ import com.sparrowwallet.drongo
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
-import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
+import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, ElectrumWalletType, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan.Tools._
 import immortan._
-import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams}
+import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams, SigningWallet}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
@@ -53,7 +53,7 @@ object MainActivity {
   var allInfos: Seq[ItemDetails] = Nil
 }
 
-class MainActivity extends BaseActivity with ExternalDataChecker { me =>
+class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataChecker { me =>
   private[this] lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
   private[this] lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
@@ -426,10 +426,6 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
       item match {
         case info: UsdtInfo =>
-          if (WalletApp.linkUsdt.data.withRealAddress.size > 1)
-            for (wallet <- WalletApp.linkUsdt.data.withRealAddress if wallet isRelatedToInfo info)
-              addFlowChip(extraInfo, wallet.label, R.drawable.border_gray, None)
-
           val hash = getString(popup_txid).format(info.identity.short0x)
           addFlowChip(extraInfo, hash, R.drawable.border_gray, info.identity.asSome)
 
@@ -437,13 +433,8 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
 
-          if (ElectrumWallet.specs.size > 1)
-            for (wallet <- info.extPubs flatMap ElectrumWallet.specs.get)
-              addFlowChip(extraInfo, wallet.info.label, R.drawable.border_gray, None)
-
           val txid = getString(popup_txid).format(info.identity.short)
           addFlowChip(extraInfo, txid, R.drawable.border_gray, info.identity.asSome)
-
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
@@ -795,6 +786,27 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   }
 
   def enterSettingsMode(view: View): Unit = {
+    def attachWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
+      val keys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
+
+      val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
+      val bld = titleBodyAsViewBuilder(getString(settings_set_btc_label).asDefView, container)
+      mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, bld, dialog_ok, dialog_cancel)
+      extraInputLayout.setHint(dialog_set_label)
+
+      def proceed: Unit = {
+        if (WalletApp.secret.keys.bitcoinMaster == keys.bitcoinMaster) return
+        val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
+        val ewt = ElectrumWalletType.makeSigningType(core.walletType, master = keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
+        val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = extraInput.getText.toString.trim)
+        WalletApp.btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+        ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
+        spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
+        ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
+        walletCards.resetCards
+      }
+    }
+
     androidx.transition.TransitionManager.beginDelayedTransition(walletCards.defaultHeader)
     if (walletCards.settingsContainer.getVisibility == View.VISIBLE) {
       setVis(isVisible = false, walletCards.settingsContainer)
@@ -803,7 +815,7 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
       walletCards.devInfo.setText(getString(dev_info).html)
       walletCards.nameAndVer.setText(s"${me getString app_name} <font color=$cardZero>V1</font>".html)
       addFlowChip(walletCards.settingsButtons, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-      addFlowChip(walletCards.settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(println)
+      addFlowChip(walletCards.settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachWallet)
       setVis(isVisible = true, walletCards.settingsContainer)
     }
   }
