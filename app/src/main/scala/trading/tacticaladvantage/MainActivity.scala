@@ -517,15 +517,21 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
   // LIST CAPTION CLASS
 
   class WalletCardsViewHolder {
-    val view: LinearLayout = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
-    val fiatUnitPriceAndChange: TextView = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
-    val defaultHeader: LinearLayout = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
-    val holder: LinearLayout = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
-    val searchField: EditText = view.findViewById(R.id.searchField).asInstanceOf[EditText]
-    val recentActivity: View = view.findViewById(R.id.recentActivity)
-    val manager: WalletCardManager = new WalletCardManager(holder)
+    val view = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
+    val fiatUnitPriceAndChange = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
+    val defaultHeader = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
+    val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
+    val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
+    val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
+    val manager = new WalletCardManager(holder)
     // This means search is off at start
     searchField.setTag(false)
+
+    // Settings fragment
+    val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
+    val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
+    val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
+    val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
 
     def makeCards: List[WalletCard] = {
       val btcCards = for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(me, xPub) {
@@ -790,14 +796,15 @@ class MainActivity extends BaseActivity with ExternalDataChecker { me =>
 
   def enterSettingsMode(view: View): Unit = {
     androidx.transition.TransitionManager.beginDelayedTransition(walletCards.defaultHeader)
-    val settingsContainer = walletCards.view.findViewById(R.id.settingsContainer).asInstanceOf[FlowLayout]
-    if (settingsContainer.getVisibility == View.VISIBLE) {
-      setVis(isVisible = false, settingsContainer)
-      settingsContainer.removeAllViewsInLayout
+    if (walletCards.settingsContainer.getVisibility == View.VISIBLE) {
+      setVis(isVisible = false, walletCards.settingsContainer)
+      walletCards.settingsButtons.removeAllViewsInLayout
     } else {
-      addFlowChip(settingsContainer, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-      addFlowChip(settingsContainer, getString(settings_attach_btc_wallet), R.drawable.border_blue)(println)
-      setVis(isVisible = true, settingsContainer)
+      walletCards.devInfo.setText(getString(dev_info).html)
+      walletCards.nameAndVer.setText(s"${me getString app_name} <font color=$cardZero>V1</font>".html)
+      addFlowChip(walletCards.settingsButtons, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
+      addFlowChip(walletCards.settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(println)
+      setVis(isVisible = true, walletCards.settingsContainer)
     }
   }
 

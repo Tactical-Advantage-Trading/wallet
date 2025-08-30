@@ -56,6 +56,7 @@ trait MnemonicActivity { me: BaseActivity =>
 class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   lazy val activityContainer = findViewById(R.id.activitySetupMain).asInstanceOf[LinearLayout]
   lazy val devInfo = me clickableTextField findViewById(R.id.devInfo).asInstanceOf[TextView]
+  lazy val fancyAppName = findViewById(R.id.fancyAppName).asInstanceOf[TextView]
 
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
@@ -73,6 +74,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
   override def START(s: Bundle): Unit = {
     setContentView(R.layout.activity_setup)
+    fancyAppName.setText(s"-= ${me getString app_name} =-")
     devInfo.setText(getString(dev_info).html)
   }
 

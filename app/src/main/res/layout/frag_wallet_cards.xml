@@ -48,13 +48,32 @@
 
         <!-- Settings -->
 
-        <org.apmem.tools.layouts.FlowLayout
-            style="@style/XMarginFillingView"
-            android:id="@+id/settingsContainer"
+        <LinearLayout
+            android:layout_marginTop="10dp"
             android:layout_marginBottom="5dp"
-            android:layout_marginTop="5dp"
-            android:visibility="gone"
-            f:layout_newLine="true"/>
+            android:id="@+id/settingsContainer"
+            style="@style/XMarginFillingView"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/nameAndVer"
+                style="@style/BoundedView"/>
+
+            <TextView
+                android:id="@+id/devInfo"
+                android:linksClickable="true"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="15dp"
+                android:textColorLink="@color/btcLogo"
+                style="@style/BoundedView"/>
+
+            <org.apmem.tools.layouts.FlowLayout
+                android:id="@+id/settingsButtons"
+                style="@style/FillingView"
+                f:layout_newLine="true"/>
+
+        </LinearLayout>
 
         <!-- List of cards -->
 

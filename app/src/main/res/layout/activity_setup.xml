@@ -13,7 +13,7 @@
 
             <TextView
                 android:layout_marginTop="@dimen/chip_default_padding_edge"
-                android:text="@string/app_name"
+                android:id="@+id/fancyAppName"
                 style="@style/Emphasized"/>
 
             <TextView
