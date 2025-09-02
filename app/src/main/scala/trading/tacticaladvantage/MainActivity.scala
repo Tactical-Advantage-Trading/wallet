@@ -497,9 +497,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
       val isDeeplyBuried = (in ++ out).exists(_.chainTip - info.block >= 20)
       val isUnknown = info.identity == CompleteUsdtWalletInfo.NOIDENTITY
+      val isAlien = in.isEmpty && out.isEmpty
 
       if (info.isDoubleSpent && isDeeplyBuried) R.drawable.block_24
-      else if (info.isDoubleSpent || isUnknown) R.drawable.question_24
+      else if (info.isDoubleSpent || isUnknown || isAlien) R.drawable.question_24
       else if (isDeeplyBuried) R.drawable.done_24
       else R.drawable.hourglass_empty_24
     }
@@ -514,6 +515,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
     val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
+    val zen = view.findViewById(R.id.zen).asInstanceOf[View]
     val manager = new WalletCardManager(holder)
 
     // Settings fragment
@@ -521,55 +523,63 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>V1</font>"
+    val appName = s"${me getString app_name} <font color=$cardZero>v1</font>"
     val btc = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)
     nameAndVer.setText(appName.html)
     searchField.setTag(false)
 
-    def attachWallet =
-      showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
-        val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
-        val keys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-        mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
-        extraInputLayout.setHint(dialog_set_label)
+    def showBtcWalletCard = {
+      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret, ord = 0L)
+      WalletApp.postInitBtcWallet(spec = nativeSpec)
+      resetCards
+    }
 
-        def proceed: Unit = {
-          if (WalletApp.secret.keys.bitcoinMaster == keys.bitcoinMaster) return
-          val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
-          val ewt = ElectrumWalletType.makeSigningType(core.walletType, master = keys.bitcoinMaster, ElectrumWallet.chainHash, ord = 0L)
-          val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = extraInput.getText.toString.trim)
-          WalletApp.btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-          ElectrumWallet.specs.update(key = spec.data.keys.ewt.xPub, value = spec)
-          spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
-          ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
-          walletCards.resetCards
-        }
-      }
+    def showUsdtWalletCard = {
+      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret, ord = 0L)
+      WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+      resetCards
+    }
+
+    def showTaCard = {
+      WalletApp.setTaCard(true)
+      resetCards
+    }
+
+    def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
+      val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
+      WalletApp.attachBtcWallet(attachedKeys)
+      resetCards
+    }
 
     def makeCards = {
       val btcCards = for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(me, xPub) {
         override def onWalletTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
+        override def hide: Unit = runAnd(WalletApp removeBtcWallet xPub)(resetCards)
       }
 
       val usdtCards = for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(me, info.xPriv) {
+        override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(andThen = UITask(resetCards), xPriv)
         override def onWalletTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
           case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
           case None => WalletApp.app.quickToast(usdt_not_ready)
         }
       }
 
-      val taCardOpt = if (WalletApp.showTaCard) new TaWalletCard(me) {
+      lazy val taClientCard = new TaWalletCard(me) {
+        override def hide: Unit = runAnd(WalletApp setTaCard false)(resetCards)
         override def onWalletTap: Unit = goTo(ClassNames.taActivityClass)
-      }.asSome else None
+      }
 
-      btcCards ++ usdtCards ++ taCardOpt
+      val wallets = btcCards.toList ++ usdtCards
+      if (WalletApp.showTaCard) wallets :+ taClientCard
+      else wallets
     }
 
     def resetCards: Unit = {
       holder.removeAllViewsInLayout
-      manager init makeCards.toList
+      manager init makeCards
       updateView
     }
 
@@ -577,14 +587,21 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
       val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
       val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
-      for (view <- walletCards.manager.cardViews) setVis(isVisible = isSettingsOn, view.cardButtons)
       fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
       manager.cardViews.foreach(_.updateView)
 
       settingsButtons.removeAllViewsInLayout
       setVis(isVisible = isSettingsOn, settingsButtons)
-      if (isSettingsOn) addFlowChip(settingsButtons, getString(settings_view_revocery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-      if (isSettingsOn) addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachWallet)
+      setVis(isVisible = !isSettingsOn && manager.cardViews.isEmpty, view = zen)
+      for (view <- walletCards.manager.cardViews) setVis(isVisible = isSettingsOn, view.cardButtons)
+
+      if (isSettingsOn) {
+        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
+        if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
+        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(showTaCard)
+        addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
+        addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
+      }
     }
   }
 
@@ -592,7 +609,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   private var stateSubscription = Option.empty[Subscription]
 
-  private val chainListener = new WalletEventsListener {
+  private val btcChainListener = new WalletEventsListener {
     override def onWalletReady(event: WalletReady): Unit =
       DbStreams.next(DbStreams.txDbStream)
   }
@@ -626,17 +643,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   override def onDestroy: Unit = {
-    try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
+    try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(btcChainListener) catch none
     try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
     try WalletApp.fiatRates.listeners -= fiatListener catch none
     stateSubscription.foreach(_.unsubscribe)
     super.onDestroy
   }
 
-  type GrantResults = Array[Int]
-  override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: GrantResults): Unit =
-    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED)
-      bringScanner(null)
+  override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: Array[Int] = Array.empty): Unit =
+    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED) bringScanner(null)
 
   override def checkExternalData(whenNone: Runnable): Unit = {
     val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
@@ -707,8 +722,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     WalletApp.isAlive match {
       case true if WalletApp.isOperational =>
         setContentView(R.layout.activity_main)
-
-        ElectrumWallet.catcher ! chainListener
+        ElectrumWallet.catcher ! btcChainListener
         WalletApp.fiatRates.listeners += fiatListener
         WalletApp.linkUsdt ! usdtListener
 
@@ -770,9 +784,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // VIEW HANDLERS
 
   def bringSearch(view: View): Unit = {
+    walletCards.searchField.setTag(true)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(false -> walletCards.defaultHeader, true -> walletCards.searchField)
-    walletCards.searchField.setTag(true)
   }
 
   def rmSearch(view: View): Unit = {
@@ -1049,11 +1063,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     privKey = keys.ewt.extPrivKeyFromPub(extPubKey).privateKey.value
   } yield BtcAddressAndPrivKey(keys.ewt.textAddress(extPubKey), privKey)
 
-  def drongoNetwork = {
-    ElectrumWallet.chainHash match {
-      case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
-      case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
-      case _ => drongo.Network.REGTEST
-    }
+  def drongoNetwork = ElectrumWallet.chainHash match {
+    case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
+    case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
+    case _ => drongo.Network.REGTEST
   }
 }

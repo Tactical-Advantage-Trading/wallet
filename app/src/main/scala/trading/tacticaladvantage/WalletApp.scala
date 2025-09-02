@@ -1,11 +1,12 @@
 package trading.tacticaladvantage
 
-import akka.actor.Props
+import akka.actor.{PoisonPill, Props}
 import android.app.Application
 import android.content._
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.multidex.MultiDex
+import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{Block, Satoshi}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
@@ -48,6 +49,7 @@ object WalletApp {
   final val SHOW_TA_CARD = "showTaCard"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
   def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
+  def setTaCard(visible: Boolean) = app.prefs.edit.putBoolean(SHOW_TA_CARD, visible).commit
 
   def isAlive: Boolean =
     null != btcTxDataBag && null != btcWalletBag && null != usdtTxDataBag &&
@@ -210,17 +212,28 @@ object WalletApp {
     }
   }
 
-  def createBtcWallet(sec: WalletSecret, ord: Long) = {
-    val core = SigningWallet(walletType = ElectrumWallet.BIP84)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, sec.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), app.getString(bitcoin_wallet).trim)
-    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-  }
-
-  def createUsdtWallet(sec: WalletSecret, ord: Long) = {
+  def createUsdtWallet(sec: WalletSecret, ord: Long): CompleteUsdtWalletInfo = {
     val xPriv = ElectrumWalletType.xPriv32(master = sec.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
     val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, app.getString(usdt_wallet).trim)
     usdtWalletBag.addUpdateWallet(info)
+    info
+  }
+
+  def createBtcWallet(sec: WalletSecret, ord: Long): WalletSpec = {
+    val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, sec.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
+    val spec = ElectrumWallet.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), app getString bitcoin_wallet)
+    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    spec
+  }
+
+  def attachBtcWallet(keys: MasterKeys): Unit = {
+    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, keys.bitcoinMaster, ElectrumWallet.chainHash, 0L)
+
+    if (ElectrumWallet.specs.contains(ewt.xPub) || secret.keys.bitcoinMaster == keys.bitcoinMaster) return
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = new String)
+    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    postInitBtcWallet(spec)
   }
 
   def initBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
@@ -231,8 +244,18 @@ object WalletApp {
     spec.walletRef ! info.initData
   }
 
+  def postInitBtcWallet(spec: WalletSpec): Unit = {
+    ElectrumWallet.specs.update(spec.data.keys.ewt.xPub, spec)
+    spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
+    ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
+  }
+
+  def removeBtcWallet(key: ExtendedPublicKey): Unit = {
+    ElectrumWallet.specs.remove(key).foreach(_.walletRef ! PoisonPill)
+    btcWalletBag.remove(key.publicKey)
+  }
+
   def initWallets = {
-    // Fill online map with persisted wallets
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
     for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
     for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)

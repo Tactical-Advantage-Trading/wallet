@@ -505,7 +505,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     lazy val cards: Iterable[BtcWalletCard] = for {
       xPub \ spec <- ElectrumWallet.specs if spec.spendable
     } yield new BtcWalletCard(me, xPub) {
-      setVis(isVisible = false, view = infoWalletNotice)
+      setVisMany(false -> infoWalletNotice, false -> cardButtons)
       def onWalletTap: Unit = runAnd { isSelected = !isSelected } {
         updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
         val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
@@ -616,15 +616,15 @@ abstract class WalletCard(host: BaseActivity) {
   val balanceWalletFiat: TextView = cardWrap.findViewById(R.id.balanceWalletFiat).asInstanceOf[TextView]
   val balanceWallet: TextView = cardWrap.findViewById(R.id.balanceWallet).asInstanceOf[TextView]
   val cardButtons: FlowLayout = cardWrap.findViewById(R.id.cardButtons).asInstanceOf[FlowLayout]
+  host.addFlowChip(cardButtons, host.getString(dialog_hide), R.drawable.border_blue)(hide)
 
+  def hide: Unit = none
   def onWalletTap: Unit
   def updateView: Unit
 }
 
 abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) extends WalletCard(host) {
-  host.addFlowChip(cardButtons, host.getString(dialog_set_label), R.drawable.border_blue)(println)
-  host.addFlowChip(cardButtons, host.getString(dialog_remove), R.drawable.border_blue)(println)
-  imageTip.setImageResource(R.drawable.add_24)
+  imageTip setImageResource R.drawable.add_24
   var isSelected: Boolean = false
 
   def updateView: Unit = {
@@ -640,10 +640,8 @@ abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) ex
 }
 
 abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends WalletCard(host) {
-  host.addFlowChip(cardButtons, host.getString(dialog_set_label), R.drawable.border_blue)(println)
-  host.addFlowChip(cardButtons, host.getString(dialog_remove), R.drawable.border_blue)(println)
   infoContainer setBackgroundResource R.color.usdt
-  imageTip.setImageResource(R.drawable.add_24)
+  imageTip setImageResource R.drawable.add_24
 
   def updateView: Unit = {
     val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
@@ -654,12 +652,11 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
 }
 
 abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
-  lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
-  lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
-
-  host.addFlowChip(cardButtons, host.getString(dialog_hide), R.drawable.border_blue)(println)
   infoContainer setBackgroundResource R.drawable.border_gray
   infoWalletLabel setText ta_earn_label
+
+  lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
+  lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
 
   def updateView: Unit = {
     WalletApp.linkClient.data match {

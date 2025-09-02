@@ -255,7 +255,7 @@ object ElectrumWallet extends CanBeShutDown {
 
   def orderByImportance(candidates: Seq[WalletSpec] = Nil): Seq[WalletSpec] = candidates.sortBy {
     case hardware if hardware.data.keys.ewt.secrets.isEmpty && hardware.info.core.masterFingerprint.nonEmpty => 0
-    case default if default.data.keys.ewt.secrets.nonEmpty && default.info.core.walletType == BIP84 => 1
+    case default if default.data.keys.ewt.secrets.nonEmpty && default.info.core.attachedMaster.isEmpty => 1
     case signing if signing.data.keys.ewt.secrets.nonEmpty => 2
     case _ => 3
   }
@@ -274,16 +274,6 @@ object ElectrumWallet extends CanBeShutDown {
     val info = CompleteBtcWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
     val walletRef = system.actorOf(Props(classOf[ElectrumWallet], pool, sync, ewt), ewt.xPub.publicKey.toString)
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
-  }
-
-  def removeWallet(key: ExtendedPublicKey): Unit = {
-    specs.remove(key).foreach(_.walletRef ! PoisonPill)
-    params.walletDb.remove(key.publicKey)
-  }
-
-  def setLabel(newLabel: String)(key: ExtendedPublicKey): Unit = {
-    ElectrumWallet.params.walletDb.updateLabel(newLabel, key.publicKey)
-    specs.update(key, specs(key) withNewLabel newLabel)
   }
 }
 

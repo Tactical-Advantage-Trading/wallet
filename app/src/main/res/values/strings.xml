@@ -9,7 +9,7 @@
     <string name="recent_activity">Recent activity</string>
     <string translatable="false" name="wallet_send">Send</string>
 
-    <string name="bitcoin_wallet">BTC</string>
+    <string name="bitcoin_wallet">₿TC</string>
     <string name="usdt_wallet">USD₮</string>
 
     <string name="ta_earn_label">Earn account</string>
@@ -31,7 +31,9 @@
         <item>%1$s days left</item>
     </array>
 
-    <string name="typing_hints">Bitcoin or USD₮ address</string>
+    <string name="zen">Vast Emptiness, Nothing Holy</string>
+
+    <string name="typing_hints">₿TC or USD₮ address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="search_recent">Type address / transaction id / hash</string>
     <string name="emergency_mode">Something went wrong</string>
@@ -41,15 +43,17 @@
     <string name="setup_restore_existing">Restore existing wallet</string>
 
     <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
-    <string name="share_btc_tx" translatable="false">Bitcoin transaction hex\n\n%1$s</string>
 
     <string name="action_recovery_phrase_title">Wallet recovery phrase</string>
     <string name="action_recovery_phrase_hint">Type recovery words</string>
 
+    <string name="settings_show_btc">Show ₿TC wallet</string>
+    <string name="settings_show_usdt">Show USD₮ wallet</string>
+    <string name="settings_show_ta">Show Earn account</string>
+
     <string name="dialog_ok">OK</string>
     <string name="dialog_hide">Hide</string>
     <string name="dialog_share">Share</string>
-    <string name="dialog_remove">Remove</string>
     <string name="dialog_set_label">Set label</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_boost">Boost</string>
@@ -71,8 +75,8 @@
     <string name="dialog_insufficient_funds">missing funds</string>
 
     <string name="dialog_send_usdt"><![CDATA[Send <b>USD₮</b> to address<br>%1$s]]></string>
-    <string name="dialog_send_btc"><![CDATA[Send <b>Bitcoin</b> to address<br>%1$s%2$s]]></string>
-    <string name="dialog_send_btc_many"><![CDATA[Send <b>Bitcoin</b><br><b>to many addresses</b>]]></string>
+    <string name="dialog_send_btc"><![CDATA[Send <b>₿TC</b> to address<br>%1$s%2$s]]></string>
+    <string name="dialog_send_btc_many"><![CDATA[Send <b>₿TC</b><br><b>to many addresses</b>]]></string>
     <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_btc_confirm_fiat">Fiat value</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>
@@ -106,8 +110,8 @@
 
     <!-- Settings activity -->
 
-    <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
-    <string name="settings_view_revocery_phrase">View recovery phrase</string>
+    <string name="settings_attach_btc_wallet">Attach ₿TC wallet</string>
+    <string name="settings_view_recovery_phrase">View recovery phrase</string>
     <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
 
     <!-- /Settings activity -->

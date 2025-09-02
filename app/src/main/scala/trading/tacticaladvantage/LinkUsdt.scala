@@ -97,6 +97,7 @@ object LinkUsdt {
   }
 
   case class CmdRemove(listener: Listener)
+  case class CmdRemoveWallet(andThen: Runnable, xPriv: String)
   case object CmdEnsureUsdtAccounts
 }
 
@@ -115,8 +116,14 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
     case (listener: Listener, _) => listeners = listeners :+ listener
     case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
 
+    case (CmdRemoveWallet(andThenTask, xPriv), _) =>
+      val wallets1 = data.wallets.filterNot(_.xPriv == xPriv)
+      data = data.copy(wallets = wallets1)
+      usdtWalletBag.remove(xPriv)
+      andThenTask.run
+
     case (info: CompleteUsdtWalletInfo, _) =>
-      data = data.copy(data.wallets - info + info)
+      data = data.copy(wallets = data.wallets - info + info)
       usdtWalletBag.addUpdateWallet(info)
 
     case (UsdtBalanceNonce(address, balance, nonce), _) =>
@@ -128,8 +135,9 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
     case (CmdEnsureUsdtAccounts, _) =>
       data.wallets.find(_.lcAddress == CompleteUsdtWalletInfo.NOADDRESS).foreach { walletInfo =>
         biconomy.getSmartAccountAddress(privKey = walletInfo.xPriv).foreach { response =>
-          me ! Request(UsdtSubscribe(response.smartAccountAddress, 0L), USDT_UPDATE)
+          val sub = UsdtSubscribe(response.smartAccountAddress.toLowerCase, 0L)
           me !! walletInfo.copy(address = response.smartAccountAddress)
+          me ! Request(sub, USDT_UPDATE)
         }
       }
 
@@ -141,7 +149,7 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
 
     case (CmdConnect, DISCONNECTED) =>
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket("ws://10.0.2.2:9001").addListener(wsListener)
+      ws = factory.createSocket("ws://10.0.2.2:8080").addListener(wsListener)
       ws.connectAsynchronously
 
     case (CmdDisconnected, _) if !ws.isOpen =>

@@ -75,6 +75,14 @@
 
         </LinearLayout>
 
+        <TextView
+            style="@style/BoundedView"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="15dp"
+            android:text="@string/zen"
+            android:visibility="gone"
+            android:id="@+id/zen"/>
+
         <!-- List of cards -->
 
         <LinearLayout

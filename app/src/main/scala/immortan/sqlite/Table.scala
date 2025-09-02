@@ -32,8 +32,9 @@ object BtcTxTable extends Table {
   val (search, table, rawTx, txid, pub, depth, receivedSat, sentSat, feeSat, seenAt, updatedAt, description, balanceMsat, fiatRates, incoming, doubleSpent) =
     ("tsearch", "btc", "raw", "txid", "pub", "depth", "received", "sent", "fee", "seen", "updated", "desc", "balance", "fiatrates", "incoming", "doublespent")
 
+  // With Electrum wallet, we see a new TX once and then only update it, so we ignore subsequent TXs (may happen if wallet is removed, then added again)
   private val inserts = s"$rawTx, $txid, $pub, $depth, $receivedSat, $sentSat, $feeSat, $seenAt, $updatedAt, $description, $balanceMsat, $fiatRates, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val newSql = s"INSERT OR IGNORE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
   val newVirtualSql = s"INSERT INTO $fts$table ($search, $txid) VALUES (?, ?)"
 
@@ -83,6 +84,7 @@ object UsdtTxTable extends Table {
   val (search, table, hash, network, block, receivedUsdt, sentUsdt, feeUsdt, seenAt, updatedAt, description, balanceUsdt, incoming, doubleSpent) =
     ("tsearch", "usdt", "hash", "network", "block", "received", "sent", "fee", "seen", "updated", "desc", "balance", "incoming", "doublespent")
 
+  // With usdt-provider, we may see the same tx many times (for example: added to block, then removed shortly after, then re-added again), so we replace
   private val inserts = s"$hash, $network, $block, $receivedUsdt, $sentUsdt, $feeUsdt, $seenAt, $updatedAt, $description, $balanceUsdt, $incoming, $doubleSpent"
   val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
