@@ -630,10 +630,12 @@ abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) ex
   def updateView: Unit = {
     val spec = ElectrumWallet.specs(xPub)
     val hasMoney = spec.info.lastBalance.toLong > 0L
+    val attachment = if (spec.info.core.attachedMaster.isDefined) R.drawable.attachment_24 else 0
     val bgResource = if (isSelected) R.drawable.border_card_signing_on else R.color.cardBitcoinSigning
     infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(host getString bitcoin_wallet)
     balanceWallet setText BtcDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
     balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
+    infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, attachment, 0)
     host.setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
     infoContainer setBackgroundResource bgResource
   }

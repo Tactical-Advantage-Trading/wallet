@@ -24,6 +24,7 @@
                 android:layout_centerVertical="true">
 
                 <TextView
+                    android:drawablePadding="@dimen/chip_default_padding_between_image"
                     android:textColor="@android:color/white"
                     android:id="@+id/infoWalletLabel"
                     style="@style/Emphasized"/>

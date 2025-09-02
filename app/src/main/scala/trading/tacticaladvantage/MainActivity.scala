@@ -518,7 +518,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val zen = view.findViewById(R.id.zen).asInstanceOf[View]
     val manager = new WalletCardManager(holder)
 
-    // Settings fragment
+    // Settings region
     val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]

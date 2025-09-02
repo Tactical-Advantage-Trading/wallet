@@ -231,7 +231,7 @@ object WalletApp {
     val ewt = ElectrumWalletType.makeSigningType(core.walletType, keys.bitcoinMaster, ElectrumWallet.chainHash, 0L)
 
     if (ElectrumWallet.specs.contains(ewt.xPub) || secret.keys.bitcoinMaster == keys.bitcoinMaster) return
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = new String)
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = app getString bitcoin_wallet)
     btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     postInitBtcWallet(spec)
   }
