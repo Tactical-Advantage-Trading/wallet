@@ -21,7 +21,7 @@ class SQLiteUsdtTx(val db: DBInterface) {
     val updateDescriptionSqlPQ = db.makePreparedQuery(UsdtTxTable.updateDescriptionSql)
     db.change(updateDescriptionSqlPQ, description.toJson.compactPrint, hash)
     for (label <- description.label) addSearchableTransaction(label, hash)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     updateDescriptionSqlPQ.close
   }
 
@@ -32,7 +32,7 @@ class SQLiteUsdtTx(val db: DBInterface) {
     db.change(newSqlPQ, hash, network: JLong, block: JLong, receivedUsdt, sentUsdt, feeUsdt, stamp: JLong /* SEEN */,
       stamp: JLong /* UPDATED */, description.toJson.compactPrint, balanceSnapUsdt, isIncoming: JLong,
       if (doubleSpent) 1L: JLong else 0L: JLong /* NOT DOUBLE SPENT YET */)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     newSqlPQ.close
   }
 

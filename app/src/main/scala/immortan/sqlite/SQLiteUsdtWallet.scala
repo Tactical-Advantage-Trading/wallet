@@ -20,11 +20,15 @@ case class CompleteUsdtWalletInfo(address: String, xPriv: String, label: String,
 }
 
 class SQLiteUsdtWallet(val db: DBInterface) {
-  def remove(master: String): Unit = db.change(UsdtWalletTable.killSql, master)
-
   def addUpdateWallet(info: CompleteUsdtWalletInfo): Unit =
-    db.change(UsdtWalletTable.newUpdSql, info.address, info.xPriv, info.lastBalance,
-      info.lastNonce, info.chainTip: java.lang.Long, info.label)
+    db.change(UsdtWalletTable.newUpdSql, info.address, info.xPriv,
+      info.lastBalance, info.lastNonce, info.chainTip: java.lang.Long,
+      info.label)
+
+  def remove(master: String): Unit = {
+    db.change(UsdtWalletTable.killSql, master)
+    DbStreams.next(DbStreams.walletStream)
+  }
 
   def listWallets: Iterable[CompleteUsdtWalletInfo] = db.select(UsdtWalletTable.selectSql).iterable { rc =>
     CompleteUsdtWalletInfo(rc string UsdtWalletTable.address, rc string UsdtWalletTable.xPriv, rc string BtcWalletTable.label,

@@ -10,12 +10,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.sparrowwallet.drongo
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{GenerateTxResponse, OkOrError, RBFResponse, WalletReady}
-import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, ElectrumWalletType, WalletSpec}
+import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
+import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan.Tools._
 import immortan._
-import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams, SigningWallet}
+import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
@@ -30,7 +30,6 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils._
 
 import java.util.TimerTask
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -531,46 +530,42 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     searchField.setTag(false)
 
     def showBtcWalletCard = {
-      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret, ord = 0L)
+      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret)
       WalletApp.postInitBtcWallet(spec = nativeSpec)
-      resetCards
     }
 
     def showUsdtWalletCard = {
-      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret, ord = 0L)
+      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret)
       WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
-      resetCards
-    }
-
-    def showTaCard = {
-      WalletApp.setTaCard(true)
-      resetCards
     }
 
     def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
       val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
       WalletApp.attachBtcWallet(attachedKeys)
-      resetCards
     }
 
     def makeCards = {
-      val btcCards = for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(me, xPub) {
-        override def onWalletTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
-        override def hide: Unit = runAnd(WalletApp removeBtcWallet xPub)(resetCards)
+      lazy val taClientCard = new TaWalletCard(host = me) {
+        override def hide: Unit = WalletApp.setTaCard(visible = false)
+        override def onTap: Unit = goTo(ClassNames.taActivityClass)
       }
 
-      val usdtCards = for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(me, info.xPriv) {
-        override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(andThen = UITask(resetCards), xPriv)
-        override def onWalletTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
-          case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
-          case None => WalletApp.app.quickToast(usdt_not_ready)
-        }
-      }
+      val btcCards =
+        for (xPub <- ElectrumWallet.specs.keys)
+          yield new BtcWalletCard(host = me, xPub) {
+            override def hide: Unit = WalletApp.removeBtcWallet(xPub)
+            override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
+          }
 
-      lazy val taClientCard = new TaWalletCard(me) {
-        override def hide: Unit = runAnd(WalletApp setTaCard false)(resetCards)
-        override def onWalletTap: Unit = goTo(ClassNames.taActivityClass)
-      }
+      val usdtCards =
+        for (info <- WalletApp.linkUsdt.data.wallets)
+          yield new UsdtWalletCard(host = me, info.xPriv) {
+            override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(info.xPriv)
+            override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
+              case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
+              case None => WalletApp.app.quickToast(usdt_not_ready)
+            }
+          }
 
       val wallets = btcCards.toList ++ usdtCards
       if (WalletApp.showTaCard) wallets :+ taClientCard
@@ -579,7 +574,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     def resetCards: Unit = {
       holder.removeAllViewsInLayout
-      manager init makeCards
+      manager.init(makeCards)
       updateView
     }
 
@@ -598,7 +593,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       if (isSettingsOn) {
         if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
         if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
-        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(showTaCard)
+        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(WalletApp setTaCard true)
         addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
         addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
       }
@@ -607,11 +602,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   // LISTENERS
 
-  private var stateSubscription = Option.empty[Subscription]
+  private var viewUpdateSub = Option.empty[Subscription]
+  private var cardsResetSub = Option.empty[Subscription]
 
   private val btcChainListener = new WalletEventsListener {
     override def onWalletReady(event: WalletReady): Unit =
-      DbStreams.next(DbStreams.txDbStream)
+      DbStreams.next(DbStreams.txStream)
   }
 
   private val usdtListener = new LinkUsdt.Listener(LinkUsdt.GENERAL_ERROR) {
@@ -646,7 +642,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(btcChainListener) catch none
     try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
     try WalletApp.fiatRates.listeners -= fiatListener catch none
-    stateSubscription.foreach(_.unsubscribe)
+    viewUpdateSub.foreach(_.unsubscribe)
+    cardsResetSub.foreach(_.unsubscribe)
     super.onDestroy
   }
 
@@ -739,13 +736,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
         walletCards.resetCards
+        runAnd { loadRecent } { paymentAdapterDataChanged.run }
         walletCards.searchField addTextChangedListener onTextChange(searchWorker.addWork)
-        runInFutureProcessOnUI(loadRecent, none) { _ => paymentAdapterDataChanged.run }
 
         // STREAMS
 
-        stateSubscription = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txDbStream, 500.millis).subscribe { _ =>
-          // This gets triggered whenever it makes sense to load new infos from db (info added, broadcasted, description changed)
+        viewUpdateSub = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txStream, 500.millis) {
+          // Full view update when it makes sense to load new infos from db (info added, broadcasted, description changed)
           // For BTC txs specifically, we also leverage this opportunity to check whether they got confirmed or double-spent
           if (!isSearchOn) loadRecent
 
@@ -758,6 +755,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
           UITask(walletCards.updateView).run
           paymentAdapterDataChanged.run
+        }.asSome
+
+        cardsResetSub = Rx.uniqueFirstAndLastWithinWindow(DbStreams.walletStream, 100.millis) {
+          // Full wallet cards reset when it makes sense to reload them from db
+          UITask(walletCards.resetCards).run
         }.asSome
 
       case true =>
@@ -829,7 +831,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def toggleSettingsMode(view: View): Unit = {
-    setVis(isVisible = !isSettingsOn, walletCards.settingsContainer)
+    setVis(!isSettingsOn, walletCards.settingsContainer)
     walletCards.updateView
   }
 
@@ -1036,7 +1038,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0L)
     WalletApp.pendingInfos(info.identity) = info
     WalletApp.seenInfos(info.identity) = info
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     ElectrumWallet.broadcast(finalTx)
   }
 
@@ -1046,14 +1048,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       desc, WalletApp.linkUsdt.data.totalBalance.toLong, incoming = 0L, doubleSpent = 0L)
     WalletApp.pendingInfos(desc.fromAddr) = info
     WalletApp.seenInfos(desc.fromAddr) = info
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     WalletApp.biconomy.send(req)
   }
 
   def cleanFailedBroadcast(failedKey: String, message: String): Unit = {
     WalletApp.pendingInfos.remove(failedKey)
     WalletApp.seenInfos.remove(failedKey)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     onFail(message)
   }
 

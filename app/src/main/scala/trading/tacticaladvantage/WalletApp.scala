@@ -49,7 +49,11 @@ object WalletApp {
   final val SHOW_TA_CARD = "showTaCard"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
   def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
-  def setTaCard(visible: Boolean) = app.prefs.edit.putBoolean(SHOW_TA_CARD, visible).commit
+
+  def setTaCard(visible: Boolean) = {
+    app.prefs.edit.putBoolean(SHOW_TA_CARD, visible).commit
+    DbStreams.next(DbStreams.walletStream)
+  }
 
   def isAlive: Boolean =
     null != btcTxDataBag && null != btcWalletBag && null != usdtTxDataBag &&
@@ -212,18 +216,19 @@ object WalletApp {
     }
   }
 
-  def createUsdtWallet(sec: WalletSecret, ord: Long): CompleteUsdtWalletInfo = {
+  def createUsdtWallet(sec: WalletSecret, ord: Long = 0L): CompleteUsdtWalletInfo = {
     val xPriv = ElectrumWalletType.xPriv32(master = sec.keys.tokenMaster, ElectrumWallet.chainHash, ord).xPriv
-    val info = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, app.getString(usdt_wallet).trim)
-    usdtWalletBag.addUpdateWallet(info)
-    info
+    val usdtInfo = CompleteUsdtWalletInfo(CompleteUsdtWalletInfo.NOADDRESS, xPriv.privateKey.toAccount, app.getString(usdt_wallet).trim)
+    usdtWalletBag.addUpdateWallet(usdtInfo)
+    DbStreams.next(DbStreams.walletStream)
+    usdtInfo
   }
 
-  def createBtcWallet(sec: WalletSecret, ord: Long): WalletSpec = {
+  def createBtcWallet(sec: WalletSecret, ord: Long = 0L): WalletSpec = {
     val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, sec.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), app getString bitcoin_wallet)
-    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-    spec
+    val btcSpec = ElectrumWallet.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), app getString bitcoin_wallet)
+    btcWalletBag.addWallet(btcSpec.info, ElectrumWallet.params.emptyPersistentDataBytes, btcSpec.data.keys.ewt.xPub.publicKey)
+    btcSpec
   }
 
   def attachBtcWallet(keys: MasterKeys): Unit = {
@@ -231,7 +236,7 @@ object WalletApp {
     val ewt = ElectrumWalletType.makeSigningType(core.walletType, keys.bitcoinMaster, ElectrumWallet.chainHash, 0L)
 
     if (ElectrumWallet.specs.contains(ewt.xPub) || secret.keys.bitcoinMaster == keys.bitcoinMaster) return
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = app getString bitcoin_wallet)
+    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, Satoshi(0L), label = app getString bitcoin_wallet)
     btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     postInitBtcWallet(spec)
   }

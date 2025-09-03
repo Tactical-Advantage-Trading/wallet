@@ -1,13 +1,12 @@
 package immortan.utils
 
-import rx.lang.scala.Observable
+import rx.lang.scala.{Observable, Subscription}
 import rx.lang.scala.schedulers.IOScheduler
 import scala.concurrent.duration._
 
-
 object Rx {
-  def uniqueFirstAndLastWithinWindow[T](obs: Observable[T], window: Duration): Observable[T] =
-    obs.throttleFirst(window).merge(obs debounce window).distinctUntilChanged.observeOn(IOScheduler.apply)
+  def uniqueFirstAndLastWithinWindow[T](obs: Observable[T], window: Duration)(sub: => Unit): Subscription =
+    obs.throttleFirst(window).merge(obs debounce window).distinctUntilChanged.observeOn(IOScheduler.apply).subscribe(_ => sub)
 
   def initDelay[T](next: Observable[T], startMillis: Long, timeoutMillis: Long): Observable[T] = {
     val futureProtectedStartMillis = if (startMillis > System.currentTimeMillis) 0L else startMillis

@@ -502,22 +502,23 @@ trait BaseActivity extends AppCompatActivity { me =>
     val alert = mkCheckForm(alert => runAnd(alert.dismiss)(onOk), none, titleBodyAsViewBuilder(title.view, cardsContainer), dialog_ok, dialog_cancel)
     val chooser = new WalletCardManager(cardsContainer)
 
-    lazy val cards: Iterable[BtcWalletCard] = for {
-      xPub \ spec <- ElectrumWallet.specs if spec.spendable
-    } yield new BtcWalletCard(me, xPub) {
-      setVisMany(false -> infoWalletNotice, false -> cardButtons)
-      def onWalletTap: Unit = runAnd { isSelected = !isSelected } {
-        updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
-        val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
-        val formatted = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
-        if (totalCanSend > 0L.msat) info.setText(s"∑ $formatted".html)
-        else info.setText(select_wallets)
-        updateView
-      }
-    }
+    lazy val cards: Iterable[BtcWalletCard] =
+      for (xPub \ spec <- ElectrumWallet.specs if spec.spendable)
+        yield new BtcWalletCard(me, xPub) {
+          setVis(isVisible = false, cardButtons)
+          setVis(isVisible = false, infoWalletNotice)
+
+          def onTap: Unit = runAnd { isSelected = !isSelected } {
+            updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
+            val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
+            val formatted = "<small>∑ </small>" + BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
+            if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
+            updateView
+          }
+        }
 
     def onOk: Unit
-    def chosenCards: Iterable[WalletSpec] = cards.filter(_.isSelected).flatMap(ElectrumWallet.specs get _.xPub)
+    def chosenCards = cards.filter(_.isSelected).flatMap(ElectrumWallet.specs get _.xPub)
     updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
     runAnd(chooser)(chooser init cards.toList).unPad
     chooser.cardViews.foreach(_.updateView)
@@ -605,7 +606,7 @@ abstract class WalletCard(host: BaseActivity) {
   val cardWrap: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_wallet_card, null).asInstanceOf[LinearLayout]
   val imageTip: ImageView = cardWrap.findViewById(R.id.imageTip).asInstanceOf[ImageView]
   val cardView: CardView = cardWrap.findViewById(R.id.cardView).asInstanceOf[CardView]
-  cardView setOnClickListener host.onButtonTap(onWalletTap)
+  cardView setOnClickListener host.onButtonTap(onTap)
 
   val infoContainer: View = cardWrap.findViewById(R.id.infoContainer).asInstanceOf[View]
   val infoWalletLabel: TextView = cardWrap.findViewById(R.id.infoWalletLabel).asInstanceOf[TextView]
@@ -619,8 +620,8 @@ abstract class WalletCard(host: BaseActivity) {
   host.addFlowChip(cardButtons, host.getString(dialog_hide), R.drawable.border_blue)(hide)
 
   def hide: Unit = none
-  def onWalletTap: Unit
   def updateView: Unit
+  def onTap: Unit
 }
 
 abstract class BtcWalletCard(host: BaseActivity, val xPub: ExtendedPublicKey) extends WalletCard(host) {

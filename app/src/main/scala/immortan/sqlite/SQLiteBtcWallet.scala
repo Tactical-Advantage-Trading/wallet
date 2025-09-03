@@ -14,9 +14,11 @@ case class CompleteBtcWalletInfo(core: SigningWallet, initData: ByteVector, last
 
 class SQLiteBtcWallet(val db: DBInterface) {
   // Specifically do not use info.data because it may be empty ByteVector
-  def addWallet(info: CompleteBtcWalletInfo, data: ByteVector, pub: PublicKey): Unit =
+  def addWallet(info: CompleteBtcWalletInfo, data: ByteVector, pub: PublicKey): Unit = {
     db.change(BtcWalletTable.newSql, info.core.toJson.compactPrint, pub.toString,
       data.toArray, info.lastBalance.toLong: java.lang.Long, info.label)
+    DbStreams.next(DbStreams.walletStream)
+  }
 
   def persist(data: PersistentData, lastBalance: Satoshi, pub: PublicKey): Unit =
     db.change(BtcWalletTable.updSql, persistentDataCodec.encode(data).require.toByteArray,
@@ -25,8 +27,10 @@ class SQLiteBtcWallet(val db: DBInterface) {
   def updateLabel(label: String, pub: PublicKey): Unit =
     db.change(BtcWalletTable.updLabelSql, label, pub.toString)
 
-  def remove(pub: PublicKey): Unit =
+  def remove(pub: PublicKey): Unit = {
     db.change(BtcWalletTable.killSql, pub.toString)
+    DbStreams.next(DbStreams.walletStream)
+  }
 
   def listWallets: Iterable[CompleteBtcWalletInfo] = db.select(BtcWalletTable.selectSql).iterable { rc =>
     CompleteBtcWalletInfo(to[SigningWallet](rc string BtcWalletTable.info), rc byteVec BtcWalletTable.data,

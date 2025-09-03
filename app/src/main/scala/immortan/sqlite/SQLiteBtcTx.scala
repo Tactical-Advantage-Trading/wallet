@@ -25,13 +25,13 @@ class SQLiteBtcTx(val db: DBInterface) {
     val updateDescriptionSqlPQ = db.makePreparedQuery(BtcTxTable.updateDescriptionSql)
     db.change(updateDescriptionSqlPQ, description.toJson.compactPrint, txid.toHex)
     for (label <- description.label) addSearchableTransaction(label, txid)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     updateDescriptionSqlPQ.close
   }
 
   def updStatus(txid: ByteVector32, depth: Long, updatedStamp: Long, doubleSpent: Boolean): Unit = {
     db.change(BtcTxTable.updStatusSql, depth: JLong, if (doubleSpent) 1L: JLong else 0L: JLong, updatedStamp: JLong, txid.toHex)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
   }
 
   def addTx(tx: Transaction, depth: Long, received: Satoshi, sent: Satoshi, fee: Satoshi, xPubs: Seq[ExtendedPublicKey],
@@ -41,7 +41,7 @@ class SQLiteBtcTx(val db: DBInterface) {
       received.toLong: JLong, sent.toLong: JLong, fee.toLong: JLong, stamp: JLong /* SEEN */, stamp: JLong /* UPDATED */,
       description.toJson.compactPrint, 0L: JLong /* USED TO BE BALANCE SNAPSHOT */, fiatRateSnap.toJson.compactPrint,
       isIncoming: JLong, 0L: JLong /* NOT DOUBLE SPENT YET */)
-    DbStreams.next(DbStreams.txDbStream)
+    DbStreams.next(DbStreams.txStream)
     newSqlPQ.close
   }
 

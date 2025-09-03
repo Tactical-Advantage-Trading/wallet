@@ -97,7 +97,7 @@ object LinkUsdt {
   }
 
   case class CmdRemove(listener: Listener)
-  case class CmdRemoveWallet(andThen: Runnable, xPriv: String)
+  case class CmdRemoveWallet(xPriv: String)
   case object CmdEnsureUsdtAccounts
 }
 
@@ -116,11 +116,10 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
     case (listener: Listener, _) => listeners = listeners :+ listener
     case (CmdRemove(listener), _) => listeners = listeners diff List(listener)
 
-    case (CmdRemoveWallet(andThenTask, xPriv), _) =>
+    case (CmdRemoveWallet(xPriv), _) =>
       val wallets1 = data.wallets.filterNot(_.xPriv == xPriv)
       data = data.copy(wallets = wallets1)
       usdtWalletBag.remove(xPriv)
-      andThenTask.run
 
     case (info: CompleteUsdtWalletInfo, _) =>
       data = data.copy(wallets = data.wallets - info + info)
@@ -129,7 +128,7 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
     case (UsdtBalanceNonce(address, balance, nonce), _) =>
       data.wallets.find(_.lcAddress == address).foreach { walletInfo =>
         me !! walletInfo.copy(lastBalance = balance, lastNonce = nonce)
-        DbStreams.next(DbStreams.txDbStream)
+        DbStreams.next(DbStreams.txStream)
       }
 
     case (CmdEnsureUsdtAccounts, _) =>
