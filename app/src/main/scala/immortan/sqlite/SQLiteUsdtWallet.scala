@@ -14,9 +14,7 @@ case class CompleteUsdtWalletInfo(address: String, xPriv: String, label: String,
 
   lazy val lcAddress: String = address.toLowerCase
   lazy val lastBalanceDecimal: BigDecimal = BigDecimal(lastBalance)
-  lazy val lastBalanceDust: BigDecimal = lastBalanceDecimal % DUST_THRESHOLD
-  lazy val lastBalanceNoDust: BigDecimal = lastBalanceDecimal - lastBalanceDust
-  lazy val isDust: Boolean = lastBalanceDecimal <= DUST_THRESHOLD * 2
+  lazy val isDust: Boolean = lastBalanceDecimal < DUST_THRESHOLD * 2
 }
 
 class SQLiteUsdtWallet(val db: DBInterface) {

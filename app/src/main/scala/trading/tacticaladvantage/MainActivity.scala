@@ -757,7 +757,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           paymentAdapterDataChanged.run
         }.asSome
 
-        cardsResetSub = Rx.uniqueFirstAndLastWithinWindow(DbStreams.walletStream, 100.millis) {
+        cardsResetSub = Rx.uniqueFirstAndLastWithinWindow(DbStreams.walletStream, 500.millis) {
           // Full wallet cards reset when it makes sense to reload them from db
           UITask(walletCards.resetCards).run
         }.asSome
@@ -842,7 +842,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     def reactOnInput(unused: String): BigDecimal = {
       val value = BigDecimal(sendView.editView.rmc.fiatInputAmount.getNumericValueBigDecimal)
-      val canProceed = value >= CompleteUsdtWalletInfo.DUST_THRESHOLD && value <= sendView.info.lastBalanceNoDust
+      val canProceed = value >= CompleteUsdtWalletInfo.DUST_THRESHOLD && value <= sendView.info.lastBalanceDecimal
       updatePopupButton(getPositiveButton(alert), fee >= 0 && canProceed)
       value
     }
@@ -864,7 +864,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
     }
 
-    def useMax(unused: AlertDialog): Unit = sendView.editView.rmc.updateFiatText(sendView.info.lastBalanceNoDust.toString)
+    def useMax(unused: AlertDialog): Unit = sendView.editView.rmc.updateFiatText(sendView.info.lastBalanceDecimal.toString)
     lazy val alert = mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, dialog_max)
     sendView.editView.rmc.fiatInputAmount addTextChangedListener onTextChange(reactOnInput)
     updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
