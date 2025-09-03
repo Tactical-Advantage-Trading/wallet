@@ -514,7 +514,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
     val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
-    val zen = view.findViewById(R.id.zen).asInstanceOf[View]
     val manager = new WalletCardManager(holder)
 
     // Settings region
@@ -587,7 +586,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       settingsButtons.removeAllViewsInLayout
       setVis(isVisible = isSettingsOn, settingsButtons)
-      setVis(isVisible = !isSettingsOn && manager.cardViews.isEmpty, view = zen)
       for (view <- walletCards.manager.cardViews) setVis(isVisible = isSettingsOn, view.cardButtons)
 
       if (isSettingsOn) {

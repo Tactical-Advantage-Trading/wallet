@@ -31,8 +31,7 @@
         <item>%1$s days left</item>
     </array>
 
-    <string name="zen">Vast Emptiness, Nothing Holy</string>
-
+    <string name="wallets">Wallets</string>
     <string name="typing_hints">₿TC or USD₮ address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="search_recent">Type address / transaction id / hash</string>

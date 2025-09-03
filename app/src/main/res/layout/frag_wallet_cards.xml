@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout style="@style/StandardLinearLayout"
+<LinearLayout
+    style="@style/StandardLinearLayout"
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:f="http://schemas.android.com/apk/res-auto">
 
@@ -50,7 +51,6 @@
 
         <LinearLayout
             android:layout_marginTop="10dp"
-            android:layout_marginBottom="5dp"
             android:id="@+id/settingsContainer"
             style="@style/XMarginFillingView"
             android:orientation="vertical"
@@ -79,15 +79,14 @@
             style="@style/BoundedView"
             android:layout_marginTop="10dp"
             android:layout_marginStart="15dp"
-            android:text="@string/zen"
-            android:visibility="gone"
-            android:id="@+id/zen"/>
+            android:layout_marginBottom="@dimen/corner_radius"
+            android:textColor="@color/cardZeroText"
+            android:text="@string/wallets"/>
 
         <!-- List of cards -->
 
         <LinearLayout
             style="@style/FillingView"
-            android:layout_marginBottom="5dp"
             android:id="@+id/chainCardsContainer"
             android:orientation="vertical"/>
 
@@ -95,8 +94,9 @@
             android:gravity="center"
             android:paddingTop="20dp"
             android:paddingStart="15dp"
-            android:paddingBottom="5dp"
             android:id="@+id/recentActivity"
+            android:layout_marginBottom="@dimen/corner_radius"
+            android:textColor="@color/cardZeroText"
             android:text="@string/recent_activity"
             style="@style/BoundedView"/>
 
