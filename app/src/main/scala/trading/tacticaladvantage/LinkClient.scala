@@ -68,7 +68,6 @@ object LinkClient {
   case class DepositIntent(txid: String, asset: Asset) extends RequestArguments { val tag = "DepositIntent" }
   case class CancelWithdraw(asset: Asset) extends RequestArguments { val tag = "CancelWithdraw" }
   case object GetHistory extends RequestArguments { val tag = "GetHistory" }
-  case object LogOut extends RequestArguments { val tag = "LogOut" }
 
   implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[Asset, GetLoanAd](GetLoanAd.apply, "asset"), "GetLoanAd")
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), "Login")
@@ -77,7 +76,6 @@ object LinkClient {
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
   implicit val getHistoryFormat: JsonFormat[GetHistory.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetHistory), "GetHistory")
-  implicit val logOutFormat: JsonFormat[LogOut.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => LogOut), "LogOut")
 
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def write(obj: RequestArguments): JsValue = obj match {
@@ -88,7 +86,6 @@ object LinkClient {
       case request: DepositIntent => depositIntentFormat.write(request)
       case request: WithdrawReq => withdrawReqFormat.write(request)
       case GetHistory => getHistoryFormat.write(GetHistory)
-      case LogOut => logOutFormat.write(LogOut)
     }
 
     def read(json: JsValue): RequestArguments =
