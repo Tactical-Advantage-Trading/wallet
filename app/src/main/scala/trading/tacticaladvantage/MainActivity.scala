@@ -195,7 +195,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           val afterAmount = BtcDenom.directedTT(feeOpt.map(receivedMsat.-).getOrElse(receivedMsat), 0L.msat, cardOut, cardIn, cardZero, isIncoming = true)
           sendView.cpfpView.cpfpCurrent.secondItem.setText(currentAmount.html)
           sendView.cpfpView.cpfpAfter.secondItem.setText(afterAmount.html)
-          updatePopupButton(getPositiveButton(alert), feeOpt.isDefined)
+          updatePosButton(alert, feeOpt.isDefined).run
           super.update(feeOpt, showIssue)
         }.run
       }
@@ -269,14 +269,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
         private def showRbfErrorDesc(descRes: Int): Unit = UITask {
-          updatePopupButton(getPositiveButton(alert), isEnabled = false)
           super.update(feeOpt = Option.empty, showIssue = false)
           setVis(isVisible = true, sendView.rbfView.rbfIssue)
+          updatePosButton(alert, isEnabled = false).run
           sendView.rbfView.rbfIssue.setText(descRes)
         }.run
 
         override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-          updatePopupButton(getPositiveButton(alert), isEnabled = feeOpt.isDefined)
+          updatePosButton(alert, isEnabled = feeOpt.isDefined).run
           setVis(isVisible = false, sendView.rbfView.rbfIssue)
           super.update(feeOpt, showIssue)
         }.run
@@ -355,14 +355,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
         private def showRbfErrorDesc(descRes: Int): Unit = UITask {
-          updatePopupButton(getPositiveButton(alert), isEnabled = false)
           super.update(feeOpt = Option.empty, showIssue = false)
           setVis(isVisible = true, sendView.rbfView.rbfIssue)
+          updatePosButton(alert, isEnabled = false).run
           sendView.rbfView.rbfIssue.setText(descRes)
         }.run
 
         override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-          updatePopupButton(getPositiveButton(alert), isEnabled = feeOpt.isDefined)
+          updatePosButton(alert, isEnabled = feeOpt.isDefined).run
           setVis(isVisible = false, sendView.rbfView.rbfIssue)
           super.update(feeOpt, showIssue)
         }.run
@@ -549,7 +549,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         override def hide: Unit = WalletApp.setTaCard(visible = false)
         override def onTap: Unit = WalletApp.linkClient.data match {
           case status: LinkClient.UserStatus =>
-          case LinkClient.LoggedOut => bringTaSignInDialog
+          case LinkClient.LoggedOut => bringTaSignInDialogEmail
         }
       }
 
@@ -854,7 +854,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def reactOnInput(unused: String): BigDecimal = {
       val value = BigDecimal(sendView.editView.rmc.fiatInputAmount.getNumericValueBigDecimal)
       val canProceed = value >= CompleteUsdtWalletInfo.DUST_THRESHOLD && value <= sendView.info.lastBalanceDecimal
-      updatePopupButton(getPositiveButton(alert), fee >= 0 && canProceed)
+      updatePosButton(alert, isEnabled = fee >= 0 && canProceed).run
       value
     }
 
@@ -878,7 +878,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def useMax(unused: AlertDialog): Unit = sendView.editView.rmc.updateFiatText(sendView.info.lastBalanceDecimal.toString)
     lazy val alert = mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, dialog_max)
     sendView.editView.rmc.fiatInputAmount addTextChangedListener onTextChange(reactOnInput)
-    updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
+    updatePosButton(alert, isEnabled = false).run
 
     val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, address, Biconomy.USDt)
     runInFutureProcessOnUI(WalletApp.biconomy.estimateTxGas(req), onFail) {
@@ -934,7 +934,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-        updatePopupButton(getPositiveButton(alert), isEnabled = feeOpt.isDefined)
+        updatePosButton(alert, isEnabled = feeOpt.isDefined).run
         super.update(feeOpt, showIssue)
       }.run
     }
@@ -982,7 +982,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-        updatePopupButton(getPositiveButton(alert), isEnabled = feeOpt.isDefined)
+        updatePosButton(alert, isEnabled = feeOpt.isDefined).run
         super.update(feeOpt, showIssue)
       }.run
     }
@@ -1021,22 +1021,22 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     extraInputField
   }
 
-  def bringTaSignInDialog: Unit = {
-    val title = new TitleView(me getString ta_login_title).asDefView
-    val (builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(title)
-    lazy val alert = mkCheckFormNeutral(proceedEmail, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
+  def bringTaSignInDialogEmail: Unit = {
+    val title = new TitleView(me getString ta_login_title_email).asDefView
+    val Tuple3(builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(title)
+    lazy val alert = mkCheckFormNeutral(proceed, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
 
     lazy val listener = new LinkClient.Listener("login-email") {
+      override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
-        if (args.isDefined) set(isEnabled = true, extraInputField, alert).run else UITask {
-          timer.schedule(UITask(proceedPassword(extraInputField.getText.toString.trim)), 225)
-          alert.dismiss
-        }.run
+        if (args.isDefined) onDisconnected // Something is wrong, allow to retry
+        else moveToPass.run // Silent nod from server
     }
 
-    def set(isEnabled: Boolean, field: EditText, alert1: AlertDialog) = UITask {
-      updatePopupButton(getPositiveButton(alert1), isEnabled)
-      field.setEnabled(isEnabled)
+    def moveToPass = UITask {
+      val email = extraInputField.getText.toString
+      timer.schedule(bringTaSignInDialogPass(email), 225)
+      alert.dismiss
     }
 
     def signUpWarn(unused: AlertDialog): Unit = {
@@ -1046,52 +1046,53 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       showForm(bld1.create)
     }
 
-    def proceedEmail(a1: AlertDialog): Unit = {
-      set(isEnabled = false, extraInputField, a1).run
+    def proceed(unused: AlertDialog): Unit = {
+      updatePosButton(alert, isEnabled = false).run
       val loginReq = LinkClient.Login(None, extraInputField.getText.toString)
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
       WalletApp.linkClient ! listener
     }
 
     extraInputLayout.setHint(ta_login_email)
-    updatePopupButton(getPositiveButton(alert), isEnabled = false)
+    updatePosButton(alert, isEnabled = false).run
     extraInputField addTextChangedListener onTextChange { inputText =>
       val isEnabled = Patterns.EMAIL_ADDRESS.matcher(inputText).matches
-      updatePopupButton(getPositiveButton(alert), isEnabled)
+      updatePosButton(alert, isEnabled).run
     }
 
     alert setOnDismissListener onDismiss {
       WalletApp.linkClient ! LinkClient.CmdRemove(listener)
     }
+  }
 
-    def proceedPassword(email: String): Unit = {
-      val title1 = new TitleView(me getString ta_login_title).asDefView
-      val (builder1, extraInputLayout1, extraInputField1) = singleInputPopupBuilder(title1)
-      lazy val alert1 = mkCheckForm(doLogin, none, builder1, dialog_ok, dialog_cancel)
+  def bringTaSignInDialogPass(email: String) = UITask {
+    val title = new TitleView(me getString ta_login_title_pass).asDefView
+    val (builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(title)
+    lazy val alert = mkCheckForm(doLogin, none, builder, dialog_ok, dialog_cancel)
 
-      lazy val listener1 = new LinkClient.Listener(LinkClient.USER_UPDATE) {
-        override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
-          case _: LinkClient.Failure => set(isEnabled = true, extraInputField1, alert1).run
-          case _ => UITask(alert1.dismiss).run
-        }
+    lazy val listener = new LinkClient.Listener(LinkClient.USER_UPDATE) {
+      override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
+      override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
+        case _: LinkClient.Failure => onDisconnected // Something like wrong password, allow to retry
+        case _ => UITask(alert.dismiss).run // State update has already been handled, nothing to do
       }
+    }
 
-      def doLogin(a1: AlertDialog): Unit = {
-        set(isEnabled = false, extraInputField1, a1).run
-        val loginReq = LinkClient.Login(Some(extraInputField1.getText.toString), email)
-        WalletApp.linkClient ! LinkClient.Request(loginReq, listener1.id)
-        WalletApp.linkClient ! listener1
-      }
+    def doLogin(unused: AlertDialog): Unit = {
+      updatePosButton(alert, isEnabled = false).run
+      val loginReq = LinkClient.Login(Some(extraInputField.getText.toString), email)
+      WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
+      WalletApp.linkClient ! listener
+    }
 
-      extraInputLayout1.setHint(ta_login_pass)
-      updatePopupButton(getPositiveButton(alert1), isEnabled = false)
-      extraInputField1 addTextChangedListener onTextChange { inputText =>
-        updatePopupButton(getPositiveButton(alert1), isEnabled = inputText.nonEmpty)
-      }
+    extraInputLayout.setHint(ta_login_pass)
+    updatePosButton(alert, isEnabled = false).run
+    extraInputField addTextChangedListener onTextChange { inputText =>
+      updatePosButton(alert, isEnabled = inputText.nonEmpty).run
+    }
 
-      alert1 setOnDismissListener onDismiss {
-        WalletApp.linkClient ! LinkClient.CmdRemove(listener1)
-      }
+    alert setOnDismissListener onDismiss {
+      WalletApp.linkClient ! LinkClient.CmdRemove(listener)
     }
   }
 

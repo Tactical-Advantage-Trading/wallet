@@ -38,11 +38,8 @@ trait MnemonicActivity { me: BaseActivity =>
 
     val builder = titleBodyAsViewBuilder(getString(titleRes).asDefView, mnemonicWrap)
     val alert = mkCheckForm(proceed, none, builder, R.string.dialog_ok, R.string.dialog_cancel)
-    updatePopupButton(getPositiveButton(alert), isEnabled = false)
-
-    recoveryPhrase addTextChangedListener onTextChange { _ =>
-      updatePopupButton(getPositiveButton(alert), getMnemonicList.size > 11)
-    }
+    recoveryPhrase addTextChangedListener onTextChange(_ => updatePosButton(alert, getMnemonicList.size > 11).run)
+    updatePosButton(alert, isEnabled = false).run
   }
 
   def viewRecoveryCode: Unit = {

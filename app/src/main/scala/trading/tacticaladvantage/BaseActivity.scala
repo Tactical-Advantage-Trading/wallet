@@ -306,10 +306,9 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   // Fiat / BTC converter
 
-  def updatePopupButton(button: Button, isEnabled: Boolean): Unit = {
-    val alpha = if (isEnabled) 1F else 0.3F
-    button.setEnabled(isEnabled)
-    button.setAlpha(alpha)
+  def updatePosButton(alert: AlertDialog, isEnabled: Boolean) = UITask {
+    getPositiveButton(alert) setAlpha { if (isEnabled) 1F else 0.3F }
+    getPositiveButton(alert) setEnabled isEnabled
   }
 
   class RateManagerContent(val container: View) {
@@ -506,18 +505,22 @@ trait BaseActivity extends AppCompatActivity { me =>
           setVis(isVisible = false, infoWalletNotice)
 
           def onTap: Unit = runAnd { isSelected = !isSelected } {
-            updatePopupButton(getPositiveButton(alert), chosenCards.nonEmpty)
             val totalCanSend = chosenCards.map(_.info.lastBalance).sum.toMilliSatoshi
             val formatted = "<small>∑ </small>" + BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
             if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
+            updatePosButton(alert, isEnabled = chosenCards.nonEmpty).run
             updateView
           }
         }
 
     def onOk: Unit
-    def chosenCards = cards.filter(_.isSelected).flatMap(ElectrumWallet.specs get _.xPub)
-    updatePopupButton(button = getPositiveButton(alert), isEnabled = false)
+
+    def chosenCards = cards
+      .filter(_.isSelected).map(_.xPub)
+      .flatMap(ElectrumWallet.specs.get)
+
     runAnd(chooser)(chooser init cards.toList).unPad
+    updatePosButton(alert, isEnabled = false).run
     chooser.cardViews.foreach(_.updateView)
   }
 }
