@@ -190,7 +190,7 @@ object WalletApp {
 
       override def onResponse(arguments: Option[LinkClient.ResponseArguments] = None): Unit = arguments.foreach {
         case LinkClient.Failure(LinkClient.NOT_AUTHORIZED) => linkClient ! LinkClient.LoggedOut
-        case data: LinkClient.UserStatus => linkClient ! data
+        case status: LinkClient.UserStatus => linkClient ! status
         case _ =>
       }
     }
@@ -288,11 +288,11 @@ object WalletApp {
       linkUsdt ! WsListener.CmdConnect
     }
 
-//    if (showTaCard) {
-//      // This is a single place where we should bypass sequential threading
-//      for (status <- linkClient.loadUserStatus) linkClient.data = status
-//      linkClient ! WsListener.CmdConnect
-//    }
+    if (showTaCard) {
+      // This is a single place where we should bypass sequential threading
+      for (status <- linkClient.loadUserStatus) linkClient.data = status
+      linkClient ! WsListener.CmdConnect
+    }
   }
 
   // Fiat conversion

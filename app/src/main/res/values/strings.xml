@@ -4,7 +4,7 @@
     <string name="app_name">Key wallet</string>
     <string name="select_wallets">Select wallets</string>
 
-    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage Trading</b></a>]]></string>
+    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
 
     <string name="recent_activity">Recent activity</string>
     <string translatable="false" name="wallet_send">Send</string>
@@ -14,6 +14,20 @@
 
     <string name="ta_earn_label">Earn account</string>
     <string name="ta_client_login">Tap to login</string>
+    <string name="ta_balances">Balances</string>
+    <string name="ta_loans">Active loans</string>
+    <string name="ta_loan">Loan funds</string>
+    <string name="ta_logout">log out</string>
+    <string name="ta_support">get support</string>
+    <string name="ta_withdraw">schedule withdraw</string>
+
+    <string name="ta_login_email">Enter your email</string>
+    <string name="ta_login_pass">Paste one-time password</string>
+    <string name="ta_signup_warn"><![CDATA[
+        Automatic client registration is not working yet and each signup is approved manually.<br><br>
+        Email us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> if you wish to become a client.
+    ]]></string>
+    <string name="ta_login_title"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading]]></string>
 
     <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
@@ -26,7 +40,7 @@
     </array>
 
     <array name="ta_days_left">
-        <item>ends today</item>
+        <item>finalizing</item>
         <item>%1$s day left</item>
         <item>%1$s days left</item>
     </array>
@@ -53,7 +67,7 @@
     <string name="dialog_ok">OK</string>
     <string name="dialog_hide">Hide</string>
     <string name="dialog_share">Share</string>
-    <string name="dialog_set_label">Set label</string>
+    <string name="dialog_signup">Sign up</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_boost">Boost</string>
     <string name="dialog_paste">Paste</string>

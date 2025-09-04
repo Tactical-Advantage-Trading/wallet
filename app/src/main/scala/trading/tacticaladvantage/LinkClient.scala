@@ -3,7 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import immortan.{CanBeShutDown, StateMachine}
 import immortan.Tools.none
-import immortan.sqlite.SQLiteData
+import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.Rx
 import spray.json._
@@ -128,10 +128,7 @@ object LinkClient {
   sealed trait TaLinkState
   case object LoggedOut extends TaLinkState
   case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
-                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState {
-    lazy val userName = email.split('@').headOption.getOrElse(email)
-    val tag = "UserStatus"
-  }
+                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
 
   implicit val loanAdFormat: JsonFormat[LoanAd] =
     taggedJsonFmt(jsonFormat[Long, Double, Double, Option[String], String, Double, Asset,
@@ -193,15 +190,17 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
 
     case (LoggedOut, _) =>
       extDataBag.delete(TA_USER_STATUS)
-      become(LoggedOut, state)
+      become(freshData = LoggedOut, state)
+      DbStreams.next(DbStreams.walletStream)
 
     case (status: UserStatus, _) =>
-      saveUserStatus(status)
-      become(status, state)
+      saveUserStatus(newStatus = status)
+      become(freshData = status, freshState = state)
+      DbStreams.next(DbStreams.walletStream)
 
     case (CmdConnect, DISCONNECTED) =>
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket("wss://10.0.2.2:9002").addListener(wsListener)
+      ws = factory.createSocket("ws://10.0.2.2:9001").addListener(wsListener)
       ws.connectAsynchronously
 
     case (CmdDisconnected, _) if !ws.isOpen =>
@@ -221,7 +220,7 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
 
   private val TA_USER_STATUS = "ta-user-status"
   def loadUserStatus: Try[UserStatus] = extDataBag.tryGet(TA_USER_STATUS).map(SQLiteData.byteVecToString) map to[UserStatus]
-  def saveUserStatus(status: UserStatus): Unit = extDataBag.put(TA_USER_STATUS, status.toJson.compactPrint getBytes "UTF-8")
+  def saveUserStatus(newStatus: UserStatus): Unit = extDataBag.put(TA_USER_STATUS, newStatus.toJson.compactPrint getBytes "UTF-8")
 
   state = DISCONNECTED
   data = LoggedOut

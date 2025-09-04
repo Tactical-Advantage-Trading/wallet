@@ -1,9 +1,10 @@
 package trading.tacticaladvantage
 
-import android.content.Intent
+import android.content.{DialogInterface, Intent}
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.{View, ViewGroup}
+import android.util.Patterns
+import android.view.{View, ViewGroup, WindowManager}
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
@@ -546,7 +547,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def makeCards = {
       lazy val taClientCard = new TaWalletCard(host = me) {
         override def hide: Unit = WalletApp.setTaCard(visible = false)
-        override def onTap: Unit = goTo(ClassNames.taActivityClass)
+        override def onTap: Unit = WalletApp.linkClient.data match {
+          case status: LinkClient.UserStatus =>
+          case LinkClient.LoggedOut => bringTaSignInDialog
+        }
       }
 
       val btcCards =
@@ -586,7 +590,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       settingsButtons.removeAllViewsInLayout
       setVis(isVisible = isSettingsOn, settingsButtons)
-      for (view <- walletCards.manager.cardViews) setVis(isVisible = isSettingsOn, view.cardButtons)
+      for (view <- walletCards.manager.cardViews) setVis(isSettingsOn, view.cardButtons)
 
       if (isSettingsOn) {
         if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
@@ -611,7 +615,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   private val usdtListener = new LinkUsdt.Listener(LinkUsdt.GENERAL_ERROR) {
     override def onChainTip(chainTip: Long): Unit = paymentAdapterDataChanged.run
     override def onResponse(args: Option[LinkUsdt.ResponseArguments] = None): Unit = args.foreach {
-      case failure: LinkUsdt.UsdtFailure => WalletApp.app.quickToast(failure.failureCode.getClass.getName)
+      case fail: LinkUsdt.UsdtFailure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
+      case _ => // Not interested in anything else
+    }
+  }
+
+  private val taListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
+    override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
+      case fail: LinkClient.Failure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
       case _ => // Not interested in anything else
     }
   }
@@ -638,6 +649,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   override def onDestroy: Unit = {
     try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(btcChainListener) catch none
+    try WalletApp.linkClient ! LinkClient.CmdRemove(taListener) catch none
     try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
     try WalletApp.fiatRates.listeners -= fiatListener catch none
     viewUpdateSub.foreach(_.unsubscribe)
@@ -719,6 +731,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setContentView(R.layout.activity_main)
         ElectrumWallet.catcher ! btcChainListener
         WalletApp.fiatRates.listeners += fiatListener
+        WalletApp.linkClient ! taListener
         WalletApp.linkUsdt ! usdtListener
 
         itemsList.addHeaderView(walletCards.view)
@@ -798,7 +811,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   def bringPasteAddressDialog: Unit = {
     def doBringPasteAddressDialog: Unit = {
-      val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder
+      val (builder, extraInputLayout, extraInput) = singleInputPopupBuilder(title = null)
       mkCheckForm(alert => runAnd(alert.dismiss)(proceed), none, builder, dialog_ok, dialog_cancel)
       extraInputLayout.setHint(typing_hints)
 
@@ -1006,6 +1019,80 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     extraOptionText.setText(sign_sig_only_info)
     extraOption.setText(sign_sig_only)
     extraInputField
+  }
+
+  def bringTaSignInDialog: Unit = {
+    val title = new TitleView(me getString ta_login_title).asDefView
+    val (builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(title)
+    lazy val alert = mkCheckFormNeutral(proceedEmail, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
+
+    lazy val listener = new LinkClient.Listener("login-email") {
+      override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
+        if (args.isDefined) set(isEnabled = true, extraInputField, alert).run else UITask {
+          timer.schedule(UITask(proceedPassword(extraInputField.getText.toString.trim)), 225)
+          alert.dismiss
+        }.run
+    }
+
+    def set(isEnabled: Boolean, field: EditText, alert1: AlertDialog) = UITask {
+      updatePopupButton(getPositiveButton(alert1), isEnabled)
+      field.setEnabled(isEnabled)
+    }
+
+    def signUpWarn(unused: AlertDialog): Unit = {
+      val title = new TitleView(me getString ta_signup_warn)
+      val bld = titleBodyAsViewBuilder(null, title.asDefView)
+      val bld1 = bld.setPositiveButton(dialog_ok, null)
+      showForm(bld1.create)
+    }
+
+    def proceedEmail(a1: AlertDialog): Unit = {
+      set(isEnabled = false, extraInputField, a1).run
+      val loginReq = LinkClient.Login(None, extraInputField.getText.toString)
+      WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
+      WalletApp.linkClient ! listener
+    }
+
+    extraInputLayout.setHint(ta_login_email)
+    updatePopupButton(getPositiveButton(alert), isEnabled = false)
+    extraInputField addTextChangedListener onTextChange { inputText =>
+      val isEnabled = Patterns.EMAIL_ADDRESS.matcher(inputText).matches
+      updatePopupButton(getPositiveButton(alert), isEnabled)
+    }
+
+    alert setOnDismissListener onDismiss {
+      WalletApp.linkClient ! LinkClient.CmdRemove(listener)
+    }
+
+    def proceedPassword(email: String): Unit = {
+      val title1 = new TitleView(me getString ta_login_title).asDefView
+      val (builder1, extraInputLayout1, extraInputField1) = singleInputPopupBuilder(title1)
+      lazy val alert1 = mkCheckForm(doLogin, none, builder1, dialog_ok, dialog_cancel)
+
+      lazy val listener1 = new LinkClient.Listener(LinkClient.USER_UPDATE) {
+        override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
+          case _: LinkClient.Failure => set(isEnabled = true, extraInputField1, alert1).run
+          case _ => UITask(alert1.dismiss).run
+        }
+      }
+
+      def doLogin(a1: AlertDialog): Unit = {
+        set(isEnabled = false, extraInputField1, a1).run
+        val loginReq = LinkClient.Login(Some(extraInputField1.getText.toString), email)
+        WalletApp.linkClient ! LinkClient.Request(loginReq, listener1.id)
+        WalletApp.linkClient ! listener1
+      }
+
+      extraInputLayout1.setHint(ta_login_pass)
+      updatePopupButton(getPositiveButton(alert1), isEnabled = false)
+      extraInputField1 addTextChangedListener onTextChange { inputText =>
+        updatePopupButton(getPositiveButton(alert1), isEnabled = inputText.nonEmpty)
+      }
+
+      alert1 setOnDismissListener onDismiss {
+        WalletApp.linkClient ! LinkClient.CmdRemove(listener1)
+      }
+    }
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {

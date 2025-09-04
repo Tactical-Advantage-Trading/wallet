@@ -9,7 +9,7 @@ import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.text.{Editable, Spanned, TextWatcher}
 import android.view.View.OnClickListener
-import android.view.{View, ViewGroup, WindowManager}
+import android.view.{View, ViewGroup}
 import android.widget._
 import androidx.appcompat.app.{AlertDialog, AppCompatActivity}
 import androidx.appcompat.widget.AppCompatButton
@@ -67,7 +67,6 @@ object ClassNames {
   val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
   val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
-  val taActivityClass: Class[TaActivity] = classOf[TaActivity]
 }
 
 object Colors {
@@ -131,10 +130,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     new TitleView(caption)
   }
 
-  def browse(maybeUri: String): Unit = try {
-    me startActivity new Intent(Intent.ACTION_VIEW, Uri parse maybeUri)
-  } catch { case exception: Throwable => me onFail exception }
-
   def share(text: CharSequence): Unit = startActivity {
     val shareAction = (new Intent).setAction(Intent.ACTION_SEND)
     shareAction.setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
@@ -142,9 +137,11 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   // Listener helpers
 
-  def onButtonTap(fun: => Unit): OnClickListener = new OnClickListener {
-    def onClick(view: View): Unit = fun
-  }
+  def onDismiss(fun: => Unit): DialogInterface.OnDismissListener =
+    new DialogInterface.OnDismissListener { def onDismiss(alert: DialogInterface): Unit = fun }
+
+  def onButtonTap(fun: => Unit): OnClickListener =
+    new OnClickListener { def onClick(view: View): Unit = fun }
 
   def onTextChange(fun: String => Unit): TextWatcher = new TextWatcher {
     override def onTextChanged(c: CharSequence, x: Int, y: Int, z: Int): Unit = fun(c.toString)
@@ -282,9 +279,9 @@ trait BaseActivity extends AppCompatActivity { me =>
     (container, extraInputLayout, extraInput, extraOption, extraOptionText)
   }
 
-  def singleInputPopupBuilder = {
+  def singleInputPopupBuilder(title: View) = {
     val (container, extraInputLayout, extraInput, _, _) = singleInputPopup
-    (titleBodyAsViewBuilder(null, container), extraInputLayout, extraInput)
+    (titleBodyAsViewBuilder(title, container), extraInputLayout, extraInput)
   }
 
   // Rich popup title
@@ -663,13 +660,14 @@ abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
 
   def updateView: Unit = {
     WalletApp.linkClient.data match {
-      case stat: LinkClient.UserStatus =>
+      case status: LinkClient.UserStatus =>
         imageTip.setImageResource(R.drawable.info_24)
-        val minDaysLeft = (stat.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
-        host.setVisMany(stat.activeLoans.nonEmpty -> balanceContainer, stat.activeLoans.isEmpty -> imageTip)
-        balanceWallet setText WalletApp.app.plurOrZero(activeLoans, stat.activeLoans.size)
+        val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
         balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeft, minDaysLeft.toInt)
-        infoWalletNotice setText stat.userName
+        balanceWallet setText WalletApp.app.plurOrZero(activeLoans, status.activeLoans.size)
+        host.setVis(isVisible = status.activeLoans.nonEmpty, balanceContainer)
+        host.setVis(isVisible = status.activeLoans.isEmpty, imageTip)
+        infoWalletNotice setText status.email
       case LinkClient.LoggedOut =>
         imageTip.setImageResource(R.drawable.lock_24)
         host.setVisMany(false -> balanceContainer, true -> imageTip)

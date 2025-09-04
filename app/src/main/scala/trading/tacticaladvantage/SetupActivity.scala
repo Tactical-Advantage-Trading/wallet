@@ -1,17 +1,15 @@
 package trading.tacticaladvantage
 
-import android.content.DialogInterface
 import android.os.Bundle
-import android.view.{View, WindowManager}
+import android.view.View
+import android.widget._
 import androidx.appcompat.app.AlertDialog
-import androidx.transition.TransitionManager
 import fr.acinq.bitcoin.MnemonicCode
+import immortan.Tools._
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors.cardZero
 import trading.tacticaladvantage.R.string._
-import android.widget._
-import immortan.Tools._
 
 trait MnemonicActivity { me: BaseActivity =>
   def showMnemonicInput(titleRes: Int)(proceedWithMnemonics: StringList => Unit): Unit = {
@@ -49,10 +47,7 @@ trait MnemonicActivity { me: BaseActivity =>
 
   def viewRecoveryCode: Unit = {
     val content = new TitleView(me getString settings_view_revocery_phrase_ext)
-    getWindow.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-    new AlertDialog.Builder(me).setView(content.view).show setOnDismissListener new DialogInterface.OnDismissListener {
-      override def onDismiss(dialog: DialogInterface): Unit = getWindow.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-    }
+    new AlertDialog.Builder(me).setView(content.view).show
 
     for (mnemonicWord \ mnemonicIndex <- WalletApp.secret.mnemonic.zipWithIndex) {
       val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
