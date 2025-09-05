@@ -3,7 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:f="http://schemas.android.com/tools"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:visibility="gone">
 
     <TextView
         android:textColor="@android:color/white"
@@ -45,10 +46,12 @@
     <com.ornach.nobobutton.NoboButton
         android:layout_marginTop="15dp"
         app:nb_text="@string/ta_loan"
+        android:id="@+id/taDeposit"
         style="@style/GreenButton"/>
 
     <org.apmem.tools.layouts.FlowLayout
         android:layout_marginTop="15dp"
+        android:id="@+id/taExtended"
         style="@style/FillingView"
         f:layout_newLine="true"/>
 

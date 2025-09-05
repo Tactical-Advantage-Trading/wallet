@@ -655,26 +655,56 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
 }
 
 abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
-  infoContainer setBackgroundResource R.drawable.border_gray
-  infoWalletLabel setText ta_earn_label
-
   lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
   lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
+  infoWalletLabel setText ta_earn_label
+
+  val earnAccount = new EarnAccount(host)
+  cardView.addView(earnAccount.wrap, 0)
 
   def updateView: Unit = {
     WalletApp.linkClient.data match {
       case status: LinkClient.UserStatus =>
+        infoWalletNotice setText status.email
         imageTip.setImageResource(R.drawable.info_24)
         val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
         balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeft, minDaysLeft.toInt)
         balanceWallet setText WalletApp.app.plurOrZero(activeLoans, status.activeLoans.size)
         host.setVis(isVisible = status.activeLoans.nonEmpty, balanceContainer)
         host.setVis(isVisible = status.activeLoans.isEmpty, imageTip)
-        infoWalletNotice setText status.email
+        earnAccount.updateView(status)
+      case LinkClient.LoggedOut if earnAccount.isExpanded =>
+        androidx.transition.TransitionManager.beginDelayedTransition(cardWrap)
+        host.setVisMany(false -> earnAccount.wrap, true -> infoContainer)
+        updateView
       case LinkClient.LoggedOut =>
-        imageTip.setImageResource(R.drawable.lock_24)
-        host.setVisMany(false -> balanceContainer, true -> imageTip)
         infoWalletNotice setText ta_client_login
+        imageTip.setImageResource(R.drawable.lock_24)
+        host.setVis(isVisible = false, balanceContainer)
+        host.setVis(isVisible = true, imageTip)
     }
+  }
+}
+
+class EarnAccount(host: BaseActivity) {
+  val wrap: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
+  val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
+  val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
+  val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
+  val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
+  val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
+  val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
+  val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
+  def isExpanded: Boolean = wrap.getVisibility == View.VISIBLE
+
+  def updateView(status: LinkClient.UserStatus): Unit = {
+    val balances = status.totalFunds.filter(_.withdrawable > 0D)
+    List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
+    host.setVisMany(balances.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
+
+    host.addFlowChip(taExtended, host.getString(ta_support), R.drawable.border_blue)(none)
+    host.addFlowChip(taExtended, host.getString(ta_logout), R.drawable.border_blue)(none)
+
+    taClientEmail setText status.email
   }
 }

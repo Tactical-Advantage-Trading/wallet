@@ -548,8 +548,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       lazy val taClientCard = new TaWalletCard(host = me) {
         override def hide: Unit = WalletApp.setTaCard(visible = false)
         override def onTap: Unit = WalletApp.linkClient.data match {
-          case status: LinkClient.UserStatus =>
-          case LinkClient.LoggedOut => bringTaSignInDialogEmail
+          case _: LinkClient.UserStatus if earnAccount.isExpanded =>
+            androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
+            setVisMany(false -> earnAccount.wrap, true -> infoContainer)
+          case _: LinkClient.UserStatus =>
+            androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
+            setVisMany(true -> earnAccount.wrap, false -> infoContainer)
+          case LinkClient.LoggedOut =>
+            bringTaSignInDialogEmail
         }
       }
 
@@ -620,7 +626,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  private val taListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
+  private val taErrorListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
     override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
       case fail: LinkClient.Failure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
       case _ => // Not interested in anything else
@@ -649,7 +655,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   override def onDestroy: Unit = {
     try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(btcChainListener) catch none
-    try WalletApp.linkClient ! LinkClient.CmdRemove(taListener) catch none
+    try WalletApp.linkClient ! LinkClient.CmdRemove(taErrorListener) catch none
     try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
     try WalletApp.fiatRates.listeners -= fiatListener catch none
     viewUpdateSub.foreach(_.unsubscribe)
@@ -731,7 +737,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setContentView(R.layout.activity_main)
         ElectrumWallet.catcher ! btcChainListener
         WalletApp.fiatRates.listeners += fiatListener
-        WalletApp.linkClient ! taListener
+        WalletApp.linkClient ! taErrorListener
         WalletApp.linkUsdt ! usdtListener
 
         itemsList.addHeaderView(walletCards.view)
@@ -1029,8 +1035,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     lazy val listener = new LinkClient.Listener("login-email") {
       override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
-        if (args.isDefined) onDisconnected // Something is wrong, allow to retry
-        else moveToPass.run // Silent nod from server
+        if (args.isDefined) onDisconnected else moveToPass.run
     }
 
     def moveToPass = UITask {
@@ -1073,7 +1078,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     lazy val listener = new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
-        case _: LinkClient.Failure => onDisconnected // Something like wrong password, allow to retry
+        case _: LinkClient.Failure => onDisconnected // Something like a wrong password, allow to retry
         case _ => UITask(alert.dismiss).run // State update has already been handled, nothing to do
       }
     }

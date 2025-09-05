@@ -20,6 +20,7 @@
     <string name="ta_logout">log out</string>
     <string name="ta_support">get support</string>
     <string name="ta_withdraw">schedule withdraw</string>
+    <string name="ta_withdraw_cancel">cancel withdraw</string>
 
     <string name="ta_login_email">Enter your email</string>
     <string name="ta_login_pass">Paste one-time code</string>
@@ -27,8 +28,8 @@
         Automatic client registration is not working yet and each signup is approved manually.<br><br>
         Email us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> if you wish to become a client.
     ]]></string>
-    <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step #1: provide your email</i>]]></string>
-    <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step #2: we mailed you a code</i>]]></string>
+    <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
+    <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
 
     <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
