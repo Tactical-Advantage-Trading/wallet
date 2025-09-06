@@ -426,15 +426,16 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       item match {
         case info: UsdtInfo =>
-          val hash = getString(popup_txid).format(info.identity.short0x)
-          addFlowChip(extraInfo, hash, R.drawable.border_gray, info.identity.asSome)
+          for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_yellow, None)
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short0x), R.drawable.border_gray, info.identity.asSome)
 
         case info: BtcInfo =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
 
-          val txid = getString(popup_txid).format(info.identity.short)
-          addFlowChip(extraInfo, txid, R.drawable.border_gray, info.identity.asSome)
+          for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_yellow, None)
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray, info.identity.asSome)
+
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
           if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
@@ -1055,9 +1056,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       updatePosButton(alert, isEnabled = false).run
       val loginReq = LinkClient.Login(None, extraInputField.getText.toString)
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
-      WalletApp.linkClient ! listener
     }
 
+    WalletApp.linkClient ! listener
     extraInputLayout.setHint(ta_login_email)
     updatePosButton(alert, isEnabled = false).run
     extraInputField addTextChangedListener onTextChange { inputText =>
@@ -1087,9 +1088,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       updatePosButton(alert, isEnabled = false).run
       val loginReq = LinkClient.Login(Some(extraInputField.getText.toString), email)
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
-      WalletApp.linkClient ! listener
     }
 
+    WalletApp.linkClient ! listener
     extraInputLayout.setHint(ta_login_pass)
     updatePosButton(alert, isEnabled = false).run
     extraInputField addTextChangedListener onTextChange { inputText =>

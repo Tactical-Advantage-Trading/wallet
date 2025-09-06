@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.content.{DialogInterface, Intent}
 import android.graphics.Bitmap.Config.ARGB_8888
 import android.graphics.{Bitmap, Color}
+import android.net.Uri
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.text.{Editable, Spanned, TextWatcher}
@@ -128,6 +129,10 @@ trait BaseActivity extends AppCompatActivity { me =>
     new TitleView(caption)
   }
 
+  def browse(maybeUri: String): Unit = try {
+    me startActivity new Intent(Intent.ACTION_VIEW, Uri parse maybeUri)
+  } catch { case exception: Throwable => me onFail exception }
+
   def share(text: CharSequence): Unit = startActivity {
     val shareAction = (new Intent).setAction(Intent.ACTION_SEND)
     shareAction.setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
@@ -147,10 +152,12 @@ trait BaseActivity extends AppCompatActivity { me =>
     override def afterTextChanged(e: Editable): Unit = none
   }
 
-  def runInFutureProcessOnUI[T](fun: => T, no: Throwable => Unit)(ok: T => Unit): Unit = runFutureProcessOnUI[T](Future(fun), no)(ok)
+  def runInFutureProcessOnUI[T](fun: => T, no: Throwable => Unit)(ok: T => Unit): Unit =
+    runFutureProcessOnUI[T](Future(fun), no)(ok)
 
   def runFutureProcessOnUI[T](fun: Future[T], no: Throwable => Unit)(ok: T => Unit): Unit = fun onComplete {
-    case Success(result) => UITask(ok apply result).run case Failure(error) => UITask(no apply error).run
+    case Success(result) => UITask(ok apply result).run
+    case Failure(error) => UITask(no apply error).run
   }
 
   def setVis(isVisible: Boolean, view: View): Unit = {
@@ -684,7 +691,7 @@ abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
   }
 }
 
-class EarnAccount(host: BaseActivity) {
+class EarnAccount(host: BaseActivity) { me =>
   val daysLeftRes = host.getResources getStringArray R.array.ta_days_left
   val wrap: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
   val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
@@ -695,6 +702,29 @@ class EarnAccount(host: BaseActivity) {
   val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
   val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
   def isExpanded: Boolean = wrap.getVisibility == View.VISIBLE
+
+  val loanAdListener = new LinkClient.Listener("get-loan-ad") { self =>
+    override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
+      args.collectFirst { case ad: LinkClient.LoanAd => host.UITask(me displayLoanAd ad).run }
+      onDisconnected
+    }
+
+    override def onDisconnected: Unit = {
+      WalletApp.linkClient ! LinkClient.CmdRemove(this)
+      host.UITask(taDeposit setEnabled true).run
+    }
+  }
+
+  def displayLoanAd(ad: LinkClient.LoanAd) = {
+    println(s">> $ad")
+  }
+
+  taDeposit setOnClickListener host.onButtonTap {
+    val getLoanAd = LinkClient.GetLoanAd(asset = LinkClient.BTC)
+    WalletApp.linkClient ! LinkClient.Request(getLoanAd, loanAdListener.id)
+    WalletApp.linkClient ! loanAdListener
+    taDeposit.setEnabled(false)
+  }
 
   def updateView(status: LinkClient.UserStatus): Unit = {
     val balances = status.totalFunds.filter(_.withdrawable > 0D)
@@ -725,7 +755,7 @@ class EarnAccount(host: BaseActivity) {
       case _ =>
     }
 
-    host.addFlowChip(taExtended, host.getString(ta_support), R.drawable.border_blue)(none)
-    host.addFlowChip(taExtended, host.getString(ta_logout), R.drawable.border_blue)(none)
+    host.addFlowChip(taExtended, host.getString(ta_support), R.drawable.border_blue)(host browse "mailto:contact@tactical-advantage.trading")
+    host.addFlowChip(taExtended, host.getString(ta_logout), R.drawable.border_blue)(WalletApp.linkClient ! LinkClient.LoggedOut)
   }
 }

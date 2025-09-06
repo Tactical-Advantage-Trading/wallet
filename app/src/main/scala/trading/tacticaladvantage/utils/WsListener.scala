@@ -33,12 +33,11 @@ class WsListener[T, V](host: StateMachine[T], parse: String => Try[V], errorFun:
   override def onConnectError(ws: WebSocket, exception: WebSocketException): Unit = host ! CmdDisconnected
   override def onConnected(ws: WebSocket, headers: JavaMap): Unit = host ! CmdConnected
 
-  override def onTextMessage(ws: WebSocket, text: String): Unit = {
+  override def onTextMessage(ws: WebSocket, text: String): Unit =
     parse(text).map(host ! _).recover { case exception =>
       errorFun(exception.stackTraceAsString)
       ws.disconnect
     }
-  }
 
   override def onBinaryMessage(ws: WebSocket, binary: Bytes): Unit =
     host ! BinaryMessage(binary)

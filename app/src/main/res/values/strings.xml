@@ -16,7 +16,7 @@
     <string name="ta_client_login">Tap to login</string>
     <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
-    <string name="ta_loan">Loan funds</string>
+    <string name="ta_loan">Loan ₿TC</string>
     <string name="ta_logout">log out</string>
     <string name="ta_support">get support</string>
     <string name="ta_withdraw_on">schedule withdraw</string>
