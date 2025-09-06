@@ -1,11 +1,13 @@
 package trading.tacticaladvantage
 
 import com.neovisionaries.ws.client._
+import fr.acinq.bitcoin.Btc
+import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
 import immortan.{CanBeShutDown, StateMachine}
 import immortan.Tools.none
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
-import immortan.utils.Rx
+import immortan.utils.{BtcDenom, Denomination, Rx}
 import spray.json._
 import trading.tacticaladvantage.LinkClient._
 import trading.tacticaladvantage.utils.WsListener
@@ -64,14 +66,14 @@ object LinkClient {
   case class GetLoanAd(asset: Asset) extends RequestArguments { val tag = "GetLoanAd" }
   case class GetUserStatus(sessionToken: String) extends RequestArguments { val tag = "GetUserStatus" }
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
-  case class WithdrawReq(address: String, asset: Asset, requested: Option[Double] = None) extends RequestArguments { val tag = "WithdrawReq" }
+  case class WithdrawReq(address: String, asset: Asset, requested: Option[BigDecimal] = None) extends RequestArguments { val tag = "WithdrawReq" }
   case class DepositIntent(txid: String, asset: Asset) extends RequestArguments { val tag = "DepositIntent" }
   case class CancelWithdraw(asset: Asset) extends RequestArguments { val tag = "CancelWithdraw" }
   case object GetHistory extends RequestArguments { val tag = "GetHistory" }
 
   implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[Asset, GetLoanAd](GetLoanAd.apply, "asset"), "GetLoanAd")
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), "Login")
-  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, Option[Double], WithdrawReq](WithdrawReq.apply, "address", "asset", "requested"), "Withdraw")
+  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, Option[BigDecimal], WithdrawReq](WithdrawReq.apply, "address", "asset", "requested"), "Withdraw")
   implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[String, Asset, DepositIntent](DepositIntent.apply, "txid", "asset"), "DepositIntent")
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
@@ -94,33 +96,42 @@ object LinkClient {
 
   // Response types
 
-  case class TotalFunds(balance: Double, withdrawable: Double, asset: Asset)
-  case class Deposit(txid: String, address: String, amount: Double, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
-  case class Withdraw(txid: Option[String], id: String, address: String, amount: Double, requested: Double, created: Long, fee: Double, asset: Asset)
-  case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: Double, amount: Double, asset: Asset) {
-    lazy val msecsLeft = System.currentTimeMillis - end
-    lazy val daysLeft = msecsLeft / 86400000L
+  case class TotalFunds(balance: BigDecimal, withdrawable: BigDecimal, asset: Asset) {
+    lazy val amountHuman = toHumanSum(asset, withdrawable)
+    lazy val currency = toTextRes(asset)
+    lazy val icon = toIconRes(asset)
+  }
+
+  case class Deposit(txid: String, address: String, amount: BigDecimal, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
+  case class Withdraw(txid: Option[String], id: String, address: String, amount: BigDecimal, requested: BigDecimal, created: Long, fee: BigDecimal, asset: Asset)
+  case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: BigDecimal, amount: BigDecimal, asset: Asset) {
+    lazy val interest = new java.text.DecimalFormat("#,##0.##%", Denomination.symbols).format(roi)
+    lazy val daysLeft = Math.max(0L, (end - System.currentTimeMillis) / 86400000L)
+    lazy val interestHuman = toHumanInSum(asset, amount * roi / inverseSpan)
+    lazy val inverseSpan = 365L * 86400000L / (end - start)
+    lazy val amountHuman = toHumanSum(asset, amount)
+    lazy val icon = toIconRes(asset)
   }
 
   implicit val depositFormat: JsonFormat[Deposit] =
-    jsonFormat[String, String, Double, Long, Boolean, Boolean, Asset,
+    jsonFormat[String, String, BigDecimal, Long, Boolean, Boolean, Asset,
       Deposit](Deposit.apply, "txid", "address", "amount", "created", "isConfirmed", "isCanceled", "asset")
 
   implicit val withdrawFormat: JsonFormat[Withdraw] =
-    jsonFormat[Option[String], String, String, Double, Double, Long, Double, Asset,
+    jsonFormat[Option[String], String, String, BigDecimal, BigDecimal, Long, BigDecimal, Asset,
       Withdraw](Withdraw.apply, "txid", "id", "address", "amount", "requested", "created", "fee", "asset")
 
   implicit val activeLoanFormat: JsonFormat[ActiveLoan] =
-    jsonFormat[Long, Long, Long, Long, Double, Double, Asset,
+    jsonFormat[Long, Long, Long, Long, BigDecimal, BigDecimal, Asset,
       ActiveLoan](ActiveLoan.apply, "id", "userId", "start", "end", "roi", "amount", "asset")
 
   implicit val totalFundsFormat: JsonFormat[TotalFunds] =
-    jsonFormat[Double, Double, Asset, TotalFunds](TotalFunds.apply, "balance", "withdrawable", "asset")
+    jsonFormat[BigDecimal, BigDecimal, Asset, TotalFunds](TotalFunds.apply, "balance", "withdrawable", "asset")
 
   sealed trait ResponseArguments { def tag: String }
   case class Failure(failureCode: FailureCode) extends ResponseArguments { val tag = "Failure" }
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
-  case class LoanAd(durationDays: Long, minDeposit: Double, maxDeposit: Double, address: Option[String], challenge: String, roi: Double, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
+  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: Option[String], challenge: String, roi: BigDecimal, asset: Asset) extends ResponseArguments { val tag = "LoanAd" }
 
   sealed trait TaLinkState
   case object LoggedOut extends TaLinkState
@@ -128,7 +139,7 @@ object LinkClient {
                         email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
 
   implicit val loanAdFormat: JsonFormat[LoanAd] =
-    taggedJsonFmt(jsonFormat[Long, Double, Double, Option[String], String, Double, Asset,
+    taggedJsonFmt(jsonFormat[Long, BigDecimal, BigDecimal, Option[String], String, BigDecimal, Asset,
       LoanAd](LoanAd.apply, "durationDays", "minDeposit", "maxDeposit", "address", "challenge", "roi", "asset"), "LoanAd")
 
   implicit val failureFormat: JsonFormat[Failure] = taggedJsonFmt(jsonFormat[FailureCode,
@@ -167,6 +178,26 @@ object LinkClient {
   }
 
   case class CmdRemove(listener: Listener)
+
+  def toHumanSum(asset: Asset, amount: BigDecimal): String = asset match {
+    case BTC => BtcDenom.parsedTT(Btc(amount).toSatoshi.toMilliSatoshi, Colors.cardIn, Colors.cardZero)
+    case USD => Denomination.fiatTT("0", amount.toString, null, Colors.cardIn, isIncoming = false)
+  }
+
+  def toHumanInSum(asset: Asset, amount: BigDecimal): String = asset match {
+    case BTC => BtcDenom.directedTT(Btc(amount).toSatoshi.toMilliSatoshi, MilliSatoshi(0L), Colors.cardOut, Colors.cardIn, Colors.cardZero, isIncoming = true)
+    case USD => Denomination.fiatDirectedTT(incoming = amount.toString, outgoing = "0", Colors.cardOut, Colors.cardIn, isIncoming = true)
+  }
+
+  def toTextRes(asset: Asset): Int = asset match {
+    case BTC => trading.tacticaladvantage.R.string.bitcoin_wallet
+    case USD => trading.tacticaladvantage.R.string.usdt_wallet
+  }
+
+  def toIconRes(asset: Asset): Int = asset match {
+    case BTC => trading.tacticaladvantage.R.drawable.ic_logo_bitcoin_24
+    case USD => trading.tacticaladvantage.R.drawable.ic_logo_tether_24
+  }
 }
 
 class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with CanBeShutDown { me =>

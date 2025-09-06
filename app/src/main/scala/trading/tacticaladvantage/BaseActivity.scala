@@ -4,7 +4,6 @@ import android.content.pm.PackageManager
 import android.content.{DialogInterface, Intent}
 import android.graphics.Bitmap.Config.ARGB_8888
 import android.graphics.{Bitmap, Color}
-import android.net.Uri
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.text.{Editable, Spanned, TextWatcher}
@@ -43,7 +42,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
-
 
 object BaseActivity {
   implicit class StringOps(source: String) {
@@ -369,13 +367,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     rmc.inputAmount setLocale Denomination.locale
   }
 
-  class TwoSidedItem(val parent: View, firstText: CharSequence, secondText: CharSequence) {
-    val secondItem = parent.findViewById(R.id.secondItem).asInstanceOf[TextView]
-    val firstItem = parent.findViewById(R.id.firstItem).asInstanceOf[TextView]
-    secondItem.setText(secondText)
-    firstItem.setText(firstText)
-  }
-
   class FeeViewContent(val container: View) {
     val feeRate = container.findViewById(R.id.feeRate).asInstanceOf[TextView]
     val bitcoinFee = container.findViewById(R.id.bitcoinFee).asInstanceOf[TextView]
@@ -525,6 +516,13 @@ trait BaseActivity extends AppCompatActivity { me =>
   }
 }
 
+class TwoSidedItem(val parent: View, firstText: CharSequence, secondText: CharSequence) {
+  val secondItem = parent.findViewById(R.id.secondItem).asInstanceOf[TextView]
+  val firstItem = parent.findViewById(R.id.firstItem).asInstanceOf[TextView]
+  secondItem.setText(secondText)
+  firstItem.setText(firstText)
+}
+
 trait BaseCheckActivity extends BaseActivity { me =>
   def PROCEED(state: Bundle): Unit
 
@@ -655,8 +653,8 @@ abstract class UsdtWalletCard(host: BaseActivity, val xPriv: String) extends Wal
 }
 
 abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
-  lazy val activeLoans = host.getResources getStringArray R.array.ta_loans
-  lazy val daysLeft = host.getResources getStringArray R.array.ta_days_left
+  val daysLeftRes = host.getResources getStringArray R.array.ta_days_left
+  val activeLoansRes = host.getResources getStringArray R.array.ta_loans
   infoWalletLabel setText ta_earn_label
 
   val earnAccount = new EarnAccount(host)
@@ -668,8 +666,8 @@ abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
         infoWalletNotice setText status.email
         imageTip.setImageResource(R.drawable.info_24)
         val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
-        balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeft, minDaysLeft.toInt)
-        balanceWallet setText WalletApp.app.plurOrZero(activeLoans, status.activeLoans.size)
+        balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, minDaysLeft.toInt)
+        balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
         host.setVis(isVisible = status.activeLoans.nonEmpty, balanceContainer)
         host.setVis(isVisible = status.activeLoans.isEmpty, imageTip)
         earnAccount.updateView(status)
@@ -687,6 +685,7 @@ abstract class TaWalletCard(host: BaseActivity) extends WalletCard(host) {
 }
 
 class EarnAccount(host: BaseActivity) {
+  val daysLeftRes = host.getResources getStringArray R.array.ta_days_left
   val wrap: LinearLayout = host.getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
   val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
   val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
@@ -701,10 +700,32 @@ class EarnAccount(host: BaseActivity) {
     val balances = status.totalFunds.filter(_.withdrawable > 0D)
     List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
     host.setVisMany(balances.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
+    taClientEmail.setText(status.email)
+
+    for (balance <- balances) {
+      val parent = host.getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+      val item = new TwoSidedItem(parent, host.getString(balance.currency), balance.amountHuman.html)
+      item.firstItem.setCompoundDrawablesWithIntrinsicBounds(balance.icon, 0, 0, 0)
+      taBalancesContainer.addView(parent)
+    }
+
+    for (loan <- status.activeLoans) {
+      val daysLeft = WalletApp.app.plurOrZero(daysLeftRes, loan.daysLeft.toInt)
+      val details = s"APR ${loan.interest}<br><small><tt>$daysLeft</tt></small>"
+      val amounts = s"${loan.amountHuman}<br><small>${loan.interestHuman}</small>"
+      val parent = host.getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+      val item = new TwoSidedItem(parent, firstText = details.html, secondText = amounts.html)
+      item.firstItem.setCompoundDrawablesWithIntrinsicBounds(loan.icon, 0, 0, 0)
+      taLoansContainer.addView(parent)
+    }
+
+    (balances.nonEmpty, status.pendingWithdraws.nonEmpty) match {
+      case (true, true) => host.addFlowChip(taExtended, host.getString(ta_withdraw_on), R.drawable.border_yellow)(none)
+      case (true, false) => host.addFlowChip(taExtended, host.getString(ta_withdraw_off), R.drawable.border_yellow)(none)
+      case _ =>
+    }
 
     host.addFlowChip(taExtended, host.getString(ta_support), R.drawable.border_blue)(none)
     host.addFlowChip(taExtended, host.getString(ta_logout), R.drawable.border_blue)(none)
-
-    taClientEmail setText status.email
   }
 }

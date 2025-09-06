@@ -13,14 +13,14 @@
         </LinearLayout>
 
         <LinearLayout android:visibility="gone" android:paddingTop="10dp" style="@style/StandardLinearLayout" android:id="@+id/cpfp">
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/cpfpCurrent"/>
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/cpfpAfter"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/cpfpCurrent"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/cpfpAfter"/>
             <include layout="@layout/frag_fees"/>
             <View style="@style/GrayDivider"/>
         </LinearLayout>
 
         <LinearLayout android:visibility="gone" android:paddingTop="10dp" style="@style/StandardLinearLayout" android:id="@+id/rbf">
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/rbfCurrent"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/rbfCurrent"/>
 
             <TextView
                 style="@style/FillingView"
@@ -37,9 +37,9 @@
         </LinearLayout>
 
         <LinearLayout android:visibility="gone" android:paddingTop="10dp" style="@style/StandardLinearLayout" android:id="@+id/confirmChain">
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/confirmFiat"/>
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/confirmAmount"/>
-            <include layout="@layout/frag_two_sided_item" android:id="@+id/confirmFee"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/confirmFiat"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/confirmAmount"/>
+            <include layout="@layout/frag_two_sided_item_gen" android:id="@+id/confirmFee"/>
             <include layout="@layout/frag_chain_buttons"/>
         </LinearLayout>
     </LinearLayout>

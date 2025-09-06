@@ -335,7 +335,7 @@ public class FlowLayout extends ViewGroup {
         this.requestLayout();
     }
 
-    public static class LayoutParams extends MarginLayoutParams {
+    public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {
         @ViewDebug.ExportedProperty(mapping = {
                 @ViewDebug.IntToString(from = Gravity.NO_GRAVITY, to = "NONE"),
                 @ViewDebug.IntToString(from = Gravity.TOP, to = "TOP"),

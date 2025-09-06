@@ -44,13 +44,13 @@
         android:orientation="vertical"/>
 
     <com.ornach.nobobutton.NoboButton
-        android:layout_marginTop="15dp"
+        android:layout_marginTop="20dp"
         app:nb_text="@string/ta_loan"
         android:id="@+id/taDeposit"
         style="@style/GreenButton"/>
 
     <org.apmem.tools.layouts.FlowLayout
-        android:layout_marginTop="15dp"
+        android:layout_marginTop="20dp"
         android:id="@+id/taExtended"
         style="@style/FillingView"
         f:layout_newLine="true"/>

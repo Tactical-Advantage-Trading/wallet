@@ -1,10 +1,10 @@
 package trading.tacticaladvantage
 
-import android.content.{DialogInterface, Intent}
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Patterns
-import android.view.{View, ViewGroup, WindowManager}
+import android.view.{View, ViewGroup}
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
@@ -595,7 +595,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       manager.cardViews.foreach(_.updateView)
 
       settingsButtons.removeAllViewsInLayout
-      setVis(isVisible = isSettingsOn, settingsButtons)
+      setVis(isVisible = isSettingsOn, view = settingsButtons)
       for (view <- walletCards.manager.cardViews) setVis(isSettingsOn, view.cardButtons)
 
       if (isSettingsOn) {
@@ -995,7 +995,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     for (address \ amount <- addressToAmount.values.reverse) {
       val humanAmount = BtcDenom.parsedTT(amount.toMilliSatoshi, cardIn, cardZero)
-      val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item, null)
+      val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_gen, null)
       new TwoSidedItem(parent, address.short.html, humanAmount.html)
       sendView.editChain.addView(parent, 0)
     }

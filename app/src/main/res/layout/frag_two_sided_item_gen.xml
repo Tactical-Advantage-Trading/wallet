@@ -13,6 +13,7 @@
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
         android:id="@+id/secondItem"
-        android:textStyle="bold"/>
+        android:textStyle="bold"
+        android:gravity="end"/>
 
 </RelativeLayout>
