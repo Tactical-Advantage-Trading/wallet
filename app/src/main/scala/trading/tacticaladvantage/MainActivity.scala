@@ -1034,7 +1034,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     lazy val alert = mkCheckFormNeutral(proceed, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
 
     lazy val listener = new LinkClient.Listener("login-email") {
-      override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
+      override def onDisconnected: Unit = onText(extraInputField.getText.toString)
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
         if (args.isDefined) onDisconnected else moveToPass.run
     }
@@ -1058,16 +1058,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
     }
 
+    def onText(inputText: String) = {
+      val matcher = Patterns.EMAIL_ADDRESS.matcher(inputText)
+      updatePosButton(alert, matcher.matches).run
+    }
+
     WalletApp.linkClient ! listener
     extraInputLayout.setHint(ta_login_email)
     updatePosButton(alert, isEnabled = false).run
-    extraInputField addTextChangedListener onTextChange { inputText =>
-      val isEnabled = Patterns.EMAIL_ADDRESS.matcher(inputText).matches
-      updatePosButton(alert, isEnabled).run
-    }
+    extraInputField addTextChangedListener onTextChange(onText)
 
     alert setOnDismissListener onDismiss {
-      WalletApp.linkClient ! LinkClient.CmdRemove(listener)
+      val cmd = LinkClient.CmdRemove(listener)
+      WalletApp.linkClient ! cmd
     }
   }
 
@@ -1077,7 +1080,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     lazy val alert = mkCheckForm(doLogin, none, builder, dialog_ok, dialog_cancel)
 
     lazy val listener = new LinkClient.Listener(LinkClient.USER_UPDATE) {
-      override def onDisconnected: Unit = updatePosButton(alert, isEnabled = true).run
+      override def onDisconnected: Unit = onText(extraInputField.getText.toString)
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
         case _: LinkClient.Failure => onDisconnected // Something like a wrong password, allow to retry
         case _ => UITask(alert.dismiss).run // State update has already been handled, nothing to do
@@ -1090,15 +1093,18 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
     }
 
+    def onText(inputText: String) = {
+      updatePosButton(alert, inputText.nonEmpty).run
+    }
+
     WalletApp.linkClient ! listener
     extraInputLayout.setHint(ta_login_pass)
     updatePosButton(alert, isEnabled = false).run
-    extraInputField addTextChangedListener onTextChange { inputText =>
-      updatePosButton(alert, isEnabled = inputText.nonEmpty).run
-    }
+    extraInputField addTextChangedListener onTextChange(onText)
 
     alert setOnDismissListener onDismiss {
-      WalletApp.linkClient ! LinkClient.CmdRemove(listener)
+      val cmd = LinkClient.CmdRemove(listener)
+      WalletApp.linkClient ! cmd
     }
   }
 
