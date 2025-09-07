@@ -1,10 +1,9 @@
 package trading.tacticaladvantage.utils
 
-import com.neovisionaries.ws.client._
 import immortan.StateMachine
 import immortan.Tools.{Bytes, ThrowableOps}
 import trading.tacticaladvantage.utils.WsListener._
-
+import com.neovisionaries.ws.client._
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.util.Try
 
