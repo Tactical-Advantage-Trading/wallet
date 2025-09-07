@@ -53,9 +53,9 @@ sealed trait BtcDescription extends ItemDescription {
   def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription
   def withNewLabel(label1: Option[String] = None): BtcDescription
   def withNewCPFPBy(txid: ByteVector32): BtcDescription
-
-  def addresses: StringList
   def queryText(txid: ByteVector32): String
+  def addresses: StringList
+
   val cpfpBy: Option[ByteVector32]
   val cpfpOf: Option[ByteVector32]
   val rbf: Option[RBFParams]
@@ -66,12 +66,11 @@ object BtcDescription {
   final val RBF_BOOST = 2
 }
 
-case class PlainBtcDescription(addresses: StringList,
-                               label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
-                               cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None,
-                               rbf: Option[RBFParams] = None) extends BtcDescription { me =>
+case class PlainBtcDescription(addresses: StringList, label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
+                               cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None, rbf: Option[RBFParams] = None,
+                               taRoi: Option[BigDecimal] = None) extends BtcDescription {
   override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
-  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) me else copy(semanticOrder = order)
+  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) this else copy(semanticOrder = order)
   override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
   override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
 }

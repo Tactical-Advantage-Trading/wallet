@@ -4,13 +4,14 @@ import fr.acinq.bitcoin.{BtcAmount, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
 import immortan.Tools._
 import immortan.utils.Denomination
-import trading.tacticaladvantage.utils.uri.Uri
+import immortan.{BtcDescription, PlainBtcDescription}
 import org.bouncycastle.util.encoders.Base64
 import scodec.bits.ByteVector
+import trading.tacticaladvantage.utils.InputParser._
+import trading.tacticaladvantage.utils.uri.Uri
 
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.{Success, Try}
-import InputParser._
 
 
 object InputParser {
@@ -43,22 +44,31 @@ object InputParser {
     case _ =>
       val withoutSlashes = removePrefix(rawInput).trim
       val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, rawInput)
-      addressToAmount getOrElse BitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
+      addressToAmount getOrElse PlainBitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
   }
 }
 
-object BitcoinUri {
-  def fromRaw(raw: String): BitcoinUri = {
+trait BitcoinUri {
+  val maxAmount: MilliSatoshi
+  val amount: Option[MilliSatoshi]
+  val label: Option[String]
+  val desc: BtcDescription
+  val address: String
+}
+
+object PlainBitcoinUri {
+  def fromRaw(raw: String): PlainBitcoinUri = {
     val dataWithoutPrefix = InputParser.removePrefix(raw)
     val uri = Uri.parse(s"$bitcoin//$dataWithoutPrefix")
-    BitcoinUri(Success(uri), uri.getHost)
+    PlainBitcoinUri(Success(uri), uri.getHost)
   }
 }
 
-case class BitcoinUri(uri: Try[Uri], address: String) {
+case class PlainBitcoinUri(uri: Try[Uri], address: String) extends BitcoinUri {
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
-  val message: Option[String] = uri.map(_ getQueryParameter "message").map(trimmed).filter(_.nonEmpty).toOption
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
+  val desc: BtcDescription = PlainBtcDescription(List(address), label)
+  val maxAmount: MilliSatoshi = MAX_MSAT
 }
 
 object BIP322Data {

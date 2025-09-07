@@ -880,20 +880,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     def attempt(alert1: AlertDialog): Unit = {
       val toSend = sendView.rm.resultMsat.truncateToSatoshi
-      val proceed = proceedConfirm(sendView, PlainBtcDescription(uri.address :: Nil, uri.label orElse uri.message), alert1) _
+      val proceed: GenerateTxResponse => Unit = proceedConfirm(sendView, uri.desc, alert1)
       runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, toSend, Map.empty, feeView.rate), onFail)(proceed)
-    }
-
-    def useMax(unused: AlertDialog): Unit = {
-      val totalBalance = specs.map(_.info.lastBalance).sum
-      sendView.rm.updateText(totalBalance.toMilliSatoshi)
     }
 
     lazy val alert = {
       val title = btcTitleViewFromUri(uri)
       val neutralRes = if (uri.amount.isDefined) -1 else dialog_max
       val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.cardBitcoinSigning), sendView.body)
-      mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, neutralRes)
+      mkCheckFormNeutral(attempt, none, _ => sendView.rm.updateText(sendView.totalCanSend), builder, dialog_ok, dialog_cancel, neutralRes)
     }
 
     lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {

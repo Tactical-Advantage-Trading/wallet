@@ -46,6 +46,7 @@ object LinkUsdt {
   // Request types
 
   case class UsdtSubscribe(address: String, afterBlock: Long) { val tag = "UsdtSubscribe" }
+
   case class UsdtTransfer(amount: String, fromAddr: String, toAddr: String, hash: String, block: Long, stamp: Long, isRemoved: Boolean) {
     lazy val desc: UsdtDescription = UsdtDescription(fromAddr, toAddr)
   }
@@ -59,8 +60,11 @@ object LinkUsdt {
   // Response types
 
   sealed trait ResponseArguments { def tag: String }
+
   case class UsdtFailure(failureCode: FailureCode) extends ResponseArguments { val tag = "UsdtFailure" }
+
   case class UsdtTransfers(transfers: List[UsdtTransfer] = Nil) extends ResponseArguments { val tag = "UsdtTransfers" }
+
   case class UsdtBalanceNonce(address: String, balance: String, nonce: String) extends ResponseArguments { val tag = "UsdtBalanceNonce" }
 
   implicit val usdtFailureFormat: JsonFormat[UsdtFailure] = taggedJsonFmt(jsonFormat[FailureCode,
@@ -85,7 +89,9 @@ object LinkUsdt {
   }
 
   case class Request(arguments: UsdtSubscribe, id: String)
+
   case class Response(arguments: Option[ResponseArguments], id: String)
+
   implicit val requestFormat: JsonFormat[Request] = jsonFormat[UsdtSubscribe, String, Request](Request.apply, "arguments", "id")
   implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
 
@@ -97,7 +103,9 @@ object LinkUsdt {
   }
 
   case class CmdRemove(listener: Listener)
+
   case class CmdRemoveWallet(xPriv: String)
+
   case object CmdEnsureUsdtAccounts
 }
 

@@ -6,7 +6,6 @@ import android.widget.{LinearLayout, TextView}
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.azoft.carousellayoutmanager._
-import fr.acinq.bitcoin.Btc
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
@@ -15,14 +14,14 @@ import immortan.utils.{BtcDenom, Denomination}
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
+import trading.tacticaladvantage.utils.{InputParser, PlainBitcoinUri}
 
 import scala.util.Success
 
 class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
   lazy private[this] val chainQrCaption = findViewById(R.id.chainQrCaption).asInstanceOf[TextView]
   lazy private[this] val chainQrCodes = findViewById(R.id.chainQrCodes).asInstanceOf[RecyclerView]
-  private[this] var addresses: List[BitcoinUri] = Nil
+  private[this] var addresses: List[PlainBitcoinUri] = Nil
   private[this] var spec: WalletSpec = _
 
   val adapter: RecyclerView.Adapter[QRViewHolder] = new RecyclerView.Adapter[QRViewHolder] {
@@ -35,7 +34,7 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
       new QRViewHolder(qrCodeContainer)
     }
 
-    private def updateView(bu: BitcoinUri, holder: QRViewHolder): Unit = bu.uri foreach { uri =>
+    private def updateView(bu: PlainBitcoinUri, holder: QRViewHolder): Unit = bu.uri foreach { uri =>
       val humanAmountOpt = for (requestedAmount <- bu.amount) yield BtcDenom.parsedTT(requestedAmount, cardIn, cardZero)
       val contentToShare = if (bu.amount.isDefined || bu.label.isDefined) InputParser.bitcoin + InputParser.removePrefix(uri.toString) else bu.address
 
@@ -58,7 +57,7 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     }
   }
 
-  def editAddress(bu: BitcoinUri): Unit = {
+  def editAddress(bu: PlainBitcoinUri): Unit = {
     val canReceiveHuman = BtcDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
     val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(MAX_MSAT)
     val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
@@ -79,8 +78,8 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
       } else uriBuilder
 
       addresses = addresses map {
-        case oldUri if oldUri.address == bu.uri.get.getHost => BitcoinUri(Success(uriBuilder1.build), oldUri.address)
-        case oldUri => BitcoinUri(oldUri.uri.map(_.buildUpon.clearQuery.build), oldUri.address)
+        case oldUri if oldUri.address == bu.uri.get.getHost => PlainBitcoinUri(Success(uriBuilder1.build), oldUri.address)
+        case oldUri => PlainBitcoinUri(oldUri.uri.map(_.buildUpon.clearQuery.build), oldUri.address)
       }
 
       adapter.notifyDataSetChanged
@@ -101,7 +100,7 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
     layoutManager.setMaxVisibleItems(ElectrumWallet.MAX_RECEIVE_ADDRESSES)
 
     // Allow MAX_RECEIVE_ADDRESSES - 16 (first 4 addresses) to be seen to not make it crowded
-    addresses = keys.dropRight(16).map(spec.data.keys.ewt.textAddress).map(BitcoinUri.fromRaw)
+    addresses = keys.dropRight(16).map(spec.data.keys.ewt.textAddress).map(PlainBitcoinUri.fromRaw)
 
     chainQrCaption.setText(title.html)
     chainQrCodes.addOnScrollListener(new CenterScrollListener)

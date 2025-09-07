@@ -36,7 +36,7 @@ import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
+import trading.tacticaladvantage.utils.{BitcoinUri, InputParser, PlainBitcoinUri}
 
 import java.io.{File, FileOutputStream}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -124,8 +124,7 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   def btcTitleViewFromUri(uri: BitcoinUri): TitleView = {
     val label = uri.label.map(label => s"<br><br><b>$label</b>").getOrElse(new String)
-    val message = uri.message.map(message => s"<br><i>$message<i>").getOrElse(new String)
-    val caption = getString(dialog_send_btc).format(uri.address.short, label + message)
+    val caption = getString(dialog_send_btc).format(uri.address.short, label)
     new TitleView(caption)
   }
 

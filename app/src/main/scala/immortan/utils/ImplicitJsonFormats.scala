@@ -72,8 +72,8 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   }
 
   implicit val plainBtcDescriptionFmt: JsonFormat[PlainBtcDescription] =
-    taggedJsonFmt(jsonFormat[StringList, Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams],
-      PlainBtcDescription](PlainBtcDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf"), tag = "PlainBtcDescription")
+    taggedJsonFmt(jsonFormat[StringList, Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams], Option[BigDecimal],
+      PlainBtcDescription](PlainBtcDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf", "taRoi"), tag = "PlainBtcDescription")
 
   // USDT description
 
