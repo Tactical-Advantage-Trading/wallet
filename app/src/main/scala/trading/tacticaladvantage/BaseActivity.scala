@@ -122,7 +122,7 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   // Helpers
 
-  def titleViewFromUri(uri: BitcoinUri): TitleView = {
+  def btcTitleViewFromUri(uri: BitcoinUri): TitleView = {
     val label = uri.label.map(label => s"<br><br><b>$label</b>").getOrElse(new String)
     val message = uri.message.map(message => s"<br><i>$message<i>").getOrElse(new String)
     val caption = getString(dialog_send_btc).format(uri.address.short, label + message)
@@ -472,8 +472,8 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
   }
 
-  class BtcSendView(val specs: Seq[WalletSpec] = Nil) extends SendView { self =>
-    val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi
+  class BtcSendView(specs: Seq[WalletSpec], hardMax: MilliSatoshi) extends SendView { self =>
+    val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi.min(hardMax)
     val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
     val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
     val rm = new RateManager(editView.rmc, WalletApp.fiatCode)

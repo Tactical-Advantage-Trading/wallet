@@ -59,9 +59,8 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
   }
 
   def editAddress(bu: BitcoinUri): Unit = {
-    val maxMsat = Btc(21e6).toSatoshi.toMilliSatoshi
-    val canReceiveHuman = BtcDenom.parsedTT(maxMsat, cardIn, cardZero)
-    val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(maxMsat)
+    val canReceiveHuman = BtcDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
+    val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(MAX_MSAT)
     val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
     val title = getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning)
     lazy val rm = new RateManager(new RateManagerContent(body), WalletApp.fiatCode)

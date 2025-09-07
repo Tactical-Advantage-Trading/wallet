@@ -178,7 +178,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val fromOutPoints = for (idx <- info.tx.txOut.indices) yield OutPoint(info.tx.hash, idx)
       val receivedMsat = info.receivedSat.toMilliSatoshi
 
-      val sendView = new BtcSendView(specs)
+      val sendView = new BtcSendView(specs, MAX_MSAT)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(target), sendView.cpfpView.fvc) {
@@ -211,21 +211,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         WalletApp.btcTxDataBag.updDescription(parentDescWithOrder, info.txid)
 
         runInFutureProcessOnUI(ElectrumWallet.makeCPFP(specs, fromOutPoints.toSet, ourPubKeyScript, feeView.rate), onFail) { response =>
-          // At this point we have received some response, in this case it can not be failure but then we maybe have a hardware wallet
+          val desc = PlainBtcDescription(address :: Nil, label = None, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
+          alert.dismiss
 
-          proceedWithoutConfirm(alert, response) { signedTx =>
-            val desc = PlainBtcDescription(address :: Nil, label = None, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
-            runFutureProcessOnUI(broadcastBtc(desc, signedTx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
-
-              case Some(error) =>
-                // We revert the whole description back since CPFP has failed
-                WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
-
-              case None =>
-                // Parent semantic order has already been updated, now we also must update CPFP parent info
-                WalletApp.btcTxDataBag.updDescription(parentDescWithOrder.withNewCPFPBy(signedTx.txid), info.txid)
-            }
+          runFutureProcessOnUI(broadcastBtc(desc, response.tx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
+            case None => WalletApp.btcTxDataBag.updDescription(parentDescWithOrder.withNewCPFPBy(response.tx.txid), info.txid)
+            case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
       }
@@ -250,7 +241,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
-      val sendView = new BtcSendView(specs)
+      val sendView = new BtcSendView(specs, MAX_MSAT)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView = new FeeView[RBFResponse](FeeratePerByte(target), sendView.rbfView.fvc) {
@@ -292,23 +283,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val rbfBumpOrder = SemanticOrder(ofOriginalTxid, -System.currentTimeMillis)
 
         runInFutureProcessOnUI(ElectrumWallet.rbfBump(specs, changeTo, info.tx, feeView.rate), onFail) { responseWrap =>
-          // At this point we have received some response, in this case it can not be failure but then we maybe have a hardware wallet
+          val desc = PlainBtcDescription(Nil, label = None, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
           val response = responseWrap.result.right.get
+          alert.dismiss
 
-          proceedWithoutConfirm(alert, response) { signedTx =>
-            val desc = PlainBtcDescription(Nil, label = None, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
-            runFutureProcessOnUI(broadcastBtc(desc, signedTx, received = Satoshi(0L), info.sentSat, response.fee, incoming = 0), onFail) {
-
-              case Some(error) =>
-                // We revert the whole description back since CPFP has failed
-                WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
-
-              case None =>
-                val parentLowestOrder = rbfBumpOrder.copy(order = Long.MaxValue)
-                val parentDesc = info.description.withNewOrderCond(parentLowestOrder.asSome)
-                WalletApp.btcTxDataBag.updDescription(parentDesc, info.txid)
-            }
+          runFutureProcessOnUI(broadcastBtc(desc, response.tx, received = Satoshi(0L), info.sentSat, response.fee, incoming = 0), onFail) {
+            case None => WalletApp.btcTxDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
+            case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
       }
@@ -335,7 +316,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
 
-      val sendView = new BtcSendView(specs)
+      val sendView = new BtcSendView(specs, MAX_MSAT)
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val blockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
@@ -378,23 +359,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val rbfBumpOrder = SemanticOrder(ofOriginalTxid, -System.currentTimeMillis)
 
         runInFutureProcessOnUI(ElectrumWallet.rbfReroute(specs, info.tx, feeView.rate, ourPubKeyScript), onFail) { responseWrap =>
-          // At this point we have received some response, in this case it can not be failure but then we maybe have a hardware wallet
+          val desc = PlainBtcDescription(addresses = Nil, label = None, rbfBumpOrder.asSome, None, None, rbfParams.asSome)
           val response = responseWrap.result.right.get
+          alert.dismiss
 
-          proceedWithoutConfirm(alert, response) { signedTx =>
-            val desc = PlainBtcDescription(addresses = Nil, label = None, rbfBumpOrder.asSome, None, None, rbfParams.asSome)
-            runFutureProcessOnUI(broadcastBtc(desc, signedTx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
-
-              case Some(error) =>
-                // We revert the whole description back since CPFP has failed
-                WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
-                cleanFailedBroadcast(signedTx.txid.toHex, error.message)
-
-              case None =>
-                val parentLowestOrder = rbfBumpOrder.copy(order = Long.MaxValue)
-                val parentDesc = info.description.withNewOrderCond(parentLowestOrder.asSome)
-                WalletApp.btcTxDataBag.updDescription(parentDesc, info.txid)
-            }
+          runFutureProcessOnUI(broadcastBtc(desc, response.tx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
+            case None => WalletApp.btcTxDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
+            case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
       }
@@ -665,13 +636,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: Array[Int] = Array.empty): Unit =
-    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED) bringScanner(null)
+    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED)
+      bringScanner(null)
 
   override def checkExternalData(whenNone: Runnable): Unit = {
     val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
     val usable = ElectrumWallet.specs.values.filter(_.usable).toList
 
-    def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new BtcWalletSelector(me titleViewFromUri bitcoinUri) {
+    def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new BtcWalletSelector(me btcTitleViewFromUri bitcoinUri) {
       def onOk: Unit = bringSendBitcoinPopup(chosenCards.toList, bitcoinUri)
     }
 
@@ -904,19 +876,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   def bringSendBitcoinPopup(specs: Seq[WalletSpec], uri: BitcoinUri): Unit = {
     val pubKeyScript = ElectrumWallet.addressToPubKeyScript(uri.address)
     val changeTo = ElectrumWallet.orderByImportance(specs).head
-    val sendView = new BtcSendView(specs)
+    val sendView = new BtcSendView(specs, MAX_MSAT)
 
-    def attempt(alert: AlertDialog): Unit =
-      runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, feeView.rate), onFail) { response =>
-        // This may be a signing or a hardware wallet, in case if it's a hardware wallet we need additional UI action so we use this proxy method here
-
-        proceedConfirm(sendView, alert, response) { signedTx =>
-          val desc = PlainBtcDescription(uri.address :: Nil, uri.label orElse uri.message)
-          val broadcastFuture = broadcastBtc(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
-          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
-          alert.dismiss
-        }
-      }
+    def attempt(alert1: AlertDialog): Unit = {
+      val toSend = sendView.rm.resultMsat.truncateToSatoshi
+      val proceed = proceedConfirm(sendView, PlainBtcDescription(uri.address :: Nil, uri.label orElse uri.message), alert1) _
+      runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, toSend, Map.empty, feeView.rate), onFail)(proceed)
+    }
 
     def useMax(unused: AlertDialog): Unit = {
       val totalBalance = specs.map(_.info.lastBalance).sum
@@ -924,7 +890,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     lazy val alert = {
-      val title = titleViewFromUri(uri)
+      val title = btcTitleViewFromUri(uri)
       val neutralRes = if (uri.amount.isDefined) -1 else dialog_max
       val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.cardBitcoinSigning), sendView.body)
       mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, neutralRes)
@@ -960,19 +926,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   def bringSendMultiBitcoinPopup(specs: Seq[WalletSpec], addressToAmount: MultiAddressParser.AddressToAmount): Unit = {
     val scriptToAmount = addressToAmount.values.firstItems.map(ElectrumWallet.addressToPubKeyScript).zip(addressToAmount.values.secondItems).toMap
     val changeTo = ElectrumWallet.orderByImportance(specs).head
-    val sendView = new BtcSendView(specs)
+    val sendView = new BtcSendView(specs, MAX_MSAT)
 
-    def attempt(alert: AlertDialog): Unit =
-      runInFutureProcessOnUI(ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, feeView.rate), onFail) { response =>
-        // This may be a signing or a hardware wallet, in case if it's a hardware wallet we need additional UI action so we use this method here
-
-        proceedConfirm(sendView, alert, response) { signedTx =>
-          val desc = PlainBtcDescription(addressToAmount.values.firstItems.toList)
-          val broadcastFuture = broadcastBtc(desc, signedTx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
-          runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(signedTx.txid.toHex, error.message) case None => }
-          alert.dismiss
-        }
-      }
+    def attempt(alert1: AlertDialog): Unit = {
+      val proceed = proceedConfirm(sendView, PlainBtcDescription(addressToAmount.values.firstItems.toList), alert1) _
+      runInFutureProcessOnUI(ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, feeView.rate), onFail)(proceed)
+    }
 
     lazy val alert = {
       val view = new TitleView(me getString dialog_send_btc_many).asColoredView(R.color.cardBitcoinSigning)
@@ -1115,20 +1074,21 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     paymentsAdapter.notifyDataSetChanged
   }
 
-  def proceedConfirm(sendView: BtcSendView, alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
+  def proceedConfirm(sendView: BtcSendView, desc: BtcDescription, alert: AlertDialog)(response: GenerateTxResponse): Unit = {
     sendView.confirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
     sendView.confirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(response.transferred.toMilliSatoshi).html
     sendView.confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
     sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
-    sendView.confirmView.chainNextButton setOnClickListener onButtonTap(process apply response.tx)
     sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
+    // Transition to final confirmation dialog within the same alert
     sendView.switchButtons(alert, on = false)
     sendView.switchTo(sendView.confirmView)
-  }
 
-  def proceedWithoutConfirm(alert: AlertDialog, response: GenerateTxResponse)(process: Transaction => Unit): Unit = {
-    process(response.tx)
-    alert.dismiss
+    sendView.confirmView.chainNextButton setOnClickListener onButtonTap {
+      val broadcastFuture = broadcastBtc(desc, response.tx, received = Satoshi(0L), sent = response.transferred, response.fee, incoming = 0)
+      runFutureProcessOnUI(broadcastFuture, onFail) { case Some(error) => cleanFailedBroadcast(response.tx.txid.toHex, error.message) case None => }
+      alert.dismiss
+    }
   }
 
   def broadcastBtc(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
@@ -1148,6 +1108,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     WalletApp.seenInfos(desc.fromAddr) = info
     DbStreams.next(DbStreams.txStream)
     WalletApp.biconomy.send(req)
+  }
+
+  def cleanFailedBtcBroadcast(info: BtcInfo, failedKey: String, message: String): Unit = {
+    WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
+    cleanFailedBroadcast(failedKey, message)
   }
 
   def cleanFailedBroadcast(failedKey: String, message: String): Unit = {
