@@ -404,15 +404,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       item match {
         case info: UsdtInfo =>
-          for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_yellow, None)
-          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short0x), R.drawable.border_gray, info.identity.asSome)
+          for (usdtLabel <- info.description.label) addFlowChip(extraInfo, usdtLabel, R.drawable.border_yellow, None)
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short0x), R.drawable.border_gray) {
+            me browse s"https://polygonscan.com/tx/${info.identity}"
+          }
 
         case info: BtcInfo =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
 
-          for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_yellow, None)
-          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray, info.identity.asSome)
+          for (btcLabel <- info.description.label) addFlowChip(extraInfo, btcLabel, R.drawable.border_yellow, None)
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray) {
+            me browse s"https://mempool.space/tx/${info.identity}"
+          }
 
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
