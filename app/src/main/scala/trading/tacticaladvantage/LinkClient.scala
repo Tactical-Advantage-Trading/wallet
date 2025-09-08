@@ -85,6 +85,7 @@ object LinkClient {
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
   implicit val getHistoryFormat: JsonFormat[GetHistory.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetHistory), "GetHistory")
+
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def write(obj: RequestArguments): JsValue = obj match {
       case request: Login => loginFormat.write(request)
@@ -103,11 +104,8 @@ object LinkClient {
   // Response types
 
   case class TotalFunds(balance: BigDecimal, withdrawable: BigDecimal, asset: Asset) {
-
     lazy val amountHuman = toHumanSum(asset, withdrawable)
-
     lazy val currency = toTextRes(asset)
-
     lazy val icon = toIconRes(asset)
   }
 
@@ -116,11 +114,15 @@ object LinkClient {
   case class Withdraw(txid: Option[String], id: String, address: String, amount: BigDecimal, requested: BigDecimal, created: Long, fee: BigDecimal, asset: Asset)
 
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: BigDecimal, amount: BigDecimal, asset: Asset) {
-    lazy val interest = new java.text.DecimalFormat("#,##0.##%", Denomination.symbols).format(roi)
+
     lazy val daysLeft = Math.max(0L, (end - System.currentTimeMillis) / 86400000L)
+
     lazy val interestHuman = toHumanInSum(asset, amount * roi / inverseSpan)
+
     lazy val inverseSpan = 365L * 86400000L / (end - start)
+
     lazy val amountHuman = toHumanSum(asset, amount)
+
     lazy val icon = toIconRes(asset)
   }
 
@@ -145,10 +147,9 @@ object LinkClient {
 
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
 
-  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String,
-                    challenge: String, roi: BigDecimal, asset: Asset) extends ResponseArguments with BitcoinUri {
+  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal, asset: Asset) extends ResponseArguments with BitcoinUri {
 
-    val label: Option[String] = WalletApp.app.getString(R.string.ta_loan).asSome
+    val label: Option[String] = WalletApp.app.getString(R.string.ta_btc_loan_label).asSome
 
     val desc: BtcDescription = PlainBtcDescription(List(address), label, taRoi = roi.asSome)
 
@@ -259,7 +260,7 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
 
     case (CmdConnect, DISCONNECTED) =>
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket("ws://10.0.2.2:9001").addListener(wsListener)
+      ws = factory.createSocket("ws://10.0.2.2:8433").addListener(wsListener)
       ws.connectAsynchronously
 
     case (CmdDisconnected, _) if !ws.isOpen =>

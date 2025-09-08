@@ -12,6 +12,8 @@
     <string name="bitcoin_wallet">₿TC</string>
     <string name="usdt_wallet">USD₮</string>
 
+    <string name="ta_loan_duration">Duration</string>
+    <string name="ta_loan_annual_return">Annual return</string>
     <string name="ta_earn_label">Earn account</string>
     <string name="ta_client_login">Tap to login</string>
     <string name="ta_balances">Balances</string>
@@ -30,10 +32,7 @@
     ]]></string>
     <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
     <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
-
-    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
-    <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
-    <string name="usdt_polygon_warn_title">Polygon network only</string>
+    <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
 
     <array name="ta_loans">
         <item>no active loans</item>
@@ -43,9 +42,13 @@
 
     <array name="ta_days_left">
         <item>finalizing</item>
-        <item>%1$s day left</item>
-        <item>%1$s days left</item>
+        <item>%1$s day</item>
+        <item>%1$s days</item>
     </array>
+
+    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
+    <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
+    <string name="usdt_polygon_warn_title">Polygon network only</string>
 
     <string name="wallets">Wallets</string>
     <string name="typing_hints">₿TC or USD₮ address</string>

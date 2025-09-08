@@ -7,8 +7,11 @@ import android.util.Patterns
 import android.view.{View, ViewGroup}
 import android.widget._
 import androidx.appcompat.app.AlertDialog
+import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
+import com.ornach.nobobutton.NoboButton
 import com.sparrowwallet.drongo
+import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
@@ -54,13 +57,15 @@ object MainActivity {
 }
 
 class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataChecker { me =>
-  private[this] lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
-  private[this] lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
+  lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
+  lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
-  private[this] lazy val expandContainer = getLayoutInflater.inflate(R.layout.frag_expand, null, false)
-  private[this] lazy val expand = expandContainer.findViewById(R.id.expand).asInstanceOf[ImageButton]
+  lazy val expandContainer = getLayoutInflater.inflate(R.layout.frag_expand, null, false)
+  lazy val expand = expandContainer.findViewById(R.id.expand).asInstanceOf[ImageButton]
+  lazy val daysLeftRes = getResources getStringArray R.array.ta_days_left
+  lazy val activeLoansRes = getResources getStringArray R.array.ta_loans
 
-  private[this] lazy val paymentTypeIconIds =
+  lazy val paymentTypeIconIds =
     List(R.id.btcAddress, R.id.btcIncoming, R.id.btcInBoosted, R.id.btcOutBoosted,
       R.id.btcOutCancelled, R.id.btcOutgoing, R.id.usdtIncoming, R.id.usdtOutgoing)
 
@@ -143,6 +148,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       view
     }
   }
+
+  // BTC/USDT PAYMENT LINE
 
   class PaymentLineViewHolder(itemView: View) extends RecyclerView.ViewHolder(itemView) { self =>
     val extraInfo: FlowLayout = itemView.findViewById(R.id.extraInfo).asInstanceOf[FlowLayout]
@@ -517,7 +524,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def makeCards = {
-      lazy val taClientCard = new TaWalletCard(host = me) {
+      lazy val taClientCard = new TaWalletCard {
         override def hide: Unit = WalletApp.setTaCard(visible = false)
         override def onTap: Unit = WalletApp.linkClient.data match {
           case _: LinkClient.UserStatus if earnAccount.isExpanded =>
@@ -532,21 +539,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       val btcCards =
-        for (xPub <- ElectrumWallet.specs.keys)
-          yield new BtcWalletCard(host = me, xPub) {
-            override def hide: Unit = WalletApp.removeBtcWallet(xPub)
-            override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
-          }
+        for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(xPub) {
+          override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
+          override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
+        }
 
       val usdtCards =
-        for (info <- WalletApp.linkUsdt.data.wallets)
-          yield new UsdtWalletCard(host = me, info.xPriv) {
-            override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(info.xPriv)
-            override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
-              case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
-              case None => WalletApp.app.quickToast(usdt_not_ready)
-            }
+        for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(info.xPriv) {
+          override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(xPriv = info.xPriv)
+          override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
+            case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
+            case None => WalletApp.app.quickToast(usdt_not_ready)
           }
+        }
 
       val wallets = btcCards.toList ++ usdtCards
       if (WalletApp.showTaCard) wallets :+ taClientCard
@@ -639,57 +644,40 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED)
       bringScanner(null)
 
-  override def checkExternalData(whenNone: Runnable): Unit = {
-    val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
-    val usable = ElectrumWallet.specs.values.filter(_.usable).toList
+  override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
+    case pbu: PlainBitcoinUri if Try(ElectrumWallet addressToPubKeyScript pbu.address).isSuccess =>
+      bringSingleAddressSelector(pbu, plainTitle, txToSendProxyNoop).run
 
-    def bringSingleAddressSelector(bitcoinUri: BitcoinUri) = new BtcWalletSelector(me btcTitleViewFromUri bitcoinUri) {
-      def onOk: Unit = bringSendBitcoinPopup(chosenCards.toList, bitcoinUri)
-    }
+    case a2a: MultiAddressParser.AddressToAmount if a2a.values.nonEmpty =>
+      val dustAmount = a2a.values.secondItems.find(amount => ElectrumWallet.params.dustLimit > amount)
+      val badAddress = a2a.values.firstItems.find(address => Try(ElectrumWallet addressToPubKeyScript address).isFailure)
 
-    def bringMultiAddressSelector(a2a: MultiAddressParser.AddressToAmount) = new BtcWalletSelector(me getString dialog_send_btc_many) {
-      def onOk: Unit = bringSendMultiBitcoinPopup(chosenCards.toList, a2a)
-    }
+      if (badAddress.nonEmpty) onFail(s"Incorrect address=${badAddress.get}")
+      else if (dustAmount.nonEmpty) onFail(s"Low amount=${dustAmount.get.toLong}")
+      else bringMultiAddressSelector(a2a)
 
-    InputParser.checkAndMaybeErase {
-      case bitcoinUri: BitcoinUri if Try(ElectrumWallet addressToPubKeyScript bitcoinUri.address).isSuccess =>
-        if (spendable.size == 1) bringSendBitcoinPopup(spendable, bitcoinUri)
-        else if (usable.size == 1) bringSendBitcoinPopup(usable, bitcoinUri)
-        else bringSingleAddressSelector(bitcoinUri)
+    case data: BIP322VerifyData =>
+      val address = drongo.address.Address.fromString(drongoNetwork, data.address)
+      val verifies = try drongo.crypto.Bip322.verifyHashBip322(address.getScriptType, address, data.messageHash.toArray, data.signature64) catch { case _: Throwable => false }
+      val isSignatureLegit = verifies && data.message.map(drongo.crypto.Bip322.getBip322MessageHash).map(ByteVector.view).forall(messageHash => data.messageHash == messageHash)
+      val title = if (isSignatureLegit) new TitleView(me getString verify_ok).asColoredView(R.color.buttonGreen) else new TitleView(me getString verify_no).asColoredView(android.R.color.holo_red_light)
+      val bld = new AlertDialog.Builder(me).setCustomTitle(title).setMessage(getString(verify_details).format(data.address.humanFour, data.messageHash.toHex.humanFour, data.message getOrElse "?").html)
+      mkCheckForm(_.dismiss, share(data.serialize), bld, dialog_ok, dialog_share)
 
-      case a2a: MultiAddressParser.AddressToAmount if a2a.values.nonEmpty =>
-        val dustAmount = a2a.values.secondItems.find(amount => ElectrumWallet.params.dustLimit > amount)
-        val badAddress = a2a.values.firstItems.find(address => Try(ElectrumWallet addressToPubKeyScript address).isFailure)
+    case data: BIP32SignData =>
+      runInFutureProcessOnUI(walletAddresses.find(addressInfo => data.address == addressInfo.address), onFail) {
+        case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.address.short).asDefView, info).setText(data.message)
+        case None => WalletApp.app.quickToast(sign_address_not_found)
+      }
 
-        if (badAddress.nonEmpty) onFail(s"Incorrect address=${badAddress.get}")
-        else if (dustAmount.nonEmpty) onFail(s"Low amount=${dustAmount.get.toLong}")
-        else if (spendable.size == 1) bringSendMultiBitcoinPopup(spendable, a2a)
-        else if (usable.size == 1) bringSendMultiBitcoinPopup(usable, a2a)
-        else bringMultiAddressSelector(a2a)
+    case data: String if toChecksumAddress(data) == data =>
+      WalletApp.linkUsdt.data.withRealAddress.headOption match {
+        case Some(info) => bringSendUsdtPopup(new UsdtSendView(info), data)
+        case None => WalletApp.app.quickToast(error_no_wallet)
+      }
 
-      case data: BIP322VerifyData =>
-        val address = drongo.address.Address.fromString(drongoNetwork, data.address)
-        val verifies = try drongo.crypto.Bip322.verifyHashBip322(address.getScriptType, address, data.messageHash.toArray, data.signature64) catch { case _: Throwable => false }
-        val isSignatureLegit = verifies && data.message.map(drongo.crypto.Bip322.getBip322MessageHash).map(ByteVector.view).forall(messageHash => data.messageHash == messageHash)
-        val title = if (isSignatureLegit) new TitleView(me getString verify_ok).asColoredView(R.color.buttonGreen) else new TitleView(me getString verify_no).asColoredView(android.R.color.holo_red_light)
-        val bld = new AlertDialog.Builder(me).setCustomTitle(title).setMessage(getString(verify_details).format(data.address.humanFour, data.messageHash.toHex.humanFour, data.message getOrElse "?").html)
-        mkCheckForm(_.dismiss, share(data.serialize), bld, dialog_ok, dialog_share)
-
-      case data: BIP32SignData =>
-        runInFutureProcessOnUI(walletAddresses.find(addressInfo => data.address == addressInfo.address), onFail) {
-          case Some(info) => bringSignDialog(getString(sign_sign_message_notx_title).format(info.address.short).asDefView, info).setText(data.message)
-          case None => WalletApp.app.quickToast(sign_address_not_found)
-        }
-
-      case data: String if toChecksumAddress(data) == data =>
-        WalletApp.linkUsdt.data.withRealAddress.headOption match {
-          case Some(info) => bringSendUsdtPopup(new UsdtSendView(info), data)
-          case None => WalletApp.app.quickToast(error_no_wallet)
-        }
-
-      case _ =>
-        whenNone.run
-    }
+    case _ =>
+      whenNone.run
   }
 
   override def onBackPressed: Unit = {
@@ -873,91 +861,129 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def bringSendBitcoinPopup(specs: Seq[WalletSpec], uri: BitcoinUri): Unit = {
-    val pubKeyScript = ElectrumWallet.addressToPubKeyScript(uri.address)
-    val changeTo = ElectrumWallet.orderByImportance(specs).head
-    val sendView = new BtcSendView(specs, MAX_MSAT)
+  def plainTitle(uri: PlainBitcoinUri): TitleView = {
+    val label = uri.label.map(label => s"<br><br><b>$label</b>").getOrElse(new String)
+    val caption = getString(dialog_send_btc).format(uri.address.short, label)
+    new TitleView(caption)
+  }
 
-    def attempt(alert1: AlertDialog): Unit = {
-      val toSend = sendView.rm.resultMsat.truncateToSatoshi
-      val proceed: GenerateTxResponse => Unit = proceedConfirm(sendView, uri.desc, alert1)
-      runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, toSend, Map.empty, feeView.rate), onFail)(proceed)
-    }
+  def loanTitle(loan: LinkClient.LoanAd): TitleView = {
+    val titleView = new TitleView(s"<b>${me getString ta_loan}</b>")
+    val durationHuman = WalletApp.app.plurOrZero(daysLeftRes, loan.durationDays.toInt)
+    val parentDuration = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+    val parentAPR = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
 
-    lazy val alert = {
-      val title = btcTitleViewFromUri(uri)
-      val neutralRes = if (uri.amount.isDefined) -1 else dialog_max
-      val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.cardBitcoinSigning), sendView.body)
-      mkCheckFormNeutral(attempt, none, _ => sendView.rm.updateText(sendView.totalCanSend), builder, dialog_ok, dialog_cancel, neutralRes)
-    }
+    titleView.view.addView(new TwoSidedItem(parentDuration, getString(ta_loan_duration), durationHuman).parent)
+    titleView.view.addView(new TwoSidedItem(parentAPR, getString(ta_loan_annual_return), Denomination.formatRoi format loan.roi).parent)
+    addFlowChip(titleView.flow, "tactical-advantage.trading", R.drawable.border_white)(me browse "tactical-advantage.trading")
+    titleView
+  }
 
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
-      rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
+  type ResponseToNothing = GenerateTxResponse => Unit
+  type TxToSendProxy = (ResponseToNothing, BtcSendView, AlertDialog) => ResponseToNothing
+  val txToSendProxyNoop: TxToSendProxy = (fun, _, _) => response => fun(response)
 
-      worker = new ThrottledWork[String, GenerateTxResponse] {
-        // This is a generic sending facility which may send to non-segwit, so always use a safer high dust threshold
-        override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, rate)
-        override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = sendView.rm.resultMsat >= ElectrumWallet.params.dustLimit)
-        override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
+  val txSendProxyTa: TxToSendProxy = (fun, sendView, alert) => response => {
+    sendView.editView.rmc.fiatInputAmount.setEnabled(false)
+    sendView.editView.rmc.inputAmount.setEnabled(false)
+    updatePosButton(alert, isEnabled = false).run
+    fun(response)
+  }
+
+  def bringSingleAddressSelector[T <: BitcoinUri](pbu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
+    val pubKeyScript = ElectrumWallet.addressToPubKeyScript(pbu.address)
+
+    new BtcWalletSelector(makeTitle apply pbu) {
+      def onOk(specs: List[WalletSpec] = Nil): Unit = {
+        val sendView = new BtcSendView(specs, pbu.maxAmount)
+        val changeTo = ElectrumWallet.orderByImportance(specs).head
+
+        def attempt(alert1: AlertDialog): Unit = {
+          val amount = sendView.rm.resultMsat.truncateToSatoshi
+          val proceed = txToSendProxy(proceedConfirm(sendView, pbu.desc, alert1, _: GenerateTxResponse), sendView, alert1)
+          runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, amount, Map.empty, feeView.rate), onFail)(proceed)
+        }
+
+        lazy val alert = {
+          val neutralRes = if (pbu.amount.isDefined) -1 else dialog_max
+          val builder = titleBodyAsViewBuilder(makeTitle(pbu).asColoredView(R.color.cardBitcoinSigning), sendView.body)
+          mkCheckFormNeutral(attempt, none, _ => sendView.rm.updateText(sendView.totalCanSend), builder, dialog_ok, dialog_cancel, neutralRes)
+        }
+
+        lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
+          val mutualCloseBlockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget
+          rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(mutualCloseBlockTarget)
+
+          worker = new ThrottledWork[String, GenerateTxResponse] {
+            // This is a generic sending facility which may send to non-segwit, so always use a safer high dust threshold
+            override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, rate)
+            override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = sendView.rm.resultMsat >= ElectrumWallet.params.dustLimit)
+            override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
+          }
+
+          override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
+            updatePosButton(alert, isEnabled = feeOpt.isDefined).run
+            super.update(feeOpt, showIssue)
+          }.run
+        }
+
+        // Automatically update a candidate transaction each time user changes amount value
+        sendView.rm.rmc.inputAmount addTextChangedListener onTextChange(feeView.worker.addWork)
+        feeView.update(feeOpt = None, showIssue = false)
+
+        pbu.amount.foreach { asked =>
+          sendView.rm.updateText(value = asked)
+          sendView.rm.rmc.inputAmount.setEnabled(false)
+          sendView.rm.rmc.fiatInputAmount.setEnabled(false)
+        }
       }
-
-      override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-        updatePosButton(alert, isEnabled = feeOpt.isDefined).run
-        super.update(feeOpt, showIssue)
-      }.run
-    }
-
-    // Automatically update a candidate transaction each time user changes amount value
-    sendView.rm.rmc.inputAmount addTextChangedListener onTextChange(feeView.worker.addWork)
-    feeView.update(feeOpt = None, showIssue = false)
-
-    uri.amount foreach { asked =>
-      sendView.rm.updateText(value = asked)
-      sendView.rm.rmc.inputAmount.setEnabled(false)
-      sendView.rm.rmc.fiatInputAmount.setEnabled(false)
     }
   }
 
-  def bringSendMultiBitcoinPopup(specs: Seq[WalletSpec], addressToAmount: MultiAddressParser.AddressToAmount): Unit = {
-    val scriptToAmount = addressToAmount.values.firstItems.map(ElectrumWallet.addressToPubKeyScript).zip(addressToAmount.values.secondItems).toMap
-    val changeTo = ElectrumWallet.orderByImportance(specs).head
-    val sendView = new BtcSendView(specs, MAX_MSAT)
+  def bringMultiAddressSelector(a2a: MultiAddressParser.AddressToAmount) = new BtcWalletSelector(me getString dialog_send_btc_many) {
+    val scriptToAmount = a2a.values.firstItems.map(ElectrumWallet.addressToPubKeyScript).zip(a2a.values.secondItems).toMap
 
-    def attempt(alert1: AlertDialog): Unit = {
-      val proceed = proceedConfirm(sendView, PlainBtcDescription(addressToAmount.values.firstItems.toList), alert1) _
-      runInFutureProcessOnUI(ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, feeView.rate), onFail)(proceed)
-    }
+    def onOk(specs: List[WalletSpec] = Nil): Unit = {
+      val changeTo = ElectrumWallet.orderByImportance(specs).head
+      val sendView = new BtcSendView(specs, hardMax = MAX_MSAT)
 
-    lazy val alert = {
-      val view = new TitleView(me getString dialog_send_btc_many).asColoredView(R.color.cardBitcoinSigning)
-      mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body), dialog_ok, dialog_cancel)
-    }
-
-    lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
-      rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget)
-
-      worker = new ThrottledWork[String, GenerateTxResponse] {
-        override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, rate)
-        override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
-        override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = true)
+      def attempt(alert1: AlertDialog): Unit = {
+        val proceed = proceedConfirm(sendView, PlainBtcDescription(a2a.values.firstItems.toList), alert1, _: GenerateTxResponse)
+        runInFutureProcessOnUI(ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, feeView.rate), onFail)(proceed)
       }
 
-      override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
-        updatePosButton(alert, isEnabled = feeOpt.isDefined).run
-        super.update(feeOpt, showIssue)
-      }.run
-    }
+      lazy val alert = {
+        val view = new TitleView(me getString dialog_send_btc_many).asColoredView(R.color.cardBitcoinSigning)
+        mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body), dialog_ok, dialog_cancel)
+      }
 
-    for (address \ amount <- addressToAmount.values.reverse) {
-      val humanAmount = BtcDenom.parsedTT(amount.toMilliSatoshi, cardIn, cardZero)
-      val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_gen, null)
-      new TwoSidedItem(parent, address.short.html, humanAmount.html)
-      sendView.editChain.addView(parent, 0)
-    }
+      lazy val feeView = new FeeView[GenerateTxResponse](FeeratePerByte(1L.sat), sendView.editView.fvc) {
+        val mutualCloseBlockTarget = WalletApp.feeRates.info.onChainFeeConf.feeTargets.mutualCloseBlockTarget
+        rate = WalletApp.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(mutualCloseBlockTarget)
 
-    setVis(isVisible = false, sendView.inputChain)
-    feeView.update(feeOpt = None, showIssue = false)
-    feeView.worker addWork "MULTI-SEND-INIT-CALL"
+        worker = new ThrottledWork[String, GenerateTxResponse] {
+          override def work(reason: String): GenerateTxResponse = ElectrumWallet.makeBatchTx(specs, changeTo, scriptToAmount, rate)
+          override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
+          override def error(exception: Throwable): Unit = update(feeOpt = None, showIssue = true)
+        }
+
+        override def update(feeOpt: Option[MilliSatoshi], showIssue: Boolean): Unit = UITask {
+          updatePosButton(alert, isEnabled = feeOpt.isDefined).run
+          super.update(feeOpt, showIssue)
+        }.run
+      }
+
+      for (address \ amount <- a2a.values.reverse) {
+        val humanAmount = BtcDenom.parsedTT(amount.toMilliSatoshi, cardIn, cardZero)
+        val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_gen, null)
+        new TwoSidedItem(parent, address.short.html, humanAmount.html)
+        sendView.editChain.addView(parent, 0)
+      }
+
+      setVis(isVisible = false, sendView.inputChain)
+      feeView.update(feeOpt = None, showIssue = false)
+      feeView.worker addWork "MULTI-SEND-INIT-CALL"
+    }
   }
 
   def bringSignDialog(title: LinearLayout, info: BtcAddressAndPrivKey): EditText = {
@@ -1069,7 +1095,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     paymentsAdapter.notifyDataSetChanged
   }
 
-  def proceedConfirm(sendView: BtcSendView, desc: BtcDescription, alert: AlertDialog)(response: GenerateTxResponse): Unit = {
+  def proceedConfirm(sendView: BtcSendView, desc: BtcDescription, alert: AlertDialog, response: GenerateTxResponse): Unit = {
     sendView.confirmView.confirmAmount.secondItem setText BtcDenom.parsedTT(response.transferred.toMilliSatoshi, cardIn, cardZero).html
     sendView.confirmView.confirmFiat.secondItem setText WalletApp.currentMsatInFiatHuman(response.transferred.toMilliSatoshi).html
     sendView.confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
@@ -1127,5 +1153,205 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
     case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
     case _ => drongo.Network.REGTEST
+  }
+
+  // WALLET CARDS
+
+  abstract class BtcWalletSelector(title: TitleView) { self =>
+    val spendable = ElectrumWallet.specs.values.filter(_.spendable).toList
+    val usable = ElectrumWallet.specs.values.filter(_.usable).toList
+    def onOk(specs: List[WalletSpec] = Nil): Unit
+
+    if (spendable.size == 1) onOk(spendable)
+    else if (usable.size == 1) onOk(usable)
+    else {
+      val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow, None)
+      val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
+      lazy val alert = mkCheckForm(proceed, none, titleBodyAsViewBuilder(title.view, cardsContainer), dialog_ok, dialog_cancel)
+
+      def proceed(alert1: AlertDialog): Unit = runAnd(alert1.dismiss)(self onOk chosenSpecs.toList)
+      def chosenSpecs: Seq[WalletSpec] = cards.filter(_.isSelected).map(_.xPub).flatMap(ElectrumWallet.specs.get)
+
+      lazy val cards = for (spec <- spendable) yield
+        new BtcWalletCard(xPub = spec.data.keys.ewt.xPub) {
+          setVisMany(false -> cardButtons, false -> infoWalletNotice)
+
+          def onTap: Unit = {
+            isSelected = !isSelected
+            val totalCanSend = chosenSpecs.map(_.info.lastBalance).sum.toMilliSatoshi
+            val formatted = "<small>∑ </small>" + BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
+            if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
+            updatePosButton(alert, isEnabled = chosenSpecs.nonEmpty).run
+            updateView
+          }
+        }
+
+      updatePosButton(alert, isEnabled = false).run
+      val chooser = new WalletCardManager(cardsContainer)
+      chooser.init(cards).cardViews.foreach(_.updateView)
+      chooser.unPad
+    }
+  }
+
+  class WalletCardManager(holder: LinearLayout) {
+    var cardViews = List.empty[WalletCard]
+
+    def init(cards: List[WalletCard] = Nil): WalletCardManager = {
+      cards.foreach(holder addView _.cardWrap)
+      cardViews = cards
+      this
+    }
+
+    def unPad: Unit = cardViews.foreach { card =>
+      val padding: Int = card.cardWrap.getPaddingTop
+      card.cardWrap.setPadding(padding, padding, padding, 0)
+    }
+  }
+
+  abstract class WalletCard {
+    val cardWrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_wallet_card, null).asInstanceOf[LinearLayout]
+    val imageTip: ImageView = cardWrap.findViewById(R.id.imageTip).asInstanceOf[ImageView]
+    val cardView: CardView = cardWrap.findViewById(R.id.cardView).asInstanceOf[CardView]
+    cardView setOnClickListener onButtonTap(onTap)
+
+    val infoContainer: View = cardWrap.findViewById(R.id.infoContainer).asInstanceOf[View]
+    val infoWalletLabel: TextView = cardWrap.findViewById(R.id.infoWalletLabel).asInstanceOf[TextView]
+    val infoWalletNotice: TextView = cardWrap.findViewById(R.id.infoWalletNotice).asInstanceOf[TextView]
+    infoWalletNotice setText tap_to_receive
+
+    val balanceContainer: LinearLayout = cardWrap.findViewById(R.id.balanceContainer).asInstanceOf[LinearLayout]
+    val balanceWalletFiat: TextView = cardWrap.findViewById(R.id.balanceWalletFiat).asInstanceOf[TextView]
+    val balanceWallet: TextView = cardWrap.findViewById(R.id.balanceWallet).asInstanceOf[TextView]
+    val cardButtons: FlowLayout = cardWrap.findViewById(R.id.cardButtons).asInstanceOf[FlowLayout]
+    addFlowChip(cardButtons, getString(dialog_hide), R.drawable.border_blue)(hide)
+
+    def hide: Unit = none
+    def updateView: Unit
+    def onTap: Unit
+  }
+
+  abstract class BtcWalletCard(val xPub: ExtendedPublicKey) extends WalletCard {
+    imageTip setImageResource R.drawable.add_24
+    var isSelected: Boolean = false
+
+    def updateView: Unit = {
+      val spec = ElectrumWallet.specs(xPub)
+      val hasMoney = spec.info.lastBalance.toLong > 0L
+      val bgResource = if (isSelected) R.drawable.border_white else R.color.cardBitcoinSigning
+      val attachment = if (spec.info.core.attachedMaster.isDefined) R.drawable.attachment_24 else 0
+      infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(me getString bitcoin_wallet)
+      balanceWallet setText BtcDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZero).html
+      balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(spec.info.lastBalance.toMilliSatoshi)
+      infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, attachment, 0)
+      setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
+      infoContainer setBackgroundResource bgResource
+    }
+  }
+
+  abstract class UsdtWalletCard(val xPriv: String) extends WalletCard {
+    infoContainer setBackgroundResource R.color.usdt
+    imageTip setImageResource R.drawable.add_24
+
+    def updateView: Unit = {
+      val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
+      infoWalletLabel setText info.label.asSome.filter(_.trim.nonEmpty).getOrElse(me getString usdt_wallet)
+      balanceWallet setText Denomination.fiatTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
+      setVisMany(info.isDust -> imageTip, !info.isDust -> balanceContainer, false -> balanceWalletFiat)
+    }
+  }
+
+  abstract class TaWalletCard extends WalletCard {
+    infoWalletLabel setText ta_earn_label
+
+    val earnAccount = new EarnAccount
+    cardView.addView(earnAccount.wrap, 0)
+
+    def updateView: Unit = {
+      WalletApp.linkClient.data match {
+        case status: LinkClient.UserStatus =>
+          infoWalletNotice setText status.email
+          imageTip.setImageResource(R.drawable.info_24)
+          val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
+          balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, minDaysLeft.toInt)
+          balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
+          setVis(isVisible = status.activeLoans.nonEmpty, balanceContainer)
+          setVis(isVisible = status.activeLoans.isEmpty, imageTip)
+          earnAccount.updateView(status)
+        case LinkClient.LoggedOut if earnAccount.isExpanded =>
+          androidx.transition.TransitionManager.beginDelayedTransition(cardWrap)
+          setVisMany(false -> earnAccount.wrap, true -> infoContainer)
+          updateView
+        case LinkClient.LoggedOut =>
+          infoWalletNotice setText ta_client_login
+          imageTip.setImageResource(R.drawable.lock_24)
+          setVis(isVisible = false, balanceContainer)
+          setVis(isVisible = true, imageTip)
+      }
+    }
+  }
+
+  class EarnAccount {
+    val wrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
+    val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
+    val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
+    val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
+    val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
+    val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
+    val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
+    val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
+    def isExpanded: Boolean = wrap.getVisibility == View.VISIBLE
+
+    val loanAdListener = new LinkClient.Listener("get-loan-ad") {
+      override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
+        val showForm = bringSingleAddressSelector(_: LinkClient.LoanAd, loanTitle, txSendProxyTa)
+        args.collectFirst { case data: LinkClient.LoanAd => showForm(data).run }
+        onDisconnected
+      }
+
+      override def onDisconnected: Unit = {
+        WalletApp.linkClient ! LinkClient.CmdRemove(this)
+        UITask(taDeposit setEnabled true).run
+      }
+    }
+
+    taDeposit setOnClickListener onButtonTap {
+      val getLoanAd = LinkClient.GetLoanAd(asset = LinkClient.BTC)
+      WalletApp.linkClient ! LinkClient.Request(getLoanAd, loanAdListener.id)
+      WalletApp.linkClient ! loanAdListener
+      taDeposit.setEnabled(false)
+    }
+
+    def updateView(status: LinkClient.UserStatus): Unit = {
+      val balances = status.totalFunds.filter(_.withdrawable > 0D)
+      List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
+      setVisMany(balances.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
+      taClientEmail.setText(status.email)
+
+      for (balance <- balances) {
+        val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+        val item = new TwoSidedItem(parent, getString(balance.currency), balance.amountHuman.html)
+        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(balance.icon, 0, 0, 0)
+        taBalancesContainer.addView(parent)
+      }
+
+      for (loan <- status.activeLoans) {
+        val daysLeft = WalletApp.app.plurOrZero(daysLeftRes, loan.daysLeft.toInt)
+        val amounts = s"${loan.amountHuman}<br><small>${loan.interestHuman}</small>"
+        val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+        val details = s"APR ${Denomination.formatRoi format loan.roi}<br><small><tt>$daysLeft</tt></small>"
+        val item = new TwoSidedItem(parent, firstText = details.html, secondText = amounts.html)
+        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(loan.icon, 0, 0, 0)
+        taLoansContainer.addView(parent)
+      }
+
+      (balances.nonEmpty, status.pendingWithdraws.nonEmpty) match {
+        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(none)
+        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(none)
+        case _ =>
+      }
+
+      addFlowChip(taExtended, getString(ta_support), R.drawable.border_blue)(me browse "mailto:contact@tactical-advantage.trading")
+      addFlowChip(taExtended, getString(ta_logout), R.drawable.border_blue)(WalletApp.linkClient ! LinkClient.LoggedOut)
+    }
   }
 }

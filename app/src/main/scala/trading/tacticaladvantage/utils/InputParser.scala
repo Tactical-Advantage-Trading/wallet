@@ -13,7 +13,6 @@ import trading.tacticaladvantage.utils.uri.Uri
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.{Success, Try}
 
-
 object InputParser {
   var value: Any = new String
   case object DoNotEraseRecordedValue
@@ -36,14 +35,14 @@ object InputParser {
   private[this] val bip322Verify = "(?im).*?(bip322verify)([A-Za-z0-9+/=a-fA-F|-]+)".r.unanchored
   val bitcoin: String = "bitcoin:"
 
-  def parse(rawInput: String): Any = rawInput take 2880 match {
+  def parse(raw: String): Any = raw.take(2880) match {
     case bip322Sign(_, rawData) => BIP322Data.parseSign(rawData)
     case bip322Verify(_, rawData) => BIP322Data.parseVerify(rawData)
-    case _ if rawInput.startsWith("0x") => rawInput
+    case _ if raw.startsWith("0x") => raw
 
     case _ =>
-      val withoutSlashes = removePrefix(rawInput).trim
-      val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, rawInput)
+      val withoutSlashes = removePrefix(raw).trim
+      val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, raw)
       addressToAmount getOrElse PlainBitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
   }
 }
