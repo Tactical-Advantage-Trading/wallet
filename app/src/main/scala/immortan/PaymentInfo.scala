@@ -29,6 +29,7 @@ object SemanticOrder {
 }
 
 sealed trait ItemDescription {
+  val taRoi: Option[BigDecimal]
   val semanticOrder: Option[SemanticOrder]
   val label: Option[String]
 }
@@ -51,7 +52,6 @@ sealed trait ItemDetails {
 sealed trait BtcDescription extends ItemDescription {
   def canBeCPFPd: Boolean = cpfpBy.isEmpty && cpfpOf.isEmpty
   def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription
-  def withNewLabel(label1: Option[String] = None): BtcDescription
   def withNewCPFPBy(txid: ByteVector32): BtcDescription
   def queryText(txid: ByteVector32): String
   def addresses: StringList
@@ -71,7 +71,6 @@ case class PlainBtcDescription(addresses: StringList, label: Option[String] = No
                                taRoi: Option[BigDecimal] = None) extends BtcDescription {
   override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
   override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) this else copy(semanticOrder = order)
-  override def withNewLabel(label1: Option[String] = None): BtcDescription = copy(label = label1)
   override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
 }
 
@@ -100,9 +99,8 @@ object UsdtDescription {
   final val POLYGON = 2
 }
 
-case class UsdtDescription(fromAddr: String, toAddr: String, label: Option[String] = None) extends ItemDescription {
+case class UsdtDescription(fromAddr: String, toAddr: String, label: Option[String] = None, taRoi: Option[BigDecimal] = None) extends ItemDescription {
   def queryText(hash: String): String = hash + SEPARATOR + fromAddr + SEPARATOR + toAddr + label.getOrElse(new String)
-  def withNewLabel(label1: Option[String] = None): UsdtDescription = copy(label = label1)
   val semanticOrder: Option[SemanticOrder] = None
 }
 

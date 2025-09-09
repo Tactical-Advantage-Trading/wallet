@@ -455,11 +455,18 @@ trait BaseActivity extends AppCompatActivity { me =>
     var defaultView: HasHostView = editView
 
     def switchTo(visibleSection: HasHostView): Unit = for (candidateSection <- views) setVis(isVisible = candidateSection == visibleSection, candidateSection.host)
-    def switchButtons(alert: AlertDialog, on: Boolean): Unit = setVisMany(on -> getPositiveButton(alert), on -> getNegativeButton(alert), on -> getNeutralButton(alert), true -> body)
+    def setButtonsVisible(alert: AlertDialog, on: Boolean): Unit = setVisMany(on -> getPositiveButton(alert), on -> getNegativeButton(alert), on -> getNeutralButton(alert), true -> body)
 
     def switchToDefault(alert: AlertDialog): Unit = {
-      switchButtons(alert, on = true)
+      setInputEnabled(alert, isEnabled = true).run
+      setButtonsVisible(alert, on = true)
       switchTo(defaultView)
+    }
+
+    def setInputEnabled(alert: AlertDialog, isEnabled: Boolean) = UITask {
+      editView.rmc.fiatInputAmount.setEnabled(isEnabled)
+      editView.rmc.inputAmount.setEnabled(isEnabled)
+      updatePosButton(alert, isEnabled).run
     }
   }
 

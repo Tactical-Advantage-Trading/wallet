@@ -50,7 +50,6 @@ object InputParser {
 trait BitcoinUri {
   val maxAmount: MilliSatoshi
   val amount: Option[MilliSatoshi]
-  val label: Option[String]
   val desc: BtcDescription
   val address: String
 }
@@ -64,8 +63,8 @@ object PlainBitcoinUri {
 }
 
 case class PlainBitcoinUri(uri: Try[Uri], address: String) extends BitcoinUri {
-  val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
+  val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
   val desc: BtcDescription = PlainBtcDescription(List(address), label)
   val maxAmount: MilliSatoshi = MAX_MSAT
 }

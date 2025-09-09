@@ -77,8 +77,8 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   // USDT description
 
-  implicit val usdtDescriptionFmt: JsonFormat[UsdtDescription] = taggedJsonFmt(jsonFormat[String, String, Option[String],
-    UsdtDescription](UsdtDescription.apply, "fromAddrString", "toAddrString", "label"), tag = "UsdtDescription")
+  implicit val usdtDescriptionFmt: JsonFormat[UsdtDescription] = taggedJsonFmt(jsonFormat[String, String, Option[String], Option[BigDecimal],
+    UsdtDescription](UsdtDescription.apply, "fromAddrString", "toAddrString", "label", "taRoi"), tag = "UsdtDescription")
 
   // Fiat feerates
 

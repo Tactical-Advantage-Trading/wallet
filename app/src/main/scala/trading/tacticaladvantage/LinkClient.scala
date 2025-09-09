@@ -114,15 +114,10 @@ object LinkClient {
   case class Withdraw(txid: Option[String], id: String, address: String, amount: BigDecimal, requested: BigDecimal, created: Long, fee: BigDecimal, asset: Asset)
 
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: BigDecimal, amount: BigDecimal, asset: Asset) {
-
     lazy val daysLeft = Math.max(0L, (end - System.currentTimeMillis) / 86400000L)
-
     lazy val interestHuman = toHumanInSum(asset, amount * roi / inverseSpan)
-
     lazy val inverseSpan = 365L * 86400000L / (end - start)
-
     lazy val amountHuman = toHumanSum(asset, amount)
-
     lazy val icon = toIconRes(asset)
   }
 
@@ -148,15 +143,10 @@ object LinkClient {
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
 
   case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal, asset: Asset) extends ResponseArguments with BitcoinUri {
-
-    val label: Option[String] = WalletApp.app.getString(R.string.ta_btc_loan_label).asSome
-
+    val label: Option[String] = WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome
     val desc: BtcDescription = PlainBtcDescription(List(address), label, taRoi = roi.asSome)
-
     val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
-
     val amount: Option[MilliSatoshi] = None
-
     val tag = "LoanAd"
   }
 

@@ -34,15 +34,15 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
       new QRViewHolder(qrCodeContainer)
     }
 
-    private def updateView(bu: PlainBitcoinUri, holder: QRViewHolder): Unit = bu.uri foreach { uri =>
-      val humanAmountOpt = for (requestedAmount <- bu.amount) yield BtcDenom.parsedTT(requestedAmount, cardIn, cardZero)
-      val contentToShare = if (bu.amount.isDefined || bu.label.isDefined) InputParser.bitcoin + InputParser.removePrefix(uri.toString) else bu.address
+    private def updateView(pbu: PlainBitcoinUri, holder: QRViewHolder): Unit = pbu.uri foreach { uri =>
+      val humanAmountOpt = for (requestedAmount <- pbu.amount) yield BtcDenom.parsedTT(requestedAmount, cardIn, cardZero)
+      val contentToShare = if (pbu.amount.isDefined || pbu.label.isDefined) InputParser.bitcoin + InputParser.removePrefix(uri.toString) else pbu.address
 
-      val visibleText = (bu.label, humanAmountOpt) match {
-        case Some(label) \ Some(amount) => s"${bu.address.short}<br><br>$label<br><br>$amount"
-        case None \ Some(amount) => s"${bu.address.short}<br><br>$amount"
-        case Some(label) \ None => s"${bu.address.short}<br><br>$label"
-        case _ => bu.address.short
+      val visibleText = (pbu.label, humanAmountOpt) match {
+        case Some(label) \ Some(amount) => s"${pbu.address.short}<br><br>$label<br><br>$amount"
+        case None \ Some(amount) => s"${pbu.address.short}<br><br>$amount"
+        case Some(label) \ None => s"${pbu.address.short}<br><br>$label"
+        case _ => pbu.address.short
       }
 
       holder.qrLabel setText visibleText.html
@@ -50,7 +50,7 @@ class QRBtcActivity extends QRActivity with ExternalDataChecker { me =>
         def share: Unit = runInFutureProcessOnUI(shareData(qrBitmap, contentToShare), onFail)(none)
         holder.qrCopy setOnClickListener onButtonTap(WalletApp.app copy contentToShare)
         holder.qrCode setOnClickListener onButtonTap(WalletApp.app copy contentToShare)
-        holder.qrEdit setOnClickListener onButtonTap(me editAddress bu)
+        holder.qrEdit setOnClickListener onButtonTap(me editAddress pbu)
         holder.qrShare setOnClickListener onButtonTap(share)
         holder.qrCode setImageBitmap qrBitmap
       }
