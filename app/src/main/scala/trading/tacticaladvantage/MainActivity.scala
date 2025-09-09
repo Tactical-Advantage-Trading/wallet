@@ -1371,12 +1371,35 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         taLoansContainer.addView(parent)
       }
 
-      (balances.nonEmpty, status.pendingWithdraws.nonEmpty) match {
-        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(none)
-        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(none)
-        case _ =>
+      lazy val withdrawButtonOpt = (balances.nonEmpty, status.pendingWithdraws.nonEmpty) match {
+        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
+        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
+        case _ => None
       }
 
+      def requestWithdraw: Unit = for {
+        spec <- ElectrumWallet.orderByImportance(ElectrumWallet.specs.values.toList).headOption
+        address <- spec.data.firstUnusedAccountKeys.headOption.map(spec.data.keys.ewt.textAddress)
+        request = LinkClient.WithdrawReq(address, LinkClient.BTC)
+      } call(request)
+
+      def cancelScheduledWithdraw: Unit = {
+        val request = LinkClient.CancelWithdraw(LinkClient.BTC)
+        call(request)
+      }
+
+      def call(request: LinkClient.RequestArguments): Unit = {
+        val withdrawListener = new LinkClient.Listener("withdraw-request") {
+          override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = onDisconnected
+          override def onDisconnected: Unit = withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = true).run)
+        }
+
+        withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = false).run)
+        WalletApp.linkClient ! LinkClient.Request(request, withdrawListener.id)
+        WalletApp.linkClient ! withdrawListener
+      }
+
+      withdrawButtonOpt
       addFlowChip(taExtended, getString(ta_support), R.drawable.border_blue)(me browse "mailto:contact@tactical-advantage.trading")
       addFlowChip(taExtended, getString(ta_logout), R.drawable.border_blue)(WalletApp.linkClient ! LinkClient.LoggedOut)
     }

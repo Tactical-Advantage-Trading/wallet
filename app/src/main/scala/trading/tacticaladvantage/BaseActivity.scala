@@ -302,10 +302,13 @@ trait BaseActivity extends AppCompatActivity { me =>
 
   // Fiat / BTC converter
 
-  def updatePosButton(alert: AlertDialog, isEnabled: Boolean) = UITask {
-    getPositiveButton(alert) setAlpha { if (isEnabled) 1F else 0.3F }
-    getPositiveButton(alert) setEnabled isEnabled
+  def updateViewEnabled(view: View, isEnabled: Boolean) = UITask {
+    view setAlpha { if (isEnabled) 1F else 0.3F }
+    view setEnabled isEnabled
   }
+
+  def updatePosButton(alert: AlertDialog, isEnabled: Boolean) =
+    updateViewEnabled(getPositiveButton(alert), isEnabled)
 
   class RateManagerContent(val container: View) {
     def updateFiatText(value: String): Unit = runAnd(fiatInputAmount.requestFocus)(fiatInputAmount setText value)
