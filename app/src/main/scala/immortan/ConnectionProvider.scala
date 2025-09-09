@@ -2,9 +2,7 @@ package immortan
 
 import java.net.{InetSocketAddress, Socket}
 import java.util.concurrent.TimeUnit
-
-import immortan.crypto.Tools
-import okhttp3.{OkHttpClient, Request, ResponseBody}
+import okhttp3.{MediaType, OkHttpClient, Request, RequestBody, ResponseBody}
 
 
 trait ConnectionProvider {
@@ -16,11 +14,15 @@ trait ConnectionProvider {
 
   def doWhenReady(action: => Unit): Unit
 
-  def notifyAppAvailable: Unit = Tools.none
-
   def get(url: String): ResponseBody = {
-    val request = (new Request.Builder).url(url).get
-    okHttpClient.newCall(request.build).execute.body
+    val request = (new Request.Builder).url(url)
+    okHttpClient.newCall(request.get.build).execute.body
+  }
+
+  def postJson(url: String, json: String): ResponseBody = {
+    val body = RequestBody.create(MediaType.parse("application/json; charset=utf-8"), json)
+    val request = (new Request.Builder).url(url).addHeader("Content-Type", "application/json")
+    okHttpClient.newCall(request.post(body).build).execute.body
   }
 }
 

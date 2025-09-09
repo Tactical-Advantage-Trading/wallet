@@ -26,9 +26,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.RequiresApi;
 
-import com.btcontract.wallet.R;
-
-//import android.support.annotation.RequiresApi;
+import trading.tacticaladvantage.R;
 
 public class NoboButton extends LinearLayout {
 

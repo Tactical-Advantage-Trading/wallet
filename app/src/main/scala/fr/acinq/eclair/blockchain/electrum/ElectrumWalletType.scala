@@ -3,18 +3,18 @@ package fr.acinq.eclair.blockchain.electrum
 import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet._
 import fr.acinq.bitcoin._
-import immortan.crypto.Tools._
+import immortan.Tools._
 import scodec.bits.ByteVector
 
 import scala.util.Try
 
 
 object ElectrumWalletType {
-  def makeSigningType(tag: String, master: ExtendedPrivateKey, hash: ByteVector32): ElectrumWalletType = tag match {
-    case ElectrumWallet.BIP32 => makeSigningType(tag, secrets = xPriv32(master, hash), hash)
-    case ElectrumWallet.BIP44 => makeSigningType(tag, secrets = xPriv44(master, hash), hash)
-    case ElectrumWallet.BIP49 => makeSigningType(tag, secrets = xPriv49(master, hash), hash)
-    case ElectrumWallet.BIP84 => makeSigningType(tag, secrets = xPriv84(master, hash), hash)
+  def makeSigningType(tag: String, master: ExtendedPrivateKey, hash: ByteVector32, ord: Long): ElectrumWalletType = tag match {
+    case ElectrumWallet.BIP32 => makeSigningType(tag, secrets = xPriv32(master, hash, ord), hash)
+    case ElectrumWallet.BIP44 => makeSigningType(tag, secrets = xPriv44(master, hash, ord), hash)
+    case ElectrumWallet.BIP49 => makeSigningType(tag, secrets = xPriv49(master, hash, ord), hash)
+    case ElectrumWallet.BIP84 => makeSigningType(tag, secrets = xPriv84(master, hash, ord), hash)
     case _ => throw new RuntimeException
   }
 
@@ -26,31 +26,31 @@ object ElectrumWalletType {
     case _ => throw new RuntimeException
   }
 
-  def xPriv32(master: ExtendedPrivateKey, hash: ByteVector32): AccountAndXPrivKey = hash match {
-    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(1L) :: 0L :: Nil), master)
-    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(1L) :: 0L :: Nil), master)
-    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(0L) :: 0L :: Nil), master)
+  def xPriv32(master: ExtendedPrivateKey, hash: ByteVector32, ord: Long): AccountAndXPrivKey = hash match {
+    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(1L) :: ord :: Nil), master)
+    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(1L) :: ord :: Nil), master)
+    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(0L) :: ord :: Nil), master)
     case _ => throw new RuntimeException
   }
 
-  def xPriv44(master: ExtendedPrivateKey, hash: ByteVector32): AccountAndXPrivKey = hash match {
-    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(0L) :: hardened(0L) :: Nil), master)
+  def xPriv44(master: ExtendedPrivateKey, hash: ByteVector32, ord: Long): AccountAndXPrivKey = hash match {
+    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(44L) :: hardened(0L) :: hardened(ord) :: Nil), master)
     case _ => throw new RuntimeException
   }
 
-  def xPriv49(master: ExtendedPrivateKey, hash: ByteVector32): AccountAndXPrivKey = hash match {
-    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(0L) :: hardened(0L) :: Nil), master)
+  def xPriv49(master: ExtendedPrivateKey, hash: ByteVector32, ord: Long): AccountAndXPrivKey = hash match {
+    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(49L) :: hardened(0L) :: hardened(ord) :: Nil), master)
     case _ => throw new RuntimeException
   }
 
-  def xPriv84(master: ExtendedPrivateKey, hash: ByteVector32): AccountAndXPrivKey = hash match {
-    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(1L) :: hardened(0L) :: Nil), master)
-    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(0L) :: hardened(0L) :: Nil), master)
+  def xPriv84(master: ExtendedPrivateKey, hash: ByteVector32, ord: Long): AccountAndXPrivKey = hash match {
+    case Block.RegtestGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.TestnetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(1L) :: hardened(ord) :: Nil), master)
+    case Block.LivenetGenesisBlock.hash => AccountAndXPrivKey(derivePrivateKey(master, hardened(84L) :: hardened(0L) :: hardened(ord) :: Nil), master)
     case _ => throw new RuntimeException
   }
 

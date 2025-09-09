@@ -16,11 +16,10 @@
 
 package fr.acinq.eclair.blockchain.electrum
 
-import java.math.BigInteger
-
 import fr.acinq.bitcoin.{Block, BlockHeader, ByteVector32, decodeCompact}
-import fr.acinq.eclair.blockchain.electrum.db.HeaderDb
+import immortan.sqlite.SQLiteData
 
+import java.math.BigInteger
 import scala.annotation.tailrec
 
 case class Blockchain(chainHash: ByteVector32, checkpoints: Vector[CheckPoint], headersMap: Map[ByteVector32, Blockchain.BlockIndex],
@@ -126,7 +125,7 @@ object Blockchain {
     * @param headerDb
     * @return
     */
-  def load(chainHash: ByteVector32, headerDb: HeaderDb): Blockchain = {
+  def load(chainHash: ByteVector32, headerDb: SQLiteData): Blockchain = {
     val checkpoints = CheckPoint.loadFromChainHash(chainHash)
     val checkpoints1 = headerDb.getTip match {
       case Some((height, _)) =>
@@ -326,7 +325,7 @@ object Blockchain {
     * @param headerDb   header database
     * @return the difficulty target for this height
     */
-  def getDifficulty(blockchain: Blockchain, height: Int, headerDb: HeaderDb): Option[Long] = {
+  def getDifficulty(blockchain: Blockchain, height: Int, headerDb: SQLiteData): Option[Long] = {
     blockchain.chainHash match {
       case Block.LivenetGenesisBlock.hash =>
         (height % RETARGETING_PERIOD) match {

@@ -9,18 +9,12 @@
 
     <color name="paymentPassiveBorder">#555555</color>
     <color name="cardBitcoinSigning">#E08f04</color>
+    <color name="usdt">#50AF95</color>
 
     <color name="buttonGreenRipple">#8BD670</color>
     <color name="buttonGreenBorder">#5B8F36</color>
     <color name="buttonGreenPale">#33517D2B</color>
     <color name="buttonGreen">#517D2B</color>
-
-    <color name="buttonRedRipple">#F0473E</color>
-    <color name="buttonRedBorder">#D1231E</color>
-    <color name="buttonRed">#AF1212</color>
-
-    <color name="buttonGrayRipple">#868899</color>
-    <color name="buttonGrayBorder">#494949</color>
 
     <color name="cardOutText">#88FF88</color>
     <color name="cardZeroText">#888888</color>

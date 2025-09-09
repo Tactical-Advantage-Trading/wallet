@@ -1,49 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-sdk tools:overrideLibrary="com.google.zxing.client.android"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.CAMERA"/>
 
-    <supports-screens
-        android:resizeable="true"
-        android:anyDensity="true"
-        android:smallScreens="true"
-        android:largeScreens="true"
-        android:xlargeScreens="true"
-        android:normalScreens="true"/>
-
     <application
-        android:fullBackupContent="false"
-        android:supportsRtl="false"
         android:allowBackup="false"
-
-        android:theme="@style/AppTheme"
-        android:name="com.btcontract.wallet.WalletApp"
+        android:supportsRtl="false"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name">
+        android:name="trading.tacticaladvantage.WalletApp"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/NoActionBar">
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.btcontract.wallet"
+            android:authorities="trading.tacticaladvantage"
             android:grantUriPermissions="true"
             android:exported="false">
 
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/filepaths"/>
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/filepaths"/>
 
         </provider>
 
         <activity
             android:exported="true"
-            android:name="HubActivity"
+            android:name=".MainActivity"
             android:launchMode="singleTask"
-            android:theme="@style/AppThemeNoActionBar"
+            android:theme="@style/NoActionBar"
             android:windowSoftInputMode="adjustNothing">
 
             <intent-filter>
@@ -64,34 +52,33 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="bitcoin"/>
-                <data android:scheme="blw"/>
             </intent-filter>
         </activity>
 
         <activity
             android:launchMode="singleTask"
-            android:name="EmergencyActivity"
-            android:theme="@style/AppThemeNoActionBar"/>
+            android:name=".EmergencyActivity"
+            android:theme="@style/NoActionBar"/>
 
         <activity
-            android:name="SetupActivity"
+            android:name=".SetupActivity"
             android:launchMode="singleTask"
-            android:theme="@style/AppThemeNoActionBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
-            android:name="QRChainActivity"
+            android:name=".QRBtcActivity"
             android:launchMode="singleTask"
-            android:theme="@style/AppThemeNoActionBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
-            android:name="QRSigActivity"
+            android:name=".QRSigActivity"
             android:launchMode="singleTask"
-            android:theme="@style/AppThemeNoActionBar"/>
+            android:theme="@style/NoActionBar"/>
 
         <activity
-            android:name="SettingsActivity"
+            android:name=".QRUsdtActivity"
             android:launchMode="singleTask"
-            android:theme="@style/AppThemeNoActionBar"/>
+            android:theme="@style/NoActionBar"/>
 
     </application>
 </manifest>

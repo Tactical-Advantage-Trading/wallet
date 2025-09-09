@@ -14,6 +14,6 @@
         android:layout_marginTop="45dp"
         android:onClick="shareErrorReport"
         app:nb_text="@string/error_log"
-        style="@style/GrayButton"/>
+        style="@style/BlueButton"/>
 
 </LinearLayout>

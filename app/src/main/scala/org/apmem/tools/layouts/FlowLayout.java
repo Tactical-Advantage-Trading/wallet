@@ -10,8 +10,6 @@ import android.view.View;
 import android.view.ViewDebug;
 import android.view.ViewGroup;
 
-import com.btcontract.wallet.R;
-
 import org.apmem.tools.layouts.logic.CommonLogic;
 import org.apmem.tools.layouts.logic.ConfigDefinition;
 import org.apmem.tools.layouts.logic.LineDefinition;
@@ -20,6 +18,8 @@ import org.apmem.tools.layouts.logic.ViewDefinition;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+
+import trading.tacticaladvantage.R;
 
 public class FlowLayout extends ViewGroup {
 
@@ -335,7 +335,7 @@ public class FlowLayout extends ViewGroup {
         this.requestLayout();
     }
 
-    public static class LayoutParams extends MarginLayoutParams {
+    public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {
         @ViewDebug.ExportedProperty(mapping = {
                 @ViewDebug.IntToString(from = Gravity.NO_GRAVITY, to = "NONE"),
                 @ViewDebug.IntToString(from = Gravity.TOP, to = "TOP"),

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout style="@style/FillingView"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    xmlns:f="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:paddingStart="15dp"
+    android:paddingEnd="15dp"
+    android:paddingTop="5dp">
+
+    <androidx.cardview.widget.CardView
+        card_view:cardCornerRadius="@dimen/corner_radius"
+        android:id="@+id/cardView"
+        style="@style/Card">
+
+        <RelativeLayout
+            style="@style/FillingView"
+            android:id="@+id/infoContainer"
+            android:padding="15dp">
+
+            <LinearLayout
+                style="@style/BoundedView"
+                android:orientation="vertical"
+                android:layout_centerVertical="true">
+
+                <TextView
+                    android:drawablePadding="@dimen/chip_default_padding_between_image"
+                    android:textColor="@android:color/white"
+                    android:id="@+id/infoWalletLabel"
+                    style="@style/Emphasized"/>
+
+                <TextView
+                    android:layout_marginTop="6dp"
+                    android:textColor="@android:color/white"
+                    android:id="@+id/infoWalletNotice"
+                    style="@style/BoundedView"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/BoundedView"
+                android:orientation="vertical"
+                android:id="@+id/balanceContainer"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/balanceWallet"
+                    style="@style/Emphasized"/>
+
+                <TextView
+                    android:layout_marginTop="6dp"
+                    android:textColor="@android:color/white"
+                    android:id="@+id/balanceWalletFiat"
+                    style="@style/BoundedView"/>
+
+            </LinearLayout>
+
+            <!-- No coins present -->
+
+            <ImageView
+                style="@style/BoundedView"
+                android:id="@+id/imageTip"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:visibility="gone"/>
+
+        </RelativeLayout>
+    </androidx.cardview.widget.CardView>
+
+    <org.apmem.tools.layouts.FlowLayout
+        android:layout_marginBottom="5dp"
+        android:id="@+id/cardButtons"
+        style="@style/FillingView"
+        android:visibility="gone"
+        f:layout_newLine="true"/>
+
+</LinearLayout>
+

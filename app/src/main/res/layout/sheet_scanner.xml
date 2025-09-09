@@ -19,7 +19,7 @@
         <TextView
             style="@style/ChipTextGray"
             android:id="@+id/altAction"
-            android:background="@drawable/border_green"
+            android:background="@drawable/border_blue"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
             android:visibility="gone"/>
@@ -37,7 +37,7 @@
 
         <ImageView
             android:layout_marginBottom="24dp"
-            android:background="@drawable/ic_scan"
+            android:background="@drawable/scan"
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
             android:layout_gravity="center"/>

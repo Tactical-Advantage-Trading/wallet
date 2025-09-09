@@ -33,7 +33,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatMultiAutoCompleteTextView;
 import androidx.core.content.ContextCompat;
 
-import com.btcontract.wallet.R;
 import com.hootsuite.nachos.chip.Chip;
 import com.hootsuite.nachos.chip.ChipInfo;
 import com.hootsuite.nachos.chip.ChipSpan;
@@ -52,6 +51,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import trading.tacticaladvantage.R;
 
 /**
  * An editable TextView extending {@link MultiAutoCompleteTextView} that supports "chipifying" pieces of text and displaying suggestions for segments of the text.

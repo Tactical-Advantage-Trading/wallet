@@ -11,8 +11,6 @@ import android.view.ViewGroup;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.btcontract.wallet.R;
-
 import org.apmem.tools.layouts.logic.CommonLogic;
 import org.apmem.tools.layouts.logic.ConfigDefinition;
 import org.apmem.tools.layouts.logic.LineDefinition;
@@ -20,6 +18,8 @@ import org.apmem.tools.layouts.logic.ViewDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import trading.tacticaladvantage.R;
 
 public class FlowLayoutManager extends RecyclerView.LayoutManager {
 

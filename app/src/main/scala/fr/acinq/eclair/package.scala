@@ -21,13 +21,11 @@ package object eclair { me =>
 
   def randomBytes32: ByteVector32 = ByteVector32(me randomBytes 32)
 
-  def randomBytes64: ByteVector64 = ByteVector64(me randomBytes 64)
-
-  def randomKey: PrivateKey = PrivateKey(randomBytes32)
-
   val invalidPubKey: PublicKey = PublicKey.fromBin(ByteVector.fromValidHex("02" * 33), checkValid = false)
 
   val dummyExtPrivKey: ExtendedPrivateKey = ExtendedPrivateKey(randomBytes32, randomBytes32, depth = 0, KeyPath.Root, parent = 0L)
+
+  val MAX_MSAT = Btc(21e6).toSatoshi.toMilliSatoshi
   
   /**
    * @param address   base58 of bech32 address

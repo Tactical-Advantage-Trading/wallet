@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    style="@style/StandardLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:paddingBottom="10dp"
+    android:paddingStart="0dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="0dp">
+
+    <TextView
+        style="@style/BoundedView"
+        android:id="@+id/firstItem"
+        android:drawablePadding="10dp"
+        android:layout_centerVertical="true"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:id="@+id/secondItem"
+        android:textStyle="bold"
+        android:gravity="end"/>
+
+</RelativeLayout>

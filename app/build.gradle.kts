@@ -1,71 +1,86 @@
 plugins {
+    id("org.barfuin.gradle.taskinfo") version "2.2.0"
     alias(libs.plugins.androidApplication)
+    alias(libs.plugins.scalaAndroid)
 }
 
-apply(plugin = "com.soundcorset.scala-android")
+scala.scalaVersion = "2.11.12"
 
 android {
-    namespace = "com.btcontract.wallet"
-    compileSdk = 35
+    namespace = "trading.tacticaladvantage"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.btcontract.wallet"
-        versionName = "2.5.9"
-        versionCode = 111
-        targetSdk = 35
+        applicationId = "trading.tacticaladvantage"
+        versionName = "1.0"
+        versionCode = 1
         minSdk = 28
+
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+            abiFilters.add("x86_64")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-        }
+            signingConfig = signingConfigs.getByName("debug")
 
-        debug {
-            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            )
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("CMakeLists.txt")
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     packaging {
         resources {
-            excludes += "META-INF/**"
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
 
 dependencies {
-    compileOnly (
-        fileTree(layout.buildDirectory) {
-            include("**/R.jar")
-        }
-    )
-
-    // Android-specific
-    implementation(libs.material)
-    implementation(libs.appcompat)
-    implementation(libs.currencyedittext)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.zxing.android.embedded)
-    implementation(libs.google.auth)
+    implementation(libs.currencyedittext)
+    implementation(libs.recyclerview)
+    implementation(libs.appcompat)
     implementation(libs.multidex)
-    implementation(libs.review)
+    implementation(libs.material)
 
-    // Immortan
-    implementation(libs.scala.library)
     implementation(libs.secp256k1.kmp.jni.android)
-    implementation(libs.scala.parser.combinators.x.x1)
-    implementation(libs.scodec.core.x.x1)
-    implementation(libs.akka.actor.x.x1)
-    implementation(libs.quicklens.x.x1)
-    implementation(libs.rxscala.x.x1)
+    implementation(libs.scala.parser.combinators)
+    implementation(libs.scodec.core)
+    implementation(libs.akka.actor)
+    implementation(libs.quicklens)
+    implementation(libs.websocket)
+    implementation(libs.rxscala)
+    implementation(libs.web3j)
 
-    implementation(libs.spray.json.x.x1)
-    implementation(libs.json4s.native.x.x1)
-    implementation(libs.bcprov.jdk15to18)
+    implementation(libs.spray.json)
+    implementation(libs.json4s.native)
     implementation(libs.commons.codec)
     implementation(libs.netty.all)
     implementation(libs.okhttp)

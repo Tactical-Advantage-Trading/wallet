@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout style="@style/StandardXYMarginLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:f="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <TextView
+        android:textColor="@android:color/white"
+        android:text="@string/ta_earn_label"
+        style="@style/Emphasized"/>
+
+    <TextView
+        android:layout_marginTop="6dp"
+        android:textColor="@android:color/white"
+        android:id="@+id/taClientEmail"
+        style="@style/BoundedView"/>
+
+    <TextView
+        style="@style/BoundedView"
+        android:layout_marginTop="10dp"
+        android:id="@+id/taBalancesTitle"
+        android:layout_marginBottom="@dimen/corner_radius"
+        android:textColor="@color/cardZeroText"
+        android:text="@string/ta_balances"/>
+
+    <LinearLayout
+        style="@style/FillingView"
+        android:id="@+id/taBalancesContainer"
+        android:orientation="vertical"/>
+
+    <TextView
+        style="@style/BoundedView"
+        android:id="@+id/taLoansTitle"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="@dimen/corner_radius"
+        android:textColor="@color/cardZeroText"
+        android:text="@string/ta_loans"/>
+
+    <LinearLayout
+        style="@style/FillingView"
+        android:id="@+id/taLoansContainer"
+        android:orientation="vertical"/>
+
+    <com.ornach.nobobutton.NoboButton
+        android:layout_marginTop="20dp"
+        app:nb_text="@string/ta_loan"
+        android:id="@+id/taDeposit"
+        style="@style/GreenButton"/>
+
+    <org.apmem.tools.layouts.FlowLayout
+        android:layout_marginTop="15dp"
+        android:id="@+id/taExtended"
+        style="@style/FillingView"
+        f:layout_newLine="true"/>
+
+</LinearLayout>

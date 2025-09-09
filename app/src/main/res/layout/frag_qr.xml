@@ -27,7 +27,7 @@
         android:layout_height="wrap_content">
 
         <androidx.appcompat.widget.AppCompatButton
-            android:drawableTop="@drawable/baseline_share_24"
+            android:drawableTop="@drawable/share_24"
             android:background="?android:selectableItemBackground"
             android:text="@string/dialog_share"
             android:drawablePadding="6dp"
@@ -38,7 +38,7 @@
             android:padding="10dp"/>
 
         <androidx.appcompat.widget.AppCompatButton
-            android:drawableTop="@drawable/outline_edit_20_24"
+            android:drawableTop="@drawable/edit_24"
             android:background="?android:selectableItemBackground"
             android:text="@string/dialog_edit"
             android:drawablePadding="6dp"
@@ -50,7 +50,7 @@
 
         <androidx.appcompat.widget.AppCompatButton
             android:background="?android:selectableItemBackground"
-            android:drawableTop="@drawable/baseline_content_copy_24"
+            android:drawableTop="@drawable/content_copy_24"
             android:text="@string/dialog_copy"
             android:drawablePadding="6dp"
             style="@style/FillingView"

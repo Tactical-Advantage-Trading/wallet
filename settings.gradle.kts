@@ -7,19 +7,18 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
-
+        mavenCentral()
         gradlePluginPortal()
-        mavenCentral()
     }
 }
-
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenCentral()
         google()
+        mavenCentral()
     }
 }
 
-rootProject.name = "SBW"
+rootProject.name = "HelloScala"
 include(":app")
  

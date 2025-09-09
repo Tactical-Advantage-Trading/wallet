@@ -18,9 +18,4 @@
         android:layout_width="wrap_content"
         layout="@layout/frag_qr"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:layout_height="match_parent"
-        android:layout_width="match_parent"
-        android:id="@+id/sigQrCodes"/>
-
 </RelativeLayout>

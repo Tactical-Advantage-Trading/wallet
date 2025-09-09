@@ -1,51 +1,50 @@
 [versions]
-agp = "8.3.2"
-akkaActor_xX1 = "2.3.14"
-appcompat = "1.7.0"
-bcprovJdk15to18 = "1.68"
-commonsCodec = "1.15"
-currencyedittext = "0.0.10"
-guava = "29.0-android"
-json4sNative_xX1 = "3.6.7"
-material = "1.12.0"
-multidex = "2.0.1"
+agp = "8.12.1"
+coreKtx = "1.17.0"
+akkaActor = "2.3.14"
+commonsCodec = "1.19.0"
+guava = "33.4.8-android"
+json4sNative = "4.0.6"
 nettyAll = "4.1.42.Final"
-okhttp = "4.9.1"
-quicklens_xX1 = "1.7.5"
-review = "2.0.1"
-rxscala_xX1 = "0.27.0"
-scalaAndroidPlugin = "24.0606.2018"
-scalaLibrary = "2.11.12"
-scalaParserCombinators_xX1 = "2.1.0"
-scodecCore_xX1 = "1.11.4"
-secp256k1KmpJniAndroid = "0.5.2"
-sprayJson_xX1 = "1.3.6"
-zxingAndroidEmbedded = "4.2.0"
-google-play-services-auth = "21.2.0"
+okhttp = "5.1.0"
+quicklens = "1.9.12"
+scalaParserCombinators = "2.2.0"
+scodecCore = "1.11.4"
+secp256k1KmpJniAndroid = "0.18.0"
+sprayJson = "1.3.6"
+recyclerview = "1.4.0"
+appcompat = "1.7.1"
+currencyedittext = "1.0.0"
+zxingAndroidEmbedded = "4.3.0"
+nvWebsocketClient = "2.14"
+rxscala = "0.27.0"
+multidex = "2.0.1"
+material = "1.12.0"
+web3j = "5.0.0"
 
 [libraries]
-akka-actor_x-x1 = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akkaActor_xX1" }
-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
-bcprov-jdk15to18 = { module = "org.bouncycastle:bcprov-jdk15to18", version.ref = "bcprovJdk15to18" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+akka-actor = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akkaActor" }
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
-currencyedittext = { module = "com.cottacush:CurrencyEditText", version.ref = "currencyedittext" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-json4s-native_x-x1 = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative_xX1" }
-material = { module = "com.google.android.material:material", version.ref = "material" }
-multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
+json4s-native = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative" }
 netty-all = { module = "io.netty:netty-all", version.ref = "nettyAll" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-quicklens_x-x1 = { module = "com.softwaremill.quicklens:quicklens_2.11", version.ref = "quicklens_xX1" }
-review = { module = "com.google.android.play:review", version.ref = "review" }
-rxscala_x-x1 = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala_xX1" }
-scala-android-plugin = { module = "com.soundcorset:scala-android-plugin", version.ref = "scalaAndroidPlugin" }
-scala-library = { module = "org.scala-lang:scala-library", version.ref = "scalaLibrary" }
-scala-parser-combinators_x-x1 = { module = "org.scala-lang.modules:scala-parser-combinators_2.11", version.ref = "scalaParserCombinators_xX1" }
-scodec-core_x-x1 = { module = "org.scodec:scodec-core_2.11", version.ref = "scodecCore_xX1" }
+quicklens = { module = "com.softwaremill.quicklens:quicklens_2.11", version.ref = "quicklens" }
+scala-parser-combinators = { module = "org.scala-lang.modules:scala-parser-combinators_2.11", version.ref = "scalaParserCombinators" }
+scodec-core = { module = "org.scodec:scodec-core_2.11", version.ref = "scodecCore" }
 secp256k1-kmp-jni-android = { module = "fr.acinq.secp256k1:secp256k1-kmp-jni-android", version.ref = "secp256k1KmpJniAndroid" }
-spray-json_x-x1 = { module = "io.spray:spray-json_2.11", version.ref = "sprayJson_xX1" }
+spray-json = { module = "io.spray:spray-json_2.11", version.ref = "sprayJson" }
+recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+currencyedittext = { module = "com.cottacush:CurrencyEditText", version.ref = "currencyedittext" }
 zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
-google-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "google-play-services-auth" }
+multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
+rxscala = { module = "io.reactivex:rxscala_2.11", version.ref = "rxscala" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+websocket = { group = "com.neovisionaries", name = "nv-websocket-client", version.ref = "nvWebsocketClient" }
+web3j = { group = "org.web3j", name = "core", version.ref = "web3j" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
+scalaAndroid = { id = "com.soundcorset.scala-android", version = "25.0417.2204" }

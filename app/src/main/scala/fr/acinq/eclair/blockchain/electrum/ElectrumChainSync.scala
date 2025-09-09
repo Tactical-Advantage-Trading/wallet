@@ -5,17 +5,16 @@ import fr.acinq.bitcoin.{Block, ByteVector32}
 import fr.acinq.eclair.blockchain.electrum.Blockchain.RETARGETING_PERIOD
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient.GetHeaders
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{DISCONNECTED, RUNNING, SYNCING, WAITING_FOR_TIP}
-import fr.acinq.eclair.blockchain.electrum.db.HeaderDb
+import immortan.sqlite.SQLiteData
 
 import scala.util.{Failure, Success, Try}
-
 
 object ElectrumChainSync {
   case class ChainSyncing(initialLocalTip: Int, localTip: Int, remoteTip: Int)
   case class ChainSyncEnded(localTip: Int)
 }
 
-class ElectrumChainSync(client: ActorRef, headerDb: HeaderDb, chainHash: ByteVector32) extends FSM[ElectrumWallet.State, Blockchain] {
+class ElectrumChainSync(client: ActorRef, headerDb: SQLiteData, chainHash: ByteVector32) extends FSM[ElectrumWallet.State, Blockchain] {
 
   def loadChain: Blockchain = if (chainHash != Block.RegtestGenesisBlock.hash) {
     // In case if anything at all goes wrong we just use an initial blockchain and resync it from checkpoint

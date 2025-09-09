@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    style="@style/StandardLinearLayout"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/contentWindow">
+
+    <ListView
+        android:scrollbars="none"
+        android:id="@+id/itemsList"
+        android:clipToPadding="false"
+        android:footerDividersEnabled="false"
+        android:headerDividersEnabled="false"
+        style="@style/StandardLinearLayout"/>
+
+    <com.ornach.nobobutton.NoboButton
+        android:layout_width="110sp"
+        android:layout_marginBottom="20dp"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentBottom="true"
+        app:nb_text="@string/wallet_send"
+        android:onClick="bringScanner"
+        style="@style/BlueButton"/>
+
+</RelativeLayout>
