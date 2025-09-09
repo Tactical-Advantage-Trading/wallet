@@ -77,7 +77,7 @@ object WalletApp {
   }
 
   def makeAlive: Unit = {
-    ElectrumWallet.chainHash = Block.TestnetGenesisBlock.hash
+    ElectrumWallet.chainHash = Block.LivenetGenesisBlock.hash
     val interface = new DBInterfaceSQLiteAndroid(app, "misc.db")
 
     interface txWrap {
