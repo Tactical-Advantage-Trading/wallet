@@ -3,12 +3,10 @@
     <string name="lang">eng</string>
     <string name="app_name">Key wallet</string>
     <string name="select_wallets">Select wallets</string>
+    <string name="tap_to_receive">Tap to receive</string>
 
-    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
-
-    <string name="recent_activity">Recent activity</string>
     <string translatable="false" name="wallet_send">Send</string>
-
+    <string name="recent_activity">Recent activity</string>
     <string name="bitcoin_wallet">₿TC</string>
     <string name="usdt_wallet">USD₮</string>
 
@@ -26,13 +24,16 @@
 
     <string name="ta_login_email">Enter your email</string>
     <string name="ta_login_pass">Paste one-time code</string>
-    <string name="ta_signup_warn"><![CDATA[
-        Automatic client registration is not working yet and each signup is approved manually.<br><br>
-        Email us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> if you wish to become a client.
-    ]]></string>
+
+    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
     <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
     <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
     <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
+
+    <string name="ta_signup_warn"><![CDATA[
+        Automatic client registration is not working yet and each signup is approved manually.<br><br>
+        Email us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> to become a client.
+    ]]></string>
 
     <array name="ta_loans">
         <item>no active loans</item>
@@ -46,8 +47,8 @@
         <item>%1$s days</item>
     </array>
 
-    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
+    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn_title">Polygon network only</string>
 
     <string name="wallets">Wallets</string>
@@ -59,7 +60,6 @@
 
     <string name="setup_create_new">Create new wallet</string>
     <string name="setup_restore_existing">Restore existing wallet</string>
-
     <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
 
     <string name="action_recovery_phrase_title">Wallet recovery phrase</string>
@@ -80,26 +80,20 @@
     <string name="dialog_edit">Edit</string>
     <string name="dialog_max">Max</string>
 
-    <string name="dialog_visibility_sender">visible to sender</string>
-    <string name="dialog_visibility_private">visible to you only</string>
-    <string name="dialog_add_description">Add description&#8230;</string>
     <string name="dialog_receive_address"><![CDATA[Your address]]></string>
-
     <string name="dialog_up_to"><![CDATA[<b>up to</b> %1$s]]></string>
     <string name="dialog_fee"><![CDATA[<b>fee</b> %1$s]]></string>
+
     <string name="dialog_fee_error">error</string>
     <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
-    <string name="dialog_insufficient_funds">missing funds</string>
 
     <string name="dialog_send_usdt"><![CDATA[Send <b>USD₮</b> to address<br>%1$s]]></string>
     <string name="dialog_send_btc"><![CDATA[Send <b>₿TC</b> to address<br>%1$s%2$s]]></string>
     <string name="dialog_send_btc_many"><![CDATA[Send <b>₿TC</b><br><b>to many addresses</b>]]></string>
-    <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_btc_confirm_fiat">Fiat value</string>
+    <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>
-
-    <string name="recovery_phrase_warning">Tap to save wallet recovery phrase in case you ever lose or replace your device.</string>
 
     <!-- errors -->
 
@@ -114,7 +108,6 @@
     <string name="description_rbf_cancel">RBF canceling</string>
     <string name="description_rbf_boost">RBF boosting</string>
     <string name="description_cpfp">CPFP boosting</string>
-
     <string name="tx_btc">Bitcoin Transaction</string>
     <string name="state_double_spent">failed</string>
 
@@ -151,9 +144,7 @@
     <!-- sign-verify -->
 
     <string name="sign_address_not_found">Requested address is not found</string>
-
     <string name="sign_sign_message_notx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
-    <string name="sign_sign_message_title"><![CDATA[Sign message using address<br><br><b>%1$s</b><br><br>From transaction<br><br><b>%2$s</b>]]></string>
     <string name="sign_signed_message_title"><![CDATA[<b>Message signed with address</b><br>%1$s]]></string>
 
     <string name="sign_sign_message">Sign message</string>
@@ -172,8 +163,4 @@
     ]]></string>
 
     <!-- /sign-verify -->
-
-    <string name="tap_to_receive">Tap to receive</string>
-    <string name="confirm_remove_item">&#9888; Do you want to remove this item?</string>
-    <string name="dialog_requested"><![CDATA[<b>requested</b>&#160;%1$s]]></string>
 </resources>
