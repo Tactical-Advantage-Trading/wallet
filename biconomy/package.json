@@ -10,7 +10,6 @@
   "devDependencies": {
     "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.3",
-    "@babel/plugin-transform-unicode-property-regex": "^7.27.1",
     "@types/express": "^5.0.2",
     "esbuild": "^0.25.9",
     "prettier": "^3.0.0",

@@ -14,8 +14,3 @@ build({
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
 });
-
-// npm i -D @babel/core @babel/cli @babel/plugin-transform-unicode-property-regex
-// npm install --save-dev esbuild
-// npm run build
-// npm start
