@@ -155,9 +155,9 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       }
 
     case (CmdConnect, DISCONNECTED) =>
-      val factory = (new WebSocketFactory).setConnectionTimeout(10000).setVerifyHostname(false)
-      ws = factory.createSocket("wss://tactical-advantage.trading:8080").addListener(wsListener)
-      ws.connectAsynchronously
+      val factory = (new WebSocketFactory).setConnectionTimeout(10000)
+      ws = factory.createSocket("wss://tactical-advantage.trading:8080")
+      ws.addListener(wsListener).connectAsynchronously
 
     case (CmdDisconnected, _) if !ws.isOpen =>
       Rx.delay(3000).foreach(_ => me ! CmdConnect)
