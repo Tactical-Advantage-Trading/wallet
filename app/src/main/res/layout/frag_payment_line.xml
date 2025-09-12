@@ -106,7 +106,7 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
-                        android:layout_marginEnd="20dp"
+                        android:layout_marginEnd="15dp"
                         android:layout_centerVertical="true"
                         android:layout_toStartOf="@id/statusIcon"
                         style="@style/BoundedView"/>

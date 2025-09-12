@@ -4,7 +4,8 @@ import akka.actor.{PoisonPill, Props}
 import android.app.Application
 import android.content._
 import android.text.format.DateFormat
-import android.widget.Toast
+import android.view.inputmethod.InputMethodManager
+import android.widget.{EditText, Toast}
 import androidx.multidex.MultiDex
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{Block, Satoshi}
@@ -329,6 +330,8 @@ class WalletApp extends Application { me =>
   def quickToast(code: Int): Unit = quickToast(me getString code)
   def quickToast(msg: CharSequence): Unit = Toast.makeText(me, msg, Toast.LENGTH_LONG).show
   def clipboardManager: ClipboardManager = getSystemService(Context.CLIPBOARD_SERVICE).asInstanceOf[ClipboardManager]
+  def inputMethodManager: InputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE).asInstanceOf[InputMethodManager]
+  def hideKeys(field: EditText): Unit = try inputMethodManager.hideSoftInputFromWindow(field.getWindowToken, 0) catch none
 
   def copy(text: String): Unit = {
     val bufferContent = ClipData.newPlainText("wallet", text)

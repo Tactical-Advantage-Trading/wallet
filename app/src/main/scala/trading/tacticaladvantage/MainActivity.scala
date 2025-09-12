@@ -811,6 +811,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     walletCards.searchField.setText(new String)
     androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
     setVisMany(true -> walletCards.defaultHeader, false -> walletCards.searchField)
+    WalletApp.app.hideKeys(walletCards.searchField)
   }
 
   def bringPasteAddressDialog: Unit = {
@@ -868,6 +869,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       sendView.confirmView.confirmAmount.secondItem setText Denomination.fiatTT("0", finalAmount.toString, null, cardIn, isIncoming = false).html
       sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
       sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
+      WalletApp.app.hideKeys(sendView.editView.rmc.fiatInputAmount)
       sendView.setButtonsVisible(alert, on = false)
       sendView.switchTo(sendView.confirmView)
 
@@ -922,7 +924,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     sendView.confirmView.confirmFee.secondItem setText BtcDenom.parsedTT(response.fee.toMilliSatoshi, cardIn, cardZero).html
     sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
     sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
-    // Transition to final confirmation dialog within the same alert
+    WalletApp.app.hideKeys(sendView.editView.rmc.fiatInputAmount)
     sendView.setButtonsVisible(alert, on = false)
     sendView.switchTo(sendView.confirmView)
 
