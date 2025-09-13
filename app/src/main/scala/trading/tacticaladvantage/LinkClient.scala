@@ -250,7 +250,7 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
 
     case (CmdConnect, DISCONNECTED) =>
       val factory = (new WebSocketFactory).setConnectionTimeout(10000)
-      ws = factory.createSocket("wss://tactical-advantage.trading:8433")
+      ws = factory.createSocket("ws://10.0.2.2:8433")
       ws.addListener(wsListener).connectAsynchronously
 
     case (CmdDisconnected, _) if !ws.isOpen =>

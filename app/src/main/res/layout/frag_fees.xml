@@ -39,7 +39,7 @@
             android:id="@+id/customFeerateOption"
             android:text="@string/dialog_change_feerate"
             android:layout_marginBottom="25dp"
-            android:visibility="gone"/>
+            android:drawablePadding="10dp"/>
 
         <com.google.android.material.slider.Slider
             app:trackColor="@android:color/white"

@@ -484,11 +484,12 @@ trait BaseActivity extends AppCompatActivity { me =>
   }
 
   class UsdtSendView(val info: CompleteUsdtWalletInfo) extends SendView {
-    setVisMany(false -> confirmView.confirmFiat.parent, false -> editView.fvc.customFeerateOption)
-    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint, false -> editView.rmc.hintDenom)
+    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint, false -> editView.rmc.hintDenom, false -> confirmView.confirmFiat.parent)
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(Denomination.fiatTT("0", info.lastBalance, null, cardIn, isIncoming = false).trim).html
     editView.fvc.feeRate setText getString(dialog_fee).format(s"<font color=$cardZero>${me getString dialog_fee_estimating}</font>").html
-    editView.rmc.fiatInputAmountHint setText usdt_wallet
+    editView.fvc.customFeerateOption.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_polygon_24, 0, 0, 0)
+    editView.fvc.customFeerateOption.setText(usdt_polygon_warn_title)
+    editView.rmc.fiatInputAmountHint.setText(usdt_wallet)
   }
 }
 

@@ -45,7 +45,7 @@ object MainActivity {
     def withUsdtInfo(info: UsdtInfo): Accumulator = Accumulator(identities + info.identity, infos + info)
   }
 
-  val ITEMS = 3
+  val ITEMS = 1
   var displayFullIxInfoHistory: Boolean = false
   var idsToDisplayAnyway: Set[String] = Set.empty
 
@@ -694,7 +694,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       else bringMultiAddressSelector(a2a)
 
     case data: BIP322VerifyData =>
-      val address = drongo.address.Address.fromString(drongoNetwork, data.address)
+      val address = drongo.address.Address.fromString(drongo.Network.MAINNET, data.address)
       val verifies = try drongo.crypto.Bip322.verifyHashBip322(address.getScriptType, address, data.messageHash.toArray, data.signature64) catch { case _: Throwable => false }
       val isSignatureLegit = verifies && data.message.map(drongo.crypto.Bip322.getBip322MessageHash).map(ByteVector.view).forall(messageHash => data.messageHash == messageHash)
       val title = if (isSignatureLegit) new TitleView(me getString verify_ok).asColoredView(R.color.buttonGreen) else new TitleView(me getString verify_no).asColoredView(android.R.color.holo_red_light)
@@ -945,9 +945,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         def attempt(alert1: AlertDialog): Unit = {
           sendView.setInputEnabled(alert1, isEnabled = false).run
-          val sendAmount = sendView.rm.resultMsat.truncateToSatoshi
           val proceed = txToSendProxy(proceedConfirm(sendView, pbu.desc, alert1, _: GenerateTxResponse), sendView, alert1)
-          runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendAmount, Map.empty, feeView.rate), onFail)(proceed)
+          runInFutureProcessOnUI(ElectrumWallet.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi,
+            Map.empty, feeView.rate), onFail)(proceed)
         }
 
         lazy val alert = {
@@ -1041,7 +1041,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val hash = drongo.crypto.Bip322.getBip322MessageHash(message)
       val msgOpt = if (extraOption.isChecked) None else Some(message)
       val signingKey = drongo.crypto.ECKey.fromPrivate(info.privKey.toArray)
-      val scriptType = drongo.address.Address.fromString(drongoNetwork, info.address)
+      val scriptType = drongo.address.Address.fromString(drongo.Network.MAINNET, info.address)
       val sig = drongo.crypto.Bip322.signMessageBip322(scriptType.getScriptType, message, signingKey)
       val data = BIP322VerifyData(info.address, ByteVector.view(hash), sig, msgOpt)
       goToWithValue(ClassNames.qrSigActivityClass, data)
@@ -1177,12 +1177,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     (_, extPubKey) <- keys.accountKeyMap ++ keys.changeKeyMap
     privKey = keys.ewt.extPrivKeyFromPub(extPubKey).privateKey.value
   } yield BtcAddressAndPrivKey(keys.ewt.textAddress(extPubKey), privKey)
-
-  def drongoNetwork = ElectrumWallet.chainHash match {
-    case Block.LivenetGenesisBlock.hash => drongo.Network.MAINNET
-    case Block.TestnetGenesisBlock.hash => drongo.Network.TESTNET
-    case _ => drongo.Network.REGTEST
-  }
 
   // WALLET CARDS
 
