@@ -2,12 +2,14 @@ package trading.tacticaladvantage
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.util.Patterns
 import android.view.{View, ViewGroup}
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
+import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.ornach.nobobutton.NoboButton
 import com.sparrowwallet.drongo
@@ -678,8 +680,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   override def onRequestPermissionsResult(reqCode: Int, permissions: Array[String], results: Array[Int] = Array.empty): Unit =
-    if (reqCode == scannerRequestCode && results.nonEmpty && results.head == PackageManager.PERMISSION_GRANTED)
-      bringScanner(null)
+    if (reqCode == scannerRequestCode && results.nonEmpty) results.head match {
+      case PackageManager.PERMISSION_DENIED if !ActivityCompat.shouldShowRequestPermissionRationale(me, android.Manifest.permission.CAMERA) =>
+        val intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri parse s"package:$getPackageName").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        mkCheckForm(alert => runAnd(alert.dismiss)(me startActivity intent), none, titleBodyAsViewBuilder(new TitleView(me getString error_camera_denied).asDefView, null), dialog_ok, dialog_cancel)
+      case PackageManager.PERMISSION_DENIED => WalletApp.app.quickToast(error_camera_declined)
+      case PackageManager.PERMISSION_GRANTED => bringScanner(null)
+    }
 
   override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
     case pbu: PlainBitcoinUri if Try(ElectrumWallet addressToPubKeyScript pbu.address).isSuccess =>

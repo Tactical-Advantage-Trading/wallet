@@ -98,8 +98,10 @@
     <!-- errors -->
 
     <string name="error_no_wallet">Related wallet is not found</string>
-    <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
     <string name="error_nothing_useful">Nothing useful is found</string>
+    <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
+    <string name="error_camera_denied"><![CDATA[Camera permission has been permanently denied. Tap OK to go to <b>Settings</b>, then edit <b>Permissions : Camera</b> in there.]]></string>
+    <string name="error_camera_declined">Camera permission is required to scan</string>
 
     <!-- /errors -->
 
