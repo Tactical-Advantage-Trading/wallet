@@ -683,7 +683,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     if (reqCode == scannerRequestCode && results.nonEmpty) results.head match {
       case PackageManager.PERMISSION_DENIED if !ActivityCompat.shouldShowRequestPermissionRationale(me, android.Manifest.permission.CAMERA) =>
         val intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri parse s"package:$getPackageName").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        mkCheckForm(alert => runAnd(alert.dismiss)(me startActivity intent), none, titleBodyAsViewBuilder(new TitleView(me getString error_camera_denied).asDefView, null), dialog_ok, dialog_cancel)
+        mkCheckForm(alert => runAnd(alert.dismiss)(me startActivity intent), none, titleBodyAsViewBuilder(getString(error_camera_denied).asDefView, null), dialog_ok, dialog_cancel)
       case PackageManager.PERMISSION_DENIED => WalletApp.app.quickToast(error_camera_declined)
       case PackageManager.PERMISSION_GRANTED => bringScanner(null)
     }
