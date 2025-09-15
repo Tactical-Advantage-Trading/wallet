@@ -23,6 +23,7 @@ import trading.tacticaladvantage.utils.WsListener
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
+import java.util.Date
 import scala.collection.mutable
 import scala.util.Try
 
@@ -306,6 +307,15 @@ object WalletApp {
     val fiatAmount: String = msatInFiat(rates, code)(msat).map(decimalFormat.format).getOrElse(default = "?")
     fiatRates.customFiatSymbols.get(code).map(sign => s"$sign$fiatAmount").getOrElse(s"$fiatAmount $code")
   }
+
+  def when(thenDate: Date, simpleFormat: SimpleDateFormat): String =
+    System.currentTimeMillis - thenDate.getTime match {
+      case ago if ago < android.text.format.DateUtils.MINUTE_IN_MILLIS => "now"
+      case ago if ago < android.text.format.DateUtils.HOUR_IN_MILLIS => s"${ago / android.text.format.DateUtils.MINUTE_IN_MILLIS}m ago"
+      case ago if ago < android.text.format.DateUtils.DAY_IN_MILLIS => s"${ago / android.text.format.DateUtils.HOUR_IN_MILLIS}h ago"
+      case ago if ago < android.text.format.DateUtils.WEEK_IN_MILLIS => s"${ago / android.text.format.DateUtils.DAY_IN_MILLIS}d ago"
+      case _ => simpleFormat.format(thenDate)
+    }
 }
 
 class WalletApp extends Application { me =>

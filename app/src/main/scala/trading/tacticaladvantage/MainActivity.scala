@@ -460,7 +460,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def updateDetails: Unit = {
-      meta setText WalletApp.app.dateFormat.format(currentDetails.date).html
+      meta setText WalletApp.when(currentDetails.date, WalletApp.app.dateFormat)
 
       currentDetails match {
         case info: BtcInfo if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
@@ -475,13 +475,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       currentDetails match {
-        case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(id = R.id.btcInBoosted)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(id = R.id.btcOutBoosted)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(id = R.id.btcOutCancelled)
+        case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(R.id.btcInBoosted)
+        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(R.id.btcOutBoosted)
+        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(R.id.btcOutCancelled)
         case info: BtcInfo if info.isIncoming => setVisibleIcon(id = R.id.btcIncoming)
         case info: UsdtInfo if info.isIncoming => setVisibleIcon(R.id.usdtIncoming)
-        case _: UsdtInfo => setVisibleIcon(id = R.id.usdtOutgoing)
-        case _: BtcInfo => setVisibleIcon(id = R.id.btcOutgoing)
+        case _: UsdtInfo => setVisibleIcon(R.id.usdtOutgoing)
+        case _: BtcInfo => setVisibleIcon(R.id.btcOutgoing)
       }
 
       currentDetails match {

@@ -97,8 +97,6 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/amount"
-                        android:textStyle="bold"
-                        android:layout_toStartOf="@+id/meta"
                         android:layout_centerVertical="true"
                         android:layout_alignParentStart="true"
                         style="@style/BoundedView"/>
@@ -106,7 +104,8 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
-                        android:layout_marginEnd="15dp"
+                        android:minWidth="110dp"
+                        android:gravity="center_horizontal"
                         android:layout_centerVertical="true"
                         android:layout_toStartOf="@id/statusIcon"
                         style="@style/BoundedView"/>
