@@ -540,7 +540,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>v1</font>"
+    val appName = s"${me getString app_name} <font color=$cardZero>v3.0</font>"
     val btc = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)
