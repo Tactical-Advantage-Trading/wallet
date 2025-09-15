@@ -14,8 +14,8 @@ android {
         applicationId = "trading.tacticaladvantage"
         versionName = "1.0"
         versionCode = 1
+        targetSdk = 33
         minSdk = 28
-        targetSdk
 
         vectorDrawables {
             useSupportLibrary = true
