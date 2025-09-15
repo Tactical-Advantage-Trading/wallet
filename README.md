@@ -11,10 +11,10 @@ then copy `.so` files to `/app/libnode/bin/*`.
 
 ## 2. Biconomy JS bundle
 ```
-$ cd <wallet>/biconomy
+$ cd ./biconomy
 $ npm install --save-dev esbuild
 $ npm run build
-$ mv server.js <wallet>/app/src/main/assets/server.js
+$ mv server.js ./app/src/main/assets/server.js
 ```
 
 ## 3. Assemble and APK file

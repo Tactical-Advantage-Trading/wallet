@@ -333,8 +333,8 @@ class ElectrumWallet(client: ActorRef, chainSync: ActorRef, ewt: ElectrumWalletT
           }
 
           if (missing.nonEmpty) {
-            // An optimization to not recalculate internal data values on each scriptHashResponse event
-            val data1 = data.copy(pendingHistoryRequests = data.pendingTransactionRequests ++ missing.keySet)
+            // Emptiness check is an optimization to not recalculate internal data values on each scriptHashResponse event
+            val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests ++ missing.keySet)
             persistAndNotify(data1)
           }
 
