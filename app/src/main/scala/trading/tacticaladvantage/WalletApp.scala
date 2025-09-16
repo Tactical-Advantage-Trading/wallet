@@ -3,7 +3,10 @@ package trading.tacticaladvantage
 import akka.actor.{PoisonPill, Props}
 import android.app.Application
 import android.content._
-import android.text.format.DateFormat
+import android.icu.text.RelativeDateTimeFormatter.{Direction, RelativeUnit, Style}
+import android.icu.text.{DisplayContext, NumberFormat, RelativeDateTimeFormatter}
+import android.icu.util.ULocale
+import android.text.format.{DateFormat, DateUtils}
 import android.view.inputmethod.InputMethodManager
 import android.widget.{EditText, Toast}
 import androidx.multidex.MultiDex
@@ -23,7 +26,7 @@ import trading.tacticaladvantage.utils.WsListener
 import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
-import java.util.Date
+import java.util.{Date, Locale}
 import scala.collection.mutable
 import scala.util.Try
 
@@ -308,12 +311,25 @@ object WalletApp {
     fiatRates.customFiatSymbols.get(code).map(sign => s"$sign$fiatAmount").getOrElse(s"$fiatAmount $code")
   }
 
-  def when(thenDate: Date, simpleFormat: SimpleDateFormat): String =
-    System.currentTimeMillis - thenDate.getTime match {
-      case ago if ago < android.text.format.DateUtils.MINUTE_IN_MILLIS => "now"
-      case ago if ago < android.text.format.DateUtils.HOUR_IN_MILLIS => s"${ago / android.text.format.DateUtils.MINUTE_IN_MILLIS}m ago"
-      case ago if ago < android.text.format.DateUtils.DAY_IN_MILLIS => s"${ago / android.text.format.DateUtils.HOUR_IN_MILLIS}h ago"
-      case ago if ago < android.text.format.DateUtils.WEEK_IN_MILLIS => s"${ago / android.text.format.DateUtils.DAY_IN_MILLIS}d ago"
+  val uLocale = ULocale.forLocale(Locale.getDefault)
+  val rfmt = RelativeDateTimeFormatter.getInstance(uLocale,
+    NumberFormat.getInstance(uLocale), Style.NARROW,
+    DisplayContext.CAPITALIZATION_NONE)
+
+  def when(thenDate: Date, simpleFormat: SimpleDateFormat,
+           nowMs: Long = System.currentTimeMillis): String =
+    math.abs(thenDate.getTime - nowMs) match {
+      case absMs if absMs < DateUtils.MINUTE_IN_MILLIS =>
+        "now"
+      case absMs if absMs < DateUtils.HOUR_IN_MILLIS =>
+        val mins = math.round(absMs / DateUtils.MINUTE_IN_MILLIS.toDouble)
+        rfmt.format(mins.toDouble, Direction.LAST, RelativeUnit.MINUTES)
+      case absMs if absMs < DateUtils.DAY_IN_MILLIS =>
+        val hours = math.round(absMs / DateUtils.HOUR_IN_MILLIS.toDouble)
+        rfmt.format(hours.toDouble, Direction.LAST, RelativeUnit.HOURS)
+      case absMs if absMs < DateUtils.WEEK_IN_MILLIS =>
+        val days = math.round(absMs / DateUtils.DAY_IN_MILLIS.toDouble)
+        rfmt.format(days.toDouble, Direction.LAST, RelativeUnit.DAYS)
       case _ => simpleFormat.format(thenDate)
     }
 }
