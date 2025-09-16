@@ -316,11 +316,9 @@ object WalletApp {
     NumberFormat.getInstance(uLocale), Style.NARROW,
     DisplayContext.CAPITALIZATION_NONE)
 
-  def when(thenDate: Date, simpleFormat: SimpleDateFormat,
-           nowMs: Long = System.currentTimeMillis): String =
-    math.abs(thenDate.getTime - nowMs) match {
-      case absMs if absMs < DateUtils.MINUTE_IN_MILLIS =>
-        "now"
+  def when(thenDate: Date, simpleFormat: SimpleDateFormat): String =
+    math.abs(thenDate.getTime - System.currentTimeMillis) match {
+      case absMs if absMs < DateUtils.MINUTE_IN_MILLIS => "now"
       case absMs if absMs < DateUtils.HOUR_IN_MILLIS =>
         val mins = math.round(absMs / DateUtils.MINUTE_IN_MILLIS.toDouble)
         rfmt.format(mins.toDouble, Direction.LAST, RelativeUnit.MINUTES)
