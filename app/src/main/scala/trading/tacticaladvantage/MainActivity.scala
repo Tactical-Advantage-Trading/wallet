@@ -524,106 +524,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  // LIST CAPTION CLASS
-
-  class WalletCardsViewHolder {
-    val view = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
-    val fiatUnitPriceAndChange = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
-    val defaultHeader = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
-    val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
-    val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
-    val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
-    val manager = new WalletCardManager(holder)
-
-    // Settings region
-    val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
-    val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
-    val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
-    val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>v3.0</font>"
-    val btc = 100000000000L.msat
-
-    devInfo.setText(getString(dev_info).html)
-    nameAndVer.setText(appName.html)
-    searchField.setTag(false)
-
-    def showBtcWalletCard = {
-      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret)
-      WalletApp.postInitBtcWallet(spec = nativeSpec)
-    }
-
-    def showUsdtWalletCard = {
-      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret)
-      WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
-    }
-
-    def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
-      val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-      WalletApp.attachBtcWallet(attachedKeys)
-    }
-
-    def makeCards = {
-      lazy val taClientCard = new TaWalletCard {
-        override def hide: Unit = WalletApp.setTaCard(visible = false)
-        override def onTap: Unit = WalletApp.linkClient.data match {
-          case _: LinkClient.UserStatus if earnAccount.isExpanded =>
-            androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
-            setVisMany(false -> earnAccount.wrap, true -> infoContainer)
-          case _: LinkClient.UserStatus =>
-            androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
-            setVisMany(true -> earnAccount.wrap, false -> infoContainer)
-          case LinkClient.LoggedOut =>
-            bringTaSignInDialogEmail
-        }
-      }
-
-      val btcCards =
-        for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(xPub) {
-          override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
-          override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
-        }
-
-      val usdtCards =
-        for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(info.xPriv) {
-          override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(xPriv = info.xPriv)
-          override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
-            case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
-            case None => WalletApp.app.quickToast(usdt_not_ready)
-          }
-        }
-
-      val wallets = btcCards.toList ++ usdtCards
-      if (WalletApp.showTaCard) wallets :+ taClientCard
-      else wallets
-    }
-
-    def resetCards: Unit = {
-      holder.removeAllViewsInLayout
-      manager.init(makeCards)
-      updateView
-    }
-
-    def updateView: Unit = {
-      androidx.transition.TransitionManager.beginDelayedTransition(defaultHeader)
-      val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
-      val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
-      fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
-      manager.cardViews.foreach(_.updateView)
-
-      settingsButtons.removeAllViewsInLayout
-      setVis(isVisible = isSettingsOn, view = settingsButtons)
-      for (view <- walletCards.manager.cardViews) setVis(isSettingsOn, view.cardButtons)
-
-      if (isSettingsOn) {
-        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
-        if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
-        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(WalletApp setTaCard true)
-        addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-        addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
-      }
-    }
-  }
-
   // LISTENERS
 
   private var viewUpdateSub = Option.empty[Subscription]
@@ -1061,9 +961,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     extraInputField
   }
 
-  def bringTaSignInDialogEmail: Unit = {
-    val title = new TitleView(me getString ta_login_title_email).asDefView
-    val Tuple3(builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(title)
+  def bringTaSignInDialogEmail(titleMsg: String): Unit = {
+    val (builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(new TitleView(titleMsg).asDefView)
     lazy val alert = mkCheckFormNeutral(proceed, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
 
     lazy val listener = new LinkClient.Listener("login-email") {
@@ -1290,13 +1189,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  abstract class TaWalletCard extends WalletCard {
+  abstract class TaWalletCard(parent: WalletCardsViewHolder) extends WalletCard {
     infoWalletLabel setText ta_earn_label
 
     val earnAccount = new EarnAccount
     cardView.addView(earnAccount.wrap, 0)
 
-    def updateView: Unit = {
+    def updateView: Unit =
       WalletApp.linkClient.data match {
         case status: LinkClient.UserStatus =>
           infoWalletNotice setText status.email
@@ -1304,12 +1203,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
           balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, minDaysLeft.toInt)
           balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
-          setVis(isVisible = status.activeLoans.nonEmpty, balanceContainer)
-          setVis(isVisible = status.activeLoans.isEmpty, imageTip)
+          setVisMany(parent.isEarnAccountExpanded -> earnAccount.wrap, !parent.isEarnAccountExpanded -> infoContainer)
+          setVisMany(status.activeLoans.nonEmpty -> balanceContainer, status.activeLoans.isEmpty -> imageTip)
           earnAccount.updateView(status)
-        case LinkClient.LoggedOut if earnAccount.isExpanded =>
-          androidx.transition.TransitionManager.beginDelayedTransition(cardWrap)
+        case LinkClient.LoggedOut if parent.isEarnAccountExpanded =>
           setVisMany(false -> earnAccount.wrap, true -> infoContainer)
+          parent.isEarnAccountExpanded = false
           updateView
         case LinkClient.LoggedOut =>
           infoWalletNotice setText ta_client_login
@@ -1317,7 +1216,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           setVis(isVisible = false, balanceContainer)
           setVis(isVisible = true, imageTip)
       }
-    }
   }
 
   class EarnAccount {
@@ -1329,7 +1227,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
     val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
     val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
-    def isExpanded: Boolean = wrap.getVisibility == View.VISIBLE
 
     val loanAdListener = new LinkClient.Listener("get-loan-ad") {
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
@@ -1405,6 +1302,98 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       withdrawButtonOpt
       addFlowChip(taExtended, getString(ta_support), R.drawable.border_blue)(me browse "mailto:contact@tactical-advantage.trading")
       addFlowChip(taExtended, getString(ta_logout), R.drawable.border_blue)(WalletApp.linkClient ! LinkClient.LoggedOut)
+    }
+  }
+
+  class WalletCardsViewHolder {
+    var isEarnAccountExpanded = false
+    val view = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
+    val fiatUnitPriceAndChange = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
+    val defaultHeader = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
+    val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
+    val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
+    val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
+    val manager = new WalletCardManager(holder)
+
+    // Settings region
+    val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
+    val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
+    val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
+    val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
+    val appName = s"${me getString app_name} <font color=$cardZero>v3.0</font>"
+    val btc = 100000000000L.msat
+
+    devInfo.setText(getString(dev_info).html)
+    nameAndVer.setText(appName.html)
+    searchField.setTag(false)
+
+    def showBtcWalletCard = {
+      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret)
+      WalletApp.postInitBtcWallet(spec = nativeSpec)
+    }
+
+    def showUsdtWalletCard = {
+      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret)
+      WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+    }
+
+    def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
+      val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
+      WalletApp.attachBtcWallet(attachedKeys)
+    }
+
+    def makeCards = {
+      lazy val taClientCard = new TaWalletCard(this) {
+        override def hide: Unit = WalletApp.setTaCard(visible = false)
+        override def onTap: Unit = WalletApp.linkClient.data match {
+          case LinkClient.LoggedOut => bringTaSignInDialogEmail(me getString ta_login_title_email)
+          case _ => runAnd(isEarnAccountExpanded = !isEarnAccountExpanded)(this.updateView)
+        }
+      }
+
+      val btcCards =
+        for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(xPub) {
+          override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
+          override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
+        }
+
+      val usdtCards =
+        for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(info.xPriv) {
+          override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(xPriv = info.xPriv)
+          override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
+            case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
+            case None => WalletApp.app.quickToast(usdt_not_ready)
+          }
+        }
+
+      val wallets = btcCards.toList ++ usdtCards
+      if (WalletApp.showTaCard) wallets :+ taClientCard
+      else wallets
+    }
+
+    def resetCards: Unit = {
+      holder.removeAllViewsInLayout
+      manager.init(makeCards)
+      updateView
+    }
+
+    def updateView: Unit = {
+      val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
+      val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
+      fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
+      manager.cardViews.foreach(_.updateView)
+
+      settingsButtons.removeAllViewsInLayout
+      setVis(isVisible = isSettingsOn, view = settingsButtons)
+      for (view <- walletCards.manager.cardViews) setVis(isSettingsOn, view.cardButtons)
+
+      if (isSettingsOn) {
+        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
+        if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
+        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(WalletApp setTaCard true)
+        addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
+        addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
+      }
     }
   }
 }
