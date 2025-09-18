@@ -31,8 +31,8 @@
     <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
 
     <string name="ta_signup_warn"><![CDATA[
-        Automatic client registration is not working yet and each signup is approved manually.<br><br>
-        Email us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> to become a client.
+        Automatic client registration is not working yet and each signup is approved manually.<br><br> Email us at
+        <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> to become a client.
     ]]></string>
 
     <array name="ta_loans">

@@ -63,7 +63,10 @@ object LinkUsdt {
 
   case class UsdtFailure(failureCode: FailureCode) extends ResponseArguments { val tag = "UsdtFailure" }
 
-  case class UsdtTransfers(transfers: List[UsdtTransfer] = Nil) extends ResponseArguments { val tag = "UsdtTransfers" }
+  case class UsdtTransfers(transfers: List[UsdtTransfer] = Nil) extends ResponseArguments {
+    val olderFirstTransfers: List[UsdtTransfer] = transfers.sortBy(_.stamp)
+    val tag = "UsdtTransfers"
+  }
 
   case class UsdtBalanceNonce(address: String, balance: String, nonce: String) extends ResponseArguments { val tag = "UsdtBalanceNonce" }
 

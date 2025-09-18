@@ -1374,7 +1374,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         taLoansContainer.addView(parent)
       }
 
-      lazy val withdrawButtonOpt = (balances.nonEmpty, status.pendingWithdraws.nonEmpty) match {
+      lazy val withdrawButtonOpt = (balances.nonEmpty, status.pendingWithdraws.isEmpty) match {
         case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
         case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
         case _ => None

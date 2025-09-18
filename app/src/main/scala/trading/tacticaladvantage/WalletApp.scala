@@ -181,7 +181,7 @@ object WalletApp {
       }
 
       override def onResponse(arguments: Option[LinkUsdt.ResponseArguments] = None): Unit = arguments.foreach {
-        case usdtUpdate: LinkUsdt.UsdtTransfers => usdtTxDataBag.db.txWrap { usdtUpdate.transfers foreach addTx }
+        case usdtUpdate: LinkUsdt.UsdtTransfers => usdtTxDataBag.db.txWrap { usdtUpdate.olderFirstTransfers foreach addTx }
         case usdtUpdate: LinkUsdt.UsdtBalanceNonce => linkUsdt ! usdtUpdate
         case _ => // Not interested in anything else
       }
