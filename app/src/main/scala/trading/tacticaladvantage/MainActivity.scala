@@ -1200,8 +1200,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         case status: LinkClient.UserStatus =>
           infoWalletNotice setText status.email
           imageTip.setImageResource(R.drawable.info_24)
-          val minDaysLeft = (status.activeLoans.map(_.daysLeft) :+ 0L).minBy(identity)
-          balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, minDaysLeft.toInt)
+          balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, status.minLoanDaysLeft)
           balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
           setVisMany(parent.isEarnAccountExpanded -> earnAccount.wrap, !parent.isEarnAccountExpanded -> infoContainer)
           setVisMany(status.activeLoans.nonEmpty -> balanceContainer, status.activeLoans.isEmpty -> imageTip)
@@ -1222,6 +1221,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val wrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
     val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
     val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
+    val taWithdrawInfo: TextView = wrap.findViewById(R.id.taWithdrawInfo).asInstanceOf[TextView]
     val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
     val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
     val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
@@ -1271,7 +1271,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         taLoansContainer.addView(parent)
       }
 
-      lazy val withdrawButtonOpt = (balances.nonEmpty, status.pendingWithdraws.isEmpty) match {
+      val btcStatus = status.forAsset(LinkClient.BTC)
+      val humanDate = WalletApp.when(btcStatus.withdrawDate, WalletApp.app.dateFormat)
+      setVis(isVisible = btcStatus.pendingWithdraws.nonEmpty, taWithdrawInfo)
+      taWithdrawInfo setText getString(ta_withdraw_when).format(humanDate)
+
+      lazy val withdrawButtonOpt = (balances.nonEmpty, btcStatus.pendingWithdraws.isEmpty) match {
         case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
         case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
         case _ => None

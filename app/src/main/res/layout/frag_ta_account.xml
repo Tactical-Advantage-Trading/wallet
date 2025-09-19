@@ -49,6 +49,12 @@
         android:id="@+id/taDeposit"
         style="@style/GreenButton"/>
 
+    <TextView
+        android:paddingTop="20dp"
+        style="@style/BoundedView"
+        android:id="@+id/taWithdrawInfo"
+        android:visibility="gone"/>
+
     <org.apmem.tools.layouts.FlowLayout
         android:layout_marginTop="15dp"
         android:id="@+id/taExtended"

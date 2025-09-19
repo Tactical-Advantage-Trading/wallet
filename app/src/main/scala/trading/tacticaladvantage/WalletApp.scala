@@ -316,20 +316,24 @@ object WalletApp {
     NumberFormat.getInstance(uLocale), Style.NARROW,
     DisplayContext.CAPITALIZATION_NONE)
 
-  def when(thenDate: Date, simpleFormat: SimpleDateFormat): String =
-    math.abs(thenDate.getTime - System.currentTimeMillis) match {
+  def when(thenDate: Date, f: SimpleDateFormat): String = {
+    val deltaMs = thenDate.getTime - System.currentTimeMillis
+    val dir = if (deltaMs >= 0) Direction.NEXT else Direction.LAST
+
+    math.abs(deltaMs) match {
       case absMs if absMs < DateUtils.MINUTE_IN_MILLIS => "now"
       case absMs if absMs < DateUtils.HOUR_IN_MILLIS =>
         val mins = math.round(absMs / DateUtils.MINUTE_IN_MILLIS.toDouble)
-        rfmt.format(mins.toDouble, Direction.LAST, RelativeUnit.MINUTES)
+        rfmt.format(mins.toDouble, dir, RelativeUnit.MINUTES)
       case absMs if absMs < DateUtils.DAY_IN_MILLIS =>
         val hours = math.round(absMs / DateUtils.HOUR_IN_MILLIS.toDouble)
-        rfmt.format(hours.toDouble, Direction.LAST, RelativeUnit.HOURS)
+        rfmt.format(hours.toDouble, dir, RelativeUnit.HOURS)
       case absMs if absMs < DateUtils.WEEK_IN_MILLIS =>
         val days = math.round(absMs / DateUtils.DAY_IN_MILLIS.toDouble)
-        rfmt.format(days.toDouble, Direction.LAST, RelativeUnit.DAYS)
-      case _ => simpleFormat.format(thenDate)
+        rfmt.format(days.toDouble, dir, RelativeUnit.DAYS)
+      case _ => f.format(thenDate)
     }
+  }
 }
 
 class WalletApp extends Application { me =>

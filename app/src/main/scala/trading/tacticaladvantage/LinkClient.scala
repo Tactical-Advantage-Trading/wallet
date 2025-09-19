@@ -3,7 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import fr.acinq.bitcoin.Btc
 import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
-import immortan.Tools.{Any2Some, none}
+import immortan.Tools.{Any2Some, maxOptionBy, maxOptionByValue, minOptionBy, minOptionByValue, none}
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{BtcDenom, Denomination, Rx}
@@ -13,6 +13,7 @@ import trading.tacticaladvantage.LinkClient._
 import trading.tacticaladvantage.utils.WsListener._
 import trading.tacticaladvantage.utils.{BitcoinUri, WsListener}
 
+import java.util.Date
 import scala.util.Try
 
 object LinkClient {
@@ -151,11 +152,13 @@ object LinkClient {
   }
 
   sealed trait TaLinkState
-
   case object LoggedOut extends TaLinkState
-
-  case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds],
-                        email: String, sessionToken: String) extends ResponseArguments with TaLinkState { val tag = "UserStatus" }
+  case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds], email: String, sessionToken: String, withdrawDelay: Long) extends ResponseArguments with TaLinkState {
+    def forAsset(asset: Asset) = UserStatus(pendingWithdraws.filter(_.asset == asset), activeLoans.filter(_.asset == asset), totalFunds.filter(_.asset == asset), email, sessionToken, withdrawDelay)
+    val withdrawDate = new Date(maxOptionByValue(activeLoans)(_.end, 0L) max maxOptionByValue(pendingWithdraws)(_.created + withdrawDelay, 0L) max System.currentTimeMillis)
+    val minLoanDaysLeft = minOptionByValue(activeLoans)(_.daysLeft, 0L).toInt
+    val tag = "UserStatus"
+  }
 
   implicit val loanAdFormat: JsonFormat[LoanAd] =
     taggedJsonFmt(jsonFormat[Long, BigDecimal, BigDecimal, String, String, BigDecimal, Asset,
@@ -165,8 +168,8 @@ object LinkClient {
     Failure](Failure.apply, "failureCode"), "Failure")
 
   implicit val userStatusFormat: JsonFormat[UserStatus] =
-    taggedJsonFmt(jsonFormat[List[Withdraw], List[ActiveLoan], List[TotalFunds], String, String,
-      UserStatus](UserStatus.apply, "pendingWithdraws", "activeLoans", "totalFunds", "email", "sessionToken"), "UserStatus")
+    taggedJsonFmt(jsonFormat[List[Withdraw], List[ActiveLoan], List[TotalFunds], String, String, Long,
+      UserStatus](UserStatus.apply, "pendingWithdraws", "activeLoans", "totalFunds", "email", "sessionToken", "withdrawDelay"), "UserStatus")
 
   implicit val historyFormat: JsonFormat[History] =
     taggedJsonFmt(jsonFormat[List[Deposit], List[Withdraw], List[ActiveLoan],

@@ -14,6 +14,12 @@ object Tools {
   type ExtPubKeys = List[ExtendedPublicKey]
   final val SEPARATOR = " "
 
+  def minOptionBy[A, B: Ordering](seq: Seq[A] = Nil)(f: A => B) = seq.reduceOption(Ordering.by(f).min)
+  def minOptionByValue[A, B: Ordering](seq: Seq[A] = Nil)(f: A => B, default: B) = minOptionBy(seq)(f).map(f).getOrElse(default)
+
+  def maxOptionBy[A, B: Ordering](seq: Seq[A] = Nil)(f: A => B) = seq.reduceOption(Ordering.by(f).max)
+  def maxOptionByValue[A, B: Ordering](seq: Seq[A] = Nil)(f: A => B, default: B) = maxOptionBy(seq)(f).map(f).getOrElse(default)
+
   def trimmed(inputText: String): String = inputText.trim.take(144)
 
   def none: PartialFunction[Any, Unit] = { case _ => }

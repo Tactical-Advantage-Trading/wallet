@@ -19,6 +19,7 @@
     <string name="ta_loan">Loan ₿TC</string>
     <string name="ta_logout">log out</string>
     <string name="ta_support">get support</string>
+    <string name="ta_withdraw_when">Next withdraw %1$s</string>
     <string name="ta_withdraw_on">schedule withdraw</string>
     <string name="ta_withdraw_off">cancel withdraw</string>
 
