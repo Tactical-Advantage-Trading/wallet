@@ -3,7 +3,7 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import fr.acinq.bitcoin.Btc
 import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
-import immortan.Tools.{Any2Some, maxOptionBy, maxOptionByValue, minOptionBy, minOptionByValue, none}
+import immortan.Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{BtcDenom, Denomination, Rx}
@@ -30,11 +30,7 @@ object LinkClient {
   case object UPDATE_CLIENT_APP extends FailureCode { val code = 40 }
   case object ACCOUNT_BANNED extends FailureCode { val code = 50 }
 
-  val failureCodes =
-    Seq(INVALID_JSON, NOT_AUTHORIZED,
-      INVALID_REQUEST, UPDATE_CLIENT_APP,
-      ACCOUNT_BANNED)
-
+  val failureCodes = Seq(INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST, UPDATE_CLIENT_APP, ACCOUNT_BANNED)
   implicit object FailureCodeFormat extends JsonFormat[FailureCode] {
     def write(fc: FailureCode): JsValue = JsNumber(fc.code)
 
@@ -51,12 +47,28 @@ object LinkClient {
   case object USD extends Asset { val kind = 1 }
 
   val assets: Seq[Asset] = Seq(BTC, USD)
-
   implicit object AssetFormat extends JsonFormat[Asset] {
     def write(a: Asset): JsValue = JsNumber(a.kind)
 
     def read(value: JsValue): Asset = value match {
       case JsNumber(num) => assets.find(_.kind == num).get
+      case _ => throw new RuntimeException
+    }
+  }
+
+  // Deposit states
+
+  sealed trait DepositState { def state: Int }
+  case object Canceled extends DepositState { val state = 0 }
+  case object Pending extends DepositState { val state = 1 }
+  case object Done extends DepositState { val state = 2 }
+
+  val despositStates: Seq[DepositState] = Seq(Canceled, Pending, Done)
+  implicit object DepositStateFormat extends JsonFormat[DepositState] {
+    def write(ds: DepositState): JsValue = JsNumber(ds.state)
+
+    def read(value: JsValue): DepositState = value match {
+      case JsNumber(num) => despositStates.find(_.state == num).get
       case _ => throw new RuntimeException
     }
   }
@@ -110,7 +122,7 @@ object LinkClient {
     lazy val icon = toIconRes(asset)
   }
 
-  case class Deposit(txid: String, address: String, amount: BigDecimal, created: Long, isConfirmed: Boolean, isCanceled: Boolean, asset: Asset)
+  case class Deposit(txid: String, address: String, amount: BigDecimal, created: Long, state: DepositState, asset: Asset)
 
   case class Withdraw(txid: Option[String], id: String, address: String, amount: BigDecimal, requested: BigDecimal, created: Long, fee: BigDecimal, asset: Asset)
 
@@ -123,8 +135,8 @@ object LinkClient {
   }
 
   implicit val depositFormat: JsonFormat[Deposit] =
-    jsonFormat[String, String, BigDecimal, Long, Boolean, Boolean, Asset,
-      Deposit](Deposit.apply, "txid", "address", "amount", "created", "isConfirmed", "isCanceled", "asset")
+    jsonFormat[String, String, BigDecimal, Long, DepositState, Asset,
+      Deposit](Deposit.apply, "txid", "address", "amount", "created", "state", "asset")
 
   implicit val withdrawFormat: JsonFormat[Withdraw] =
     jsonFormat[Option[String], String, String, BigDecimal, BigDecimal, Long, BigDecimal, Asset,
@@ -153,8 +165,8 @@ object LinkClient {
 
   sealed trait TaLinkState
   case object LoggedOut extends TaLinkState
-  case class UserStatus(pendingWithdraws: List[Withdraw], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds], email: String, sessionToken: String, withdrawDelay: Long) extends ResponseArguments with TaLinkState {
-    def forAsset(asset: Asset) = UserStatus(pendingWithdraws.filter(_.asset == asset), activeLoans.filter(_.asset == asset), totalFunds.filter(_.asset == asset), email, sessionToken, withdrawDelay)
+  case class UserStatus(pendingWithdraws: List[Withdraw], pendingDeposits: List[Deposit], activeLoans: List[ActiveLoan], totalFunds: List[TotalFunds], email: String, sessionToken: String, withdrawDelay: Long) extends ResponseArguments with TaLinkState {
+    def forAsset(asset: Asset) = UserStatus(pendingWithdraws.filter(_.asset == asset), pendingDeposits.filter(_.asset == asset), activeLoans.filter(_.asset == asset), totalFunds.filter(_.asset == asset), email, sessionToken, withdrawDelay)
     val withdrawDate = new Date(maxOptionByValue(activeLoans)(_.end, 0L) max maxOptionByValue(pendingWithdraws)(_.created + withdrawDelay, 0L) max System.currentTimeMillis)
     val minLoanDaysLeft = minOptionByValue(activeLoans)(_.daysLeft, 0L).toInt
     val tag = "UserStatus"
@@ -168,8 +180,8 @@ object LinkClient {
     Failure](Failure.apply, "failureCode"), "Failure")
 
   implicit val userStatusFormat: JsonFormat[UserStatus] =
-    taggedJsonFmt(jsonFormat[List[Withdraw], List[ActiveLoan], List[TotalFunds], String, String, Long,
-      UserStatus](UserStatus.apply, "pendingWithdraws", "activeLoans", "totalFunds", "email", "sessionToken", "withdrawDelay"), "UserStatus")
+    taggedJsonFmt(jsonFormat[List[Withdraw], List[Deposit], List[ActiveLoan], List[TotalFunds], String, String, Long,
+      UserStatus](UserStatus.apply, "pendingWithdraws", "pendingDeposits", "activeLoans", "totalFunds", "email", "sessionToken", "withdrawDelay"), "UserStatus")
 
   implicit val historyFormat: JsonFormat[History] =
     taggedJsonFmt(jsonFormat[List[Deposit], List[Withdraw], List[ActiveLoan],

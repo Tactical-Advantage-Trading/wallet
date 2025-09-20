@@ -1249,12 +1249,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def updateView(status: LinkClient.UserStatus): Unit = {
-      val balances = status.totalFunds.filter(_.withdrawable > 0D)
       List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
-      setVisMany(balances.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
+      setVisMany(status.totalFunds.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
       taClientEmail.setText(status.email)
 
-      for (balance <- balances) {
+      for (balance <- status.totalFunds) {
         val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
         val item = new TwoSidedItem(parent, getString(balance.currency), balance.amountHuman.html)
         item.firstItem.setCompoundDrawablesWithIntrinsicBounds(balance.icon, 0, 0, 0)
@@ -1276,7 +1275,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       setVis(isVisible = btcStatus.pendingWithdraws.nonEmpty, taWithdrawInfo)
       taWithdrawInfo setText getString(ta_withdraw_when).format(humanDate)
 
-      lazy val withdrawButtonOpt = (balances.nonEmpty, btcStatus.pendingWithdraws.isEmpty) match {
+      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, btcStatus.pendingWithdraws.isEmpty) match {
         case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
         case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
         case _ => None
