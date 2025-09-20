@@ -1,40 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- General & Navigation -->
     <string name="lang">eng</string>
     <string name="app_name">Key wallet</string>
     <string name="select_wallets">Select wallets</string>
     <string name="tap_to_receive">Tap to receive</string>
-
-    <string translatable="false" name="wallet_send">Send</string>
     <string name="recent_activity">Recent activity</string>
+    <string name="wallets">Wallets</string>
+    <string name="typing_hints">₿TC or USD₮ address</string>
+    <string name="search_recent">Type address / transaction id / hash</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="emergency_mode">Something went wrong</string>
+    <string name="error_log">Export error logs</string>
+
+    <!-- Wallet Management -->
     <string name="bitcoin_wallet">₿TC</string>
     <string name="usdt_wallet">USD₮</string>
+    <string translatable="false" name="wallet_send">Send</string>
 
-    <string name="ta_loan_duration">Duration</string>
-    <string name="ta_loan_annual_return">Annual return</string>
+    <string name="setup_create_new">Create new wallet</string>
+    <string name="setup_restore_existing">Restore existing wallet</string>
+    <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
+
+    <string name="action_recovery_phrase_title">Wallet recovery phrase</string>
+    <string name="action_recovery_phrase_hint">Type recovery words</string>
+
+    <!-- Earn Account -->
     <string name="ta_earn_label">Earn account</string>
     <string name="ta_client_login">Tap to login</string>
+    <string name="ta_login_email">Enter your email</string>
+    <string name="ta_login_pass">Paste one-time code</string>
+
+    <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
+    <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
+
     <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
     <string name="ta_loan">Loan ₿TC</string>
-    <string name="ta_logout">log out</string>
-    <string name="ta_support">get support</string>
+    <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
+    <string name="ta_loan_duration">Duration</string>
+    <string name="ta_loan_annual_return">Annual return</string>
+
     <string name="ta_withdraw_when">Next withdraw %1$s</string>
     <string name="ta_withdraw_on">schedule withdraw</string>
     <string name="ta_withdraw_off">cancel withdraw</string>
 
-    <string name="ta_login_email">Enter your email</string>
-    <string name="ta_login_pass">Paste one-time code</string>
-
-    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
-    <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
-    <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
-    <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
+    <string name="ta_pending_deposit">Pending deposit is present</string>
+    <string name="ta_logout">log out</string>
+    <string name="ta_support">get support</string>
 
     <string name="ta_signup_warn"><![CDATA[
         Automatic client registration is not working yet and each signup is approved manually.<br><br> Email us at
         <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> to become a client.
     ]]></string>
+
+    <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
 
     <array name="ta_loans">
         <item>no active loans</item>
@@ -48,28 +68,21 @@
         <item>%1$s days</item>
     </array>
 
+    <!-- USDT (Polygon) Warnings -->
     <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
     <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
     <string name="usdt_polygon_warn_title">Polygon network only</string>
 
-    <string name="wallets">Wallets</string>
-    <string name="typing_hints">₿TC or USD₮ address</string>
-    <string name="copied_to_clipboard">Copied to clipboard</string>
-    <string name="search_recent">Type address / transaction id / hash</string>
-    <string name="emergency_mode">Something went wrong</string>
-    <string name="error_log">Export error logs</string>
-
-    <string name="setup_create_new">Create new wallet</string>
-    <string name="setup_restore_existing">Restore existing wallet</string>
-    <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
-
-    <string name="action_recovery_phrase_title">Wallet recovery phrase</string>
-    <string name="action_recovery_phrase_hint">Type recovery words</string>
-
+    <!-- Settings -->
     <string name="settings_show_btc">Show ₿TC wallet</string>
     <string name="settings_show_usdt">Show USD₮ wallet</string>
     <string name="settings_show_ta">Show Earn account</string>
 
+    <string name="settings_attach_btc_wallet">Attach ₿TC wallet</string>
+    <string name="settings_view_recovery_phrase">View recovery phrase</string>
+    <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
+
+    <!-- Dialogs & Actions -->
     <string name="dialog_ok">OK</string>
     <string name="dialog_hide">Hide</string>
     <string name="dialog_share">Share</string>
@@ -81,10 +94,10 @@
     <string name="dialog_edit">Edit</string>
     <string name="dialog_max">Max</string>
 
+    <!-- Dialog Content -->
     <string name="dialog_receive_address"><![CDATA[Your address]]></string>
     <string name="dialog_up_to"><![CDATA[<b>up to</b> %1$s]]></string>
     <string name="dialog_fee"><![CDATA[<b>fee</b> %1$s]]></string>
-
     <string name="dialog_fee_error">error</string>
     <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
@@ -96,42 +109,27 @@
     <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>
 
-    <!-- errors -->
-
+    <!-- Errors -->
     <string name="error_no_wallet">Related wallet is not found</string>
     <string name="error_nothing_useful">Nothing useful is found</string>
     <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
     <string name="error_camera_denied"><![CDATA[Camera permission has been permanently denied. Tap OK to go to <b>Settings</b>, then edit <b>Permissions : Camera</b> in there.]]></string>
     <string name="error_camera_declined">Camera permission is required to scan</string>
 
-    <!-- /errors -->
-
-    <!-- special tx/payment descriptions -->
-
+    <!-- Transaction Types & States -->
     <string name="description_rbf_cancel">RBF canceling</string>
     <string name="description_rbf_boost">RBF boosting</string>
     <string name="description_cpfp">CPFP boosting</string>
     <string name="tx_btc">Bitcoin Transaction</string>
     <string name="state_double_spent">failed</string>
 
+    <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>address</b>&#160;%1$s]]></string>
     <string name="popup_txid"><![CDATA[<b>txid</b>&#160;%1$s]]></string>
-
     <string name="popup_fiat"><![CDATA[<b>fiat&#160;value</b>&#160;%1$s]]></string>
     <string name="popup_fee"><![CDATA[<b>fee</b>&#160;%1$s]]></string>
 
-    <!-- /special tx/payment descriptions -->
-
-    <!-- Settings activity -->
-
-    <string name="settings_attach_btc_wallet">Attach ₿TC wallet</string>
-    <string name="settings_view_recovery_phrase">View recovery phrase</string>
-    <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
-
-    <!-- /Settings activity -->
-
-    <!-- CPFP/RBF -->
-
+    <!-- CPFP / RBF (Transaction Acceleration) -->
     <string name="tx_cpfp_current">Current sum</string>
     <string name="tx_cpfp_rbf_after">After boost</string>
     <string name="cpfp_explain">Apply CPFP to this incoming transaction to increase its fee and get it confirmed faster</string>
@@ -142,10 +140,7 @@
     <string name="rbf_err_foreign_inputs">Can not boost this transaction because it contains inputs not belonging to this wallet</string>
     <string name="rbf_err_parents_missing">Can not boost this transaction because its parents are missing in this wallet</string>
 
-    <!-- /CPFP/RBF -->
-
-    <!-- sign-verify -->
-
+    <!-- Sign & Verify Messages -->
     <string name="sign_address_not_found">Requested address is not found</string>
     <string name="sign_sign_message_notx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
     <string name="sign_signed_message_title"><![CDATA[<b>Message signed with address</b><br>%1$s]]></string>
@@ -164,6 +159,4 @@
         BIP322 Message hash<br><b>%2$s</b><br><br>
         Message text<br><b>%3$s</b>
     ]]></string>
-
-    <!-- /sign-verify -->
 </resources>

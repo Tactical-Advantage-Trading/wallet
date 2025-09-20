@@ -50,10 +50,10 @@
         style="@style/GreenButton"/>
 
     <TextView
-        android:paddingTop="20dp"
         style="@style/BoundedView"
-        android:id="@+id/taWithdrawInfo"
-        android:visibility="gone"/>
+        android:visibility="gone"
+        android:paddingTop="20dp"
+        android:id="@+id/taInfo"/>
 
     <org.apmem.tools.layouts.FlowLayout
         android:layout_marginTop="15dp"

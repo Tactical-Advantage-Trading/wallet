@@ -1190,10 +1190,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   abstract class TaWalletCard(parent: WalletCardsViewHolder) extends WalletCard {
-    infoWalletLabel setText ta_earn_label
-
-    val earnAccount = new EarnAccount
+    val earnAccount = new ExpandedEarnAccount
     cardView.addView(earnAccount.wrap, 0)
+    infoWalletLabel setText ta_earn_label
 
     def updateView: Unit =
       WalletApp.linkClient.data match {
@@ -1217,16 +1216,16 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
   }
 
-  class EarnAccount {
+  class ExpandedEarnAccount {
     val wrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
     val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
     val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
-    val taWithdrawInfo: TextView = wrap.findViewById(R.id.taWithdrawInfo).asInstanceOf[TextView]
     val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
     val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
     val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
     val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
     val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
+    val taInfo: TextView = wrap.findViewById(R.id.taInfo).asInstanceOf[TextView]
 
     val loanAdListener = new LinkClient.Listener("get-loan-ad") {
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
@@ -1271,14 +1270,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       val btcStatus = status.forAsset(LinkClient.BTC)
-      val humanDate = WalletApp.when(btcStatus.withdrawDate, WalletApp.app.dateFormat)
-      setVis(isVisible = btcStatus.pendingWithdraws.nonEmpty, taWithdrawInfo)
-      taWithdrawInfo setText getString(ta_withdraw_when).format(humanDate)
-
       lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, btcStatus.pendingWithdraws.isEmpty) match {
         case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
         case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
         case _ => None
+      }
+
+      if (btcStatus.pendingDeposits.nonEmpty) {
+        taInfo setText getString(ta_pending_deposit)
+        setVis(isVisible = true, taInfo)
+      } else if (btcStatus.pendingWithdraws.nonEmpty) {
+        val humanDate = WalletApp.when(btcStatus.withdrawDate, WalletApp.app.dateFormat)
+        taInfo setText getString(ta_withdraw_when).format(humanDate)
+        setVis(isVisible = true, taInfo)
       }
 
       def requestWithdraw: Unit = for {
