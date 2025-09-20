@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- General & Navigation -->
+    <string name="lang">ukr</string>
+    <string name="app_name">Key wallet</string>
+    <string name="select_wallets">Оберіть гаманці</string>
+    <string name="tap_to_receive">Отримати</string>
+    <string name="recent_activity">Нещодавнє</string>
+    <string name="wallets">Гаманці</string>
+    <string name="typing_hints">₿TC або USD₮ адреса</string>
+    <string name="search_recent">Введіть адресу / ID транзакції / хеш</string>
+    <string name="copied_to_clipboard">Скопійовано</string>
+    <string name="emergency_mode">Щось пішло не так</string>
+    <string name="error_log">Експортувати помилки</string>
+
+    <!-- Wallet Management -->
+    <string name="bitcoin_wallet">₿TC</string>
+    <string name="usdt_wallet">USD₮</string>
+    <string translatable="false" name="wallet_send">Надіслати</string>
+
+    <string name="setup_create_new">Створити новий гаманець</string>
+    <string name="setup_restore_existing">Відновити гаманець</string>
+    <string name="setup_create_new_hint">Це створить новий гаманець із нульовим балансом і новою фразою відновлення. Оберіть цей варіант, щоб почати з нуля.</string>
+
+    <string name="action_recovery_phrase_title">Фраза відновлення гаманця</string>
+    <string name="action_recovery_phrase_hint">Введіть слова відновлення</string>
+
+    <!-- Earn Account -->
+    <string name="ta_earn_label">Earn акаунт</string>
+    <string name="ta_client_login">Натисніть для входу</string>
+    <string name="ta_login_email">Введіть свій email</string>
+    <string name="ta_login_pass">Вставте одноразовий код</string>
+
+    <string name="ta_login_title_email"><![CDATA[<b>Вхід до Earn акаунту</b><br>на tactical-advantage.trading<br><i>Крок 1 із 2: вкажіть email</i>]]></string>
+    <string name="ta_login_title_pass"><![CDATA[<b>Вхід до Earn акаунту</b><br>на tactical-advantage.trading<br><i>Крок 2 із 2: ми надіслали код</i>]]></string>
+
+    <string name="ta_balances">Баланс</string>
+    <string name="ta_loans">Активні позики</string>
+    <string name="ta_loan">Позичити ₿TC</string>
+    <string name="ta_btc_loan_label">₿TC позика в Earn акаунті</string>
+    <string name="ta_loan_duration">Тривалість</string>
+    <string name="ta_loan_annual_return">Річна дохідність</string>
+
+    <string name="ta_withdraw_when">Наступне виведення %1$s</string>
+    <string name="ta_withdraw_on">запросити виведення</string>
+    <string name="ta_withdraw_off">скасувати виведення</string>
+
+    <string name="ta_pending_deposit">Опрацьовуємо депозит</string>
+    <string name="ta_logout">вийти</string>
+    <string name="ta_support">підтримка</string>
+
+    <string name="ta_signup_warn"><![CDATA[
+        Автоматична реєстрація клієнтів ще не працює, кожну заявку схвалюємо вручну.<br><br> Напишіть нам на
+        <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b>, щоб стати клієнтом.
+    ]]></string>
+
+    <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
+
+    <array name="ta_loans">
+        <item>немає позик</item>
+        <item>%1$s позика</item>
+        <item>%1$s позики</item>
+        <item>%1$s позик</item>
+    </array>
+
+    <array name="ta_days_left">
+        <item>завершення</item>
+        <item>%1$s день</item>
+        <item>%1$s дня</item>
+        <item>%1$s днів</item>
+    </array>
+
+    <!-- USDT (Polygon) Warnings -->
+    <string name="usdt_polygon_warn">Переконайтесь, що USD₮ надсилається в мережі Polygon, інакше кошти можуть бути втрачені.</string>
+    <string name="usdt_not_ready">Ще не готово, зачекайте</string>
+    <string name="usdt_polygon_warn_title">Тільки мережа Polygon</string>
+
+    <!-- Settings -->
+    <string name="settings_show_btc">+ ₿TC гаманець</string>
+    <string name="settings_show_usdt">+ USD₮ гаманець</string>
+    <string name="settings_show_ta">+ Earn акаунт</string>
+
+    <string name="settings_attach_btc_wallet">Приєднати ₿TC гаманець</string>
+    <string name="settings_view_recovery_phrase">Переглянути фразу відновлення</string>
+    <string name="settings_view_revocery_phrase_ext">Ці слова дозволяють відновити баланс гаманця на будь-якому пристрої, тримайте їх у секреті!</string>
+
+    <!-- Dialogs & Actions -->
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_hide">Сховати</string>
+    <string name="dialog_share">Поділитися</string>
+    <string name="dialog_signup">Реєстрація</string>
+    <string name="dialog_cancel">Скасувати</string>
+    <string name="dialog_boost">Прискорити</string>
+    <string name="dialog_paste">Вставити</string>
+    <string name="dialog_copy">Копіювати</string>
+    <string name="dialog_edit">Редагувати</string>
+    <string name="dialog_max">Макс</string>
+
+    <!-- Dialog Content -->
+    <string name="dialog_receive_address"><![CDATA[Ваша адреса]]></string>
+    <string name="dialog_up_to"><![CDATA[<b>до</b> %1$s]]></string>
+    <string name="dialog_fee"><![CDATA[<b>комісія</b> %1$s]]></string>
+    <string name="dialog_fee_error">помилка</string>
+    <string name="dialog_fee_estimating">оцінюється&#8230;</string>
+    <string name="dialog_change_feerate">Змінити комісію&#8230;</string>
+
+    <string name="dialog_send_usdt"><![CDATA[Надіслати <b>USD₮</b> на адресу<br>%1$s]]></string>
+    <string name="dialog_send_btc"><![CDATA[Надіслати <b>₿TC</b> на адресу<br>%1$s%2$s]]></string>
+    <string name="dialog_send_btc_many"><![CDATA[Надіслати <b>₿TC</b><br><b>на кілька адрес</b>]]></string>
+    <string name="dialog_send_btc_confirm_fiat">Фіатна сума</string>
+    <string name="dialog_send_confirm_amount">Сума відправки</string>
+    <string name="dialog_send_confirm_fee">Комісія мережі</string>
+
+    <!-- Errors -->
+    <string name="error_no_wallet">Пов’язаний гаманець не знайдено</string>
+    <string name="error_nothing_useful">Нічого корисного не знайдено</string>
+    <string name="error_wrong_phrase"><![CDATA[<b>Фраза відновлення неправильна</b>.<br><br>Деталі помилки<br><b>%1$s</b>]]></string>
+    <string name="error_camera_denied"><![CDATA[Доступ до камери заборонено. Натисніть OK, щоб відкрити <b>Налаштування</b> і змінити <b>Дозволи : Камера</b>.]]></string>
+    <string name="error_camera_declined">Дозвіл на камеру необхідний для сканування</string>
+
+    <!-- Transaction Types & States -->
+    <string name="description_rbf_cancel">RBF скасування</string>
+    <string name="description_rbf_boost">RBF прискорення</string>
+    <string name="description_cpfp">CPFP прискорення</string>
+    <string name="tx_btc">Біткоїн транзакція</string>
+
+    <!-- Transaction / Payment Popups -->
+    <string name="popup_to_address"><![CDATA[<b>адреса</b>&#160;%1$s]]></string>
+    <string name="popup_txid"><![CDATA[<b>txid</b>&#160;%1$s]]></string>
+    <string name="popup_fiat"><![CDATA[<b>фіат&#160;сума</b>&#160;%1$s]]></string>
+    <string name="popup_fee"><![CDATA[<b>комісія</b>&#160;%1$s]]></string>
+
+    <!-- CPFP / RBF (Transaction Acceleration) -->
+    <string name="tx_cpfp_current">Поточна сума</string>
+    <string name="tx_cpfp_rbf_after">Після прискорення</string>
+    <string name="cpfp_explain">Застосуйте CPFP до цієї вхідної транзакції, щоб підвищити комісію та пришвидшити підтвердження</string>
+
+    <string name="tx_rbf_current">Поточна комісія</string>
+    <string name="rbf_boost_explain"><![CDATA[Застосуйте RBF до цієї вихідної транзакції, щоб підвищити комісію та <b>прискорити підтвердження</b>]]></string>
+    <string name="rbf_cancel_explain"><![CDATA[Застосуйте RBF до цієї вихідної транзакції, щоб підвищити комісію та <b>повернути кошти в гаманець</b>]]></string>
+    <string name="rbf_err_foreign_inputs">Не можна прискорити цю транзакцію, бо вона містить входи з іншого гаманця</string>
+    <string name="rbf_err_parents_missing">Не можна прискорити цю транзакцію, бо відсутні її батьківські транзакції</string>
+
+    <!-- Sign & Verify Messages -->
+    <string name="sign_address_not_found">Запитану адресу не знайдено</string>
+    <string name="sign_sign_message_notx_title"><![CDATA[Підписати повідомлення адресою<br><br><b>%1$s</b>]]></string>
+    <string name="sign_signed_message_title"><![CDATA[<b>Повідомлення підписане адресою</b><br>%1$s]]></string>
+
+    <string name="sign_sign_message">Підписати повідомлення</string>
+    <string name="sign_sig_only">Поділитися лише підписом і хешем</string>
+    <string name="sign_sig_only_info">Не розкривати сам текст повідомлення</string>
+    <string name="sign_message">Повідомлення</string>
+    <string name="sign_sign">Підписати</string>
+
+    <string name="verify_ok">ПІДПИС СПІВПАДАЄ</string>
+    <string name="verify_no">ПІДПИС НЕ СПІВПАДАЄ</string>
+
+    <string name="verify_details"><![CDATA[
+        <br>Підписано біткоїн-адресою<br><b>%1$s</b><br><br>
+        BIP322 хеш повідомлення<br><b>%2$s</b><br><br>
+        Текст повідомлення<br><b>%3$s</b>
+    ]]></string>
+</resources>

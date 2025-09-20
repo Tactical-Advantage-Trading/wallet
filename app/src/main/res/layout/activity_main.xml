@@ -14,7 +14,7 @@
         style="@style/StandardLinearLayout"/>
 
     <com.ornach.nobobutton.NoboButton
-        android:layout_width="110sp"
+        android:layout_width="130sp"
         android:layout_marginBottom="20dp"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"

@@ -60,11 +60,13 @@
         <item>no active loans</item>
         <item>%1$s active loan</item>
         <item>%1$s active loans</item>
+        <item>%1$s active loans</item>
     </array>
 
     <array name="ta_days_left">
         <item>finalizing</item>
         <item>%1$s day</item>
+        <item>%1$s days</item>
         <item>%1$s days</item>
     </array>
 
@@ -121,7 +123,6 @@
     <string name="description_rbf_boost">RBF boosting</string>
     <string name="description_cpfp">CPFP boosting</string>
     <string name="tx_btc">Bitcoin Transaction</string>
-    <string name="state_double_spent">failed</string>
 
     <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>address</b>&#160;%1$s]]></string>
