@@ -5,7 +5,7 @@
     <string name="app_name">Key wallet</string>
     <string name="select_wallets">Select wallets</string>
     <string name="tap_to_receive">Tap to receive</string>
-    <string name="recent_activity">Recent activity</string>
+    <string name="recent_activity">Recents</string>
     <string name="wallets">Wallets</string>
     <string name="typing_hints">₿TC or USD₮ address</string>
     <string name="search_recent">Type address / transaction id / hash</string>
@@ -45,7 +45,7 @@
     <string name="ta_withdraw_on">schedule withdraw</string>
     <string name="ta_withdraw_off">cancel withdraw</string>
 
-    <string name="ta_pending_deposit">Pending deposit is present</string>
+    <string name="ta_pending_deposit">Processing a deposit</string>
     <string name="ta_logout">log out</string>
     <string name="ta_support">get support</string>
 

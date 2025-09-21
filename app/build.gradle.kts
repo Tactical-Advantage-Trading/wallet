@@ -12,8 +12,8 @@ android {
 
     defaultConfig {
         applicationId = "trading.tacticaladvantage"
-        versionName = "1.0"
-        versionCode = 1
+        versionName = "3.1"
+        versionCode = 2
         targetSdk = 33
         minSdk = 28
 
@@ -39,7 +39,8 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
             )
         }
     }

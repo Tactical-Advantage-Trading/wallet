@@ -42,8 +42,8 @@
     <string name="ta_loan_annual_return">Річна дохідність</string>
 
     <string name="ta_withdraw_when">Наступне виведення %1$s</string>
-    <string name="ta_withdraw_on">запросити виведення</string>
-    <string name="ta_withdraw_off">скасувати виведення</string>
+    <string name="ta_withdraw_on">вивести гроші</string>
+    <string name="ta_withdraw_off">скасувати вивід</string>
 
     <string name="ta_pending_deposit">Опрацьовуємо депозит</string>
     <string name="ta_logout">вийти</string>
