@@ -1091,8 +1091,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val usable = ElectrumWallet.specs.values.filter(_.usable).toList
     def onOk(specs: List[WalletSpec] = Nil): Unit
 
-    if (spendable.size == 1) onOk(spendable)
-    else if (usable.size == 1) onOk(usable)
+    if (ElectrumWallet.specs.isEmpty) WalletApp.app.quickToast(error_no_wallet)
+    else if (spendable.size == 1) onOk(specs = spendable)
+    else if (usable.size == 1) onOk(specs = usable)
     else {
       val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow, None)
       val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
@@ -1285,16 +1286,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setVis(isVisible = true, taInfo)
       }
 
-      def requestWithdraw: Unit = for {
-        spec <- ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty)
-        address <- spec.data.firstUnusedAccountKeys.headOption.map(spec.data.keys.ewt.textAddress)
-        request = LinkClient.WithdrawReq(address, LinkClient.BTC)
-      } call(request)
+      def requestWithdraw: Unit =
+        ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty) match {
+          case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.firstUnusedAccountKeys.head), LinkClient.BTC))
+          case None => WalletApp.app.quickToast(error_no_wallet)
+        }
 
-      def cancelScheduledWithdraw: Unit = {
-        val request = LinkClient.CancelWithdraw(LinkClient.BTC)
-        call(request)
-      }
+      def cancelScheduledWithdraw: Unit =
+        call(LinkClient.CancelWithdraw(LinkClient.BTC))
 
       def call(request: LinkClient.RequestArguments): Unit = {
         val withdrawListener = new LinkClient.Listener("withdraw-request") {
