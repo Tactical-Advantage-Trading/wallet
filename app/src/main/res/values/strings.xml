@@ -42,8 +42,8 @@
     <string name="ta_loan_annual_return">Annual return</string>
 
     <string name="ta_withdraw_when">Next withdraw %1$s</string>
-    <string name="ta_withdraw_on">schedule withdraw</string>
     <string name="ta_withdraw_off">cancel withdraw</string>
+    <string name="ta_withdraw_on">withdraw</string>
 
     <string name="ta_pending_deposit">Processing a deposit</string>
     <string name="ta_logout">log out</string>
