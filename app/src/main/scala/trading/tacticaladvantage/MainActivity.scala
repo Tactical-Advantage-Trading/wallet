@@ -153,7 +153,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   // BTC/USDT PAYMENT LINE
 
-  // What happens after tx is generated and before user can end it?
+  // What happens after tx is generated and before user can send it?
   // Nothing by default, for TA deposits we need to inform a server first
 
   type ResponseToNothing = GenerateTxResponse => Unit
@@ -1342,6 +1342,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def showUsdtWalletCard = {
       WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret)
       WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+      WalletApp.linkUsdt ! WsListener.CmdConnect
+    }
+
+    def showTaCard = {
+      WalletApp.setShowTaCard(show = true)
+      DbStreams.next(DbStreams.walletStream)
+      WalletApp.initTaCard
     }
 
     def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
@@ -1351,10 +1358,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     def makeCards = {
       lazy val taClientCard = new TaWalletCard(this) {
-        override def hide: Unit = WalletApp.setTaCard(visible = false)
         override def onTap: Unit = WalletApp.linkClient.data match {
           case LinkClient.LoggedOut => bringTaSignInDialogEmail(me getString ta_login_title_email)
           case _ => runAnd(isEarnAccountExpanded = !isEarnAccountExpanded)(this.updateView)
+        }
+
+        override def hide: Unit = {
+          WalletApp.setShowTaCard(show = false)
+          DbStreams.next(DbStreams.walletStream)
         }
       }
 
@@ -1374,7 +1385,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
       val wallets = btcCards.toList ++ usdtCards
-      if (WalletApp.showTaCard) wallets :+ taClientCard
+      if (WalletApp.getShowTaCard) wallets :+ taClientCard
       else wallets
     }
 
@@ -1397,7 +1408,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       if (isSettingsOn) {
         if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
         if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
-        if (!WalletApp.showTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(WalletApp setTaCard true)
+        if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(showTaCard)
         addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
         addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
       }

@@ -53,12 +53,8 @@ object WalletApp {
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
-  def showTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
-
-  def setTaCard(visible: Boolean) = {
-    app.prefs.edit.putBoolean(SHOW_TA_CARD, visible).commit
-    DbStreams.next(DbStreams.walletStream)
-  }
+  def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
+  def setShowTaCard(show: Boolean): Unit = app.prefs.edit.putBoolean(SHOW_TA_CARD, show).commit
 
   def isAlive: Boolean =
     null != btcTxDataBag && null != btcWalletBag && null != usdtTxDataBag &&
@@ -265,10 +261,25 @@ object WalletApp {
     btcWalletBag.remove(key.publicKey)
   }
 
+  def initUsdtWallet = {
+    // This is a single place where we should bypass sequential threading
+    linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
+    linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
+    linkUsdt ! WsListener.CmdConnect
+  }
+
+  def initTaCard = {
+    // This is a single place where we should bypass sequential threading
+    for (status <- linkClient.loadUserStatus) linkClient.data = status
+    linkClient ! WsListener.CmdConnect
+  }
+
   def initWallets = {
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
     for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
     for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
+    if (linkUsdt.data.wallets.nonEmpty) initUsdtWallet
+    if (getShowTaCard) initTaCard
 
     ElectrumWallet.connectionProvider doWhenReady {
       ElectrumWallet.pool ! ElectrumClientPool.InitConnect
@@ -283,20 +294,6 @@ object WalletApp {
       val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates.reloadData), Rx.incSec, 3 to 18 by 3)
       val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
       fiatRepeat.foreach(fiatRates.updateInfo, none)
-    }
-
-    // This is a single place where we should bypass sequential threading
-    linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
-
-    if (linkUsdt.data.wallets.nonEmpty) {
-      linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
-      linkUsdt ! WsListener.CmdConnect
-    }
-
-    if (showTaCard) {
-      // This is a single place where we should bypass sequential threading
-      for (status <- linkClient.loadUserStatus) linkClient.data = status
-      linkClient ! WsListener.CmdConnect
     }
   }
 
