@@ -30,10 +30,7 @@ object LinkUsdt {
   case object UPDATE_CLIENT_APP extends FailureCode { val code = 30 }
   case object INFRA_FAIL extends FailureCode { val code = 40 }
 
-  val failureCodes =
-    Seq(INVALID_JSON, INVALID_REQUEST,
-      UPDATE_CLIENT_APP, INFRA_FAIL)
-
+  val failureCodes = Seq(INVALID_JSON, INVALID_REQUEST, UPDATE_CLIENT_APP, INFRA_FAIL)
   implicit object FailureCodeFormat extends JsonFormat[FailureCode] {
     def write(fc: FailureCode): JsValue = JsNumber(fc.code)
 

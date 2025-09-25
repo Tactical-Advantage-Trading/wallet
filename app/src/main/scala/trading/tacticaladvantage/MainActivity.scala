@@ -813,7 +813,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     new TitleView(caption)
   }
 
-  def loanTitle(loan: LinkClient.LoanAd): TitleView = {
+  def makeLoanTitle(loan: LinkClient.LoanAd): TitleView = {
     val titleView = new TitleView(s"<b>${me getString ta_loan}</b>")
     val durationHuman = WalletApp.app.plurOrZero(daysLeftRes, loan.durationDays.toInt)
     val parentDuration = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
@@ -821,7 +821,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     titleView.view.addView(new TwoSidedItem(parentDuration, getString(ta_loan_duration), durationHuman).parent)
     titleView.view.addView(new TwoSidedItem(parentAPR, getString(ta_loan_annual_return), Denomination.formatRoi format loan.roi).parent)
-    addFlowChip(titleView.flow, "tactical-advantage.trading", R.drawable.border_white)(me browse "tactical-advantage.trading")
+    addFlowChip(titleView.flow, "tactical-advantage.trading", R.drawable.border_white)(me browse "https://tactical-advantage.trading")
     titleView
   }
 
@@ -1230,7 +1230,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     val loanAdListener = new LinkClient.Listener("get-loan-ad") {
       override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
-        val showForm = bringSingleAddressSelector(_: LinkClient.LoanAd, loanTitle, txSendProxyTa)
+        val showForm = bringSingleAddressSelector(_: LinkClient.LoanAd, makeLoanTitle, txSendProxyTa)
         args.collectFirst { case data: LinkClient.LoanAd => showForm(data).run }
         onDisconnected
       }
