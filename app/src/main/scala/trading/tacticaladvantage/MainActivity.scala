@@ -59,6 +59,7 @@ object MainActivity {
 }
 
 class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataChecker { me =>
+  lazy val paymentTypeIconIds = List(R.id.btcInOut, R.id.btcInBoosted, R.id.btcOutBoosted, R.id.btcOutCancelled, R.id.usdtInOut)
   lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
   lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
@@ -66,10 +67,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   lazy val expand = expandContainer.findViewById(R.id.expand).asInstanceOf[ImageButton]
   lazy val daysLeftRes = getResources getStringArray R.array.ta_days_left
   lazy val activeLoansRes = getResources getStringArray R.array.ta_loans
-
-  lazy val paymentTypeIconIds =
-    List(R.id.btcAddress, R.id.btcIncoming, R.id.btcInBoosted, R.id.btcOutBoosted,
-      R.id.btcOutCancelled, R.id.btcOutgoing, R.id.usdtIncoming, R.id.usdtOutgoing)
 
   lazy val walletCards = new WalletCardsViewHolder
   var openListItems = Set.empty[String]
@@ -478,10 +475,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(R.id.btcInBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(R.id.btcOutBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(R.id.btcOutCancelled)
-        case info: BtcInfo if info.isIncoming => setVisibleIcon(id = R.id.btcIncoming)
-        case info: UsdtInfo if info.isIncoming => setVisibleIcon(R.id.usdtIncoming)
-        case _: UsdtInfo => setVisibleIcon(R.id.usdtOutgoing)
-        case _: BtcInfo => setVisibleIcon(R.id.btcOutgoing)
+        case _: UsdtInfo => setVisibleIcon(R.id.usdtInOut)
+        case _: BtcInfo => setVisibleIcon(R.id.btcInOut)
       }
 
       currentDetails match {

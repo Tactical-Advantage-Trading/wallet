@@ -24,16 +24,9 @@
             android:orientation="horizontal"
             android:gravity="center">
 
-            <!-- BTC address -->
+            <!-- BTC -->
 
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcAddress">
-                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:background="@drawable/ic_logo_bitcoin_24"/>
-            </LinearLayout>
-
-            <!-- BTC incoming -->
-
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcIncoming">
-                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcInOut">
                 <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24"/>
             </LinearLayout>
 
@@ -57,24 +50,9 @@
                 <ImageView style="@style/BoundedView" android:background="@drawable/shortcut_20" android:rotation="90"/>
             </LinearLayout>
 
-            <!-- BTC outgoing -->
-
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutgoing">
-                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24"/>
-            </LinearLayout>
-
             <!-- USDT incoming -->
 
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtIncoming">
-                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24"/>
-            </LinearLayout>
-
-            <!-- USDT outgoing -->
-
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtOutgoing">
-                <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtInOut">
                 <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24"/>
             </LinearLayout>
 
