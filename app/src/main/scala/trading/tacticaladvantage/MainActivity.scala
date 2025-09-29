@@ -1283,7 +1283,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       def requestWithdraw: Unit =
         ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty) match {
-          case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.firstUnusedAccountKeys.head), LinkClient.BTC))
+          case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC))
           case None => WalletApp.app.quickToast(error_no_wallet)
         }
 
