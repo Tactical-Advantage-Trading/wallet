@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "trading.tacticaladvantage"
         versionName = "3.2"
-        versionCode = 5
+        versionCode = 6
         targetSdk = 33
         minSdk = 28
 
