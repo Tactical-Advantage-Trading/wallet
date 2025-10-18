@@ -41,7 +41,12 @@
     <string name="ta_loan_duration">Тривалість</string>
     <string name="ta_loan_annual_return">Річна дохідність</string>
 
-    <string name="ta_withdraw_when">Наступне виведення %1$s</string>
+    <string name="ta_withdraw_full_when">Наступне повне зняття %1$s</string>
+    <string name="ta_withdraw_interest_when">Наступне зняття відсотків %1$s</string>
+
+    <string name="ta_withdraw_full">Зняти весь баланс</string>
+    <string name="ta_withdraw_interest">Зняти лише відсотки</string>
+
     <string name="ta_withdraw_on">зняти гроші</string>
     <string name="ta_withdraw_off">скасувати</string>
 

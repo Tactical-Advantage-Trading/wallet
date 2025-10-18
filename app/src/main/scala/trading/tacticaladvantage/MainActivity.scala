@@ -31,8 +31,10 @@ import scodec.bits.ByteVector
 import spray.json._
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._
+import trading.tacticaladvantage.LinkClient.{FullBalance, PartialInterestNative}
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.sheets.ChoiceBottomSheet
 import trading.tacticaladvantage.utils._
 
 import java.util.TimerTask
@@ -1277,15 +1279,23 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setVis(isVisible = true, taInfo)
       } else if (btcStatus.pendingWithdraws.nonEmpty) {
         val humanDate = WalletApp.when(btcStatus.withdrawDate, WalletApp.app.dateFormat)
-        taInfo setText getString(ta_withdraw_when).format(humanDate)
+        taInfo setText getString(btcStatus.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
         setVis(isVisible = true, taInfo)
       }
 
-      def requestWithdraw: Unit =
-        ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty) match {
-          case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC))
-          case None => WalletApp.app.quickToast(error_no_wallet)
-        }
+      def requestWithdraw: Unit = {
+        val doRequestWithdraw: Int => Unit = pos =>
+          ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty) match {
+            case Some(spec) if pos == 1 => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC, PartialInterestNative))
+            case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC, FullBalance))
+            case None => WalletApp.app.quickToast(error_no_wallet)
+          }
+
+        val listOptions = List(ta_withdraw_full, ta_withdraw_interest).map(getString)
+        val list = getLayoutInflater.inflate(R.layout.frag_selector_list, null).asInstanceOf[ListView]
+        list setAdapter new ArrayAdapter(me, android.R.layout.simple_expandable_list_item_1, listOptions.toArray)
+        new sheets.ChoiceBottomSheet(list, doRequestWithdraw).show(getSupportFragmentManager, "unused-tag")
+      }
 
       def cancelScheduledWithdraw: Unit =
         call(LinkClient.CancelWithdraw(LinkClient.BTC))

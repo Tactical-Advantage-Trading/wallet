@@ -41,7 +41,12 @@
     <string name="ta_loan_duration">Duration</string>
     <string name="ta_loan_annual_return">Annual return</string>
 
-    <string name="ta_withdraw_when">Next withdraw %1$s</string>
+    <string name="ta_withdraw_full_when">Next full withdraw %1$s</string>
+    <string name="ta_withdraw_interest_when">Next interest withdraw %1$s</string>
+
+    <string name="ta_withdraw_full">Withdraw full balance</string>
+    <string name="ta_withdraw_interest">Withdraw interest only</string>
+
     <string name="ta_withdraw_off">cancel withdraw</string>
     <string name="ta_withdraw_on">withdraw</string>
 
@@ -76,11 +81,11 @@
     <string name="usdt_polygon_warn_title">Polygon network only</string>
 
     <!-- Settings -->
-    <string name="settings_show_btc">Show ₿TC wallet</string>
-    <string name="settings_show_usdt">Show USD₮ wallet</string>
+    <string name="settings_show_btc">Show BTC wallet</string>
+    <string name="settings_show_usdt">Show USDT wallet</string>
     <string name="settings_show_ta">Show Earn account</string>
 
-    <string name="settings_attach_btc_wallet">Attach ₿TC wallet</string>
+    <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
     <string name="settings_view_recovery_phrase">View recovery phrase</string>
     <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
 
@@ -115,7 +120,7 @@
     <string name="error_no_wallet">Related wallet is not found</string>
     <string name="error_nothing_useful">Nothing useful is found</string>
     <string name="error_wrong_phrase"><![CDATA[<b>Provided phrase is incorrect</b>.<br><br>Error details<br><b>%1$s</b>]]></string>
-    <string name="error_camera_denied"><![CDATA[Camera permission has been permanently denied. Tap OK to go to <b>Settings</b>, then edit <b>Permissions : Camera</b> in there.]]></string>
+    <string name="error_camera_denied"><![CDATA[Camera permission has been permanently denied. Tap OK to go to <b>Settings</b>, then edit <b>Permissions/Camera</b> in there.]]></string>
     <string name="error_camera_declined">Camera permission is required to scan</string>
 
     <!-- Transaction Types & States -->

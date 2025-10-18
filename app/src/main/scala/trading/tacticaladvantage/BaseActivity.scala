@@ -80,10 +80,6 @@ trait ExternalDataChecker  {
   }
 }
 
-trait ChoiceReceiver {
-  def onChoiceMade(tag: AnyRef, pos: Int): Unit
-}
-
 trait BaseActivity extends AppCompatActivity { me =>
   lazy val qrSize: Int = getResources.getDimensionPixelSize(R.dimen.qr_size)
   val nothingUsefulTask: Runnable = UITask(WalletApp.app quickToast error_nothing_useful)

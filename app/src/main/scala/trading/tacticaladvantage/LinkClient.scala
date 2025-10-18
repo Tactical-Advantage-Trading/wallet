@@ -9,6 +9,8 @@ import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{BtcDenom, Denomination, Rx}
 import immortan.{BtcDescription, CanBeShutDown, PlainBtcDescription, StateMachine}
 import spray.json._
+import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.R.drawable._
 import trading.tacticaladvantage.LinkClient._
 import trading.tacticaladvantage.utils.WsListener._
 import trading.tacticaladvantage.utils.{BitcoinUri, WsListener}
@@ -31,6 +33,7 @@ object LinkClient {
   case object ACCOUNT_BANNED extends FailureCode { val code = 50 }
 
   val failureCodes = Seq(INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST, UPDATE_CLIENT_APP, ACCOUNT_BANNED)
+
   implicit object FailureCodeFormat extends JsonFormat[FailureCode] {
     def write(fc: FailureCode): JsValue = JsNumber(fc.code)
 
@@ -47,6 +50,7 @@ object LinkClient {
   case object USD extends Asset { val kind = 1 }
 
   val assets: Seq[Asset] = Seq(BTC, USD)
+
   implicit object AssetFormat extends JsonFormat[Asset] {
     def write(a: Asset): JsValue = JsNumber(a.kind)
 
@@ -64,11 +68,30 @@ object LinkClient {
   case object Done extends DepositState { val state = 2 }
 
   val despositStates: Seq[DepositState] = Seq(Canceled, Pending, Done)
+
   implicit object DepositStateFormat extends JsonFormat[DepositState] {
     def write(ds: DepositState): JsValue = JsNumber(ds.state)
 
     def read(value: JsValue): DepositState = value match {
       case JsNumber(num) => despositStates.find(_.state == num).get
+      case _ => throw new RuntimeException
+    }
+  }
+
+  // Withdraw types
+
+  sealed trait WithdrawType { def code: Int }
+  case object FullBalance extends WithdrawType { val code = 0 }
+  case object PartialInterestNative extends WithdrawType { val code = 1 }
+  case object PartialInterestUsd extends WithdrawType { val code = 2 }
+
+  val withdrawTypes: Seq[WithdrawType] = Seq(FullBalance, PartialInterestNative, PartialInterestUsd)
+
+  implicit object WithdrawTypeFormat extends JsonFormat[WithdrawType] {
+    def write(ds: WithdrawType): JsValue = JsNumber(ds.code)
+
+    def read(value: JsValue): WithdrawType = value match {
+      case JsNumber(num) => withdrawTypes.find(_.code == num).get
       case _ => throw new RuntimeException
     }
   }
@@ -83,7 +106,7 @@ object LinkClient {
 
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments { val tag = "Login" }
 
-  case class WithdrawReq(address: String, asset: Asset, requested: Option[BigDecimal] = None) extends RequestArguments { val tag = "WithdrawReq" }
+  case class WithdrawReq(address: String, asset: Asset, wt: WithdrawType) extends RequestArguments { val tag = "WithdrawReq" }
 
   case class DepositIntent(txid: String, asset: Asset) extends RequestArguments { val tag = "DepositIntent" }
 
@@ -93,7 +116,7 @@ object LinkClient {
 
   implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[Asset, GetLoanAd](GetLoanAd.apply, "asset"), "GetLoanAd")
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), "Login")
-  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, Option[BigDecimal], WithdrawReq](WithdrawReq.apply, "address", "asset", "requested"), "Withdraw")
+  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, Asset, WithdrawType, WithdrawReq](WithdrawReq.apply, "address", "asset", "wt"), "Withdraw")
   implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[String, Asset, DepositIntent](DepositIntent.apply, "txid", "asset"), "DepositIntent")
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), "GetUserStatus")
   implicit val cancelWithdrawFormat: JsonFormat[CancelWithdraw] = taggedJsonFmt(jsonFormat[Asset, CancelWithdraw](CancelWithdraw.apply, "asset"), "CancelWithdraw")
@@ -124,7 +147,9 @@ object LinkClient {
 
   case class Deposit(txid: String, address: String, amount: BigDecimal, created: Long, state: DepositState, asset: Asset)
 
-  case class Withdraw(txid: Option[String], id: String, address: String, amount: BigDecimal, requested: BigDecimal, created: Long, fee: BigDecimal, asset: Asset)
+  case class Withdraw(id: Long, txid: Option[String], exid: String, address: String, amount: BigDecimal, wt: Option[WithdrawType], created: Long, fee: BigDecimal, asset: Asset) {
+    lazy val nextWithdrawRes: Int = wt match { case Some(PartialInterestNative) => ta_withdraw_interest_when case _ => ta_withdraw_full_when }
+  }
 
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: BigDecimal, amount: BigDecimal, asset: Asset) {
     lazy val daysLeft = Math.max(0L, (end - System.currentTimeMillis) / 86400000L)
@@ -139,8 +164,8 @@ object LinkClient {
       Deposit](Deposit.apply, "txid", "address", "amount", "created", "state", "asset")
 
   implicit val withdrawFormat: JsonFormat[Withdraw] =
-    jsonFormat[Option[String], String, String, BigDecimal, BigDecimal, Long, BigDecimal, Asset,
-      Withdraw](Withdraw.apply, "txid", "id", "address", "amount", "requested", "created", "fee", "asset")
+    jsonFormat[Long, Option[String], String, String, BigDecimal, Option[WithdrawType], Long, BigDecimal, Asset,
+      Withdraw](Withdraw.apply, "id", "txid", "exid", "address", "amount", "wt", "created", "fee", "asset")
 
   implicit val activeLoanFormat: JsonFormat[ActiveLoan] =
     jsonFormat[Long, Long, Long, Long, BigDecimal, BigDecimal, Asset,
@@ -226,15 +251,8 @@ object LinkClient {
     case USD => Denomination.fiatDirectedTT(incoming = amount.toString, outgoing = "0", Colors.cardOut, Colors.cardIn, isIncoming = true)
   }
 
-  def toTextRes(asset: Asset): Int = asset match {
-    case BTC => trading.tacticaladvantage.R.string.bitcoin_wallet
-    case USD => trading.tacticaladvantage.R.string.usdt_wallet
-  }
-
-  def toIconRes(asset: Asset): Int = asset match {
-    case BTC => trading.tacticaladvantage.R.drawable.ic_logo_bitcoin_24
-    case USD => trading.tacticaladvantage.R.drawable.ic_logo_tether_24
-  }
+  def toTextRes(asset: Asset): Int = asset match { case BTC => bitcoin_wallet case USD => usdt_wallet }
+  def toIconRes(asset: Asset): Int = asset match { case BTC => ic_logo_bitcoin_24 case USD => ic_logo_tether_24 }
 }
 
 class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with CanBeShutDown { me =>
