@@ -130,7 +130,7 @@ class LinkUsdt(usdtWalletBag: SQLiteUsdtWallet, biconomy: Biconomy) extends Stat
       usdtWalletBag.remove(xPriv)
 
     case (info: CompleteUsdtWalletInfo, _) =>
-      data = data.copy(wallets = data.wallets - info + info)
+      data = data.copy(data.wallets - info + info)
       usdtWalletBag.addUpdateWallet(info)
 
     case (UsdtBalanceNonce(address, balance, nonce), _) =>

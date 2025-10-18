@@ -262,8 +262,6 @@ object WalletApp {
   }
 
   def initUsdtWallet = {
-    // This is a single place where we should bypass sequential threading
-    linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
     linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
     linkUsdt ! WsListener.CmdConnect
   }
@@ -278,6 +276,9 @@ object WalletApp {
     val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
     for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
     for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
+
+    // This is a single place where we should bypass sequential threading
+    linkUsdt.data = LinkUsdt.WalletManager(usdtWalletBag.listWallets.toSet)
     if (linkUsdt.data.wallets.nonEmpty) initUsdtWallet
     if (getShowTaCard) initTaCard
 
