@@ -34,7 +34,6 @@ import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.LinkClient.{FullBalance, PartialInterestNative}
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.sheets.ChoiceBottomSheet
 import trading.tacticaladvantage.utils._
 
 import java.util.TimerTask
@@ -751,6 +750,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def toggleSettingsMode(view: View): Unit = {
+    androidx.transition.TransitionManager.beginDelayedTransition(walletCards.view)
     setVis(!isSettingsOn, walletCards.settingsContainer)
     walletCards.updateView
   }
