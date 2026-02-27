@@ -1,11 +1,9 @@
 package immortan
 
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
-import fr.acinq.eclair._
 import Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
 import immortan.utils.ImplicitJsonFormats._
-import trading.tacticaladvantage.BaseActivity.StringOps
-
+import fr.acinq.eclair._
 import java.util.Date
 
 case class SemanticOrder(id: String, order: Long)
@@ -90,23 +88,4 @@ case class BtcInfo(txString: String, identity: String, extPubsString: String, de
     val cpfps = rbfs ++ description.cpfpBy ++ description.cpfpOf
     cpfps.map(_.toHex) + identity
   }
-}
-
-// USDT tx
-
-object UsdtDescription {
-  final val ETHEREUM = 1
-  final val POLYGON = 2
-}
-
-case class UsdtDescription(fromAddr: String, toAddr: String, label: Option[String] = None, taRoi: Option[BigDecimal] = None) extends ItemDescription {
-  def queryText(hash: String): String = hash + SEPARATOR + fromAddr + SEPARATOR + toAddr + label.getOrElse(new String)
-  val semanticOrder: Option[SemanticOrder] = None
-}
-
-case class UsdtInfo(identity: String, network: Int, block: Long, receivedUsdtString: String, sentUsdtString: String,
-                    feeUsdtString: String, seenAt: Long, updatedAt: Long, description: UsdtDescription, balanceUsdt: Long,
-                    incoming: Long, doubleSpent: Long) extends ItemDetails {
-  override val isDoubleSpent: Boolean = 1L == doubleSpent
-  val isIncoming: Boolean = 1L == incoming
 }

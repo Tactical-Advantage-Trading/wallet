@@ -28,13 +28,12 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
 import immortan.Tools._
-import immortan.sqlite.CompleteUsdtWalletInfo
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.{BitcoinUri, InputParser}
+import trading.tacticaladvantage.utils.InputParser
 
 import java.io.{File, FileOutputStream}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -60,7 +59,6 @@ object BaseActivity {
 }
 
 object ClassNames {
-  val qrUsdtActivityClass: Class[QRUsdtActivity] = classOf[QRUsdtActivity]
   val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
   val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
@@ -477,15 +475,6 @@ trait BaseActivity extends AppCompatActivity { me =>
 
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
     editView.rmc.hintDenom setText getString(dialog_up_to).format(canSend).html
-  }
-
-  class UsdtSendView(val info: CompleteUsdtWalletInfo) extends SendView {
-    setVisMany(false -> editView.rmc.inputAmount, false -> editView.rmc.inputAmountHint, false -> editView.rmc.hintDenom, false -> confirmView.confirmFiat.parent)
-    editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(Denomination.fiatTT("0", info.lastBalance, null, cardIn, isIncoming = false).trim).html
-    editView.fvc.feeRate setText getString(dialog_fee).format(s"<font color=$cardZero>${me getString dialog_fee_estimating}</font>").html
-    editView.fvc.customFeerateOption.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_polygon_24, 0, 0, 0)
-    editView.fvc.customFeerateOption.setText(usdt_polygon_warn_title)
-    editView.rmc.fiatInputAmountHint.setText(usdt_wallet)
   }
 }
 

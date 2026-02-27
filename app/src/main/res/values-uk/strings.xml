@@ -7,7 +7,7 @@
     <string name="tap_to_receive">Отримати</string>
     <string name="recent_activity">Нещодавнє</string>
     <string name="wallets">Гаманці</string>
-    <string name="typing_hints">₿TC або USD₮ адреса</string>
+    <string name="typing_hints">₿TC адреса</string>
     <string name="search_recent">Введіть адресу / ID транзакції / хеш</string>
     <string name="copied_to_clipboard">Скопійовано</string>
     <string name="emergency_mode">Щось пішло не так</string>
@@ -15,7 +15,6 @@
 
     <!-- Wallet Management -->
     <string name="bitcoin_wallet">₿TC</string>
-    <string name="usdt_wallet">USD₮</string>
     <string translatable="false" name="wallet_send">Надіслати</string>
 
     <string name="setup_create_new">Створити новий гаманець</string>
@@ -75,14 +74,8 @@
         <item>%1$s днів</item>
     </array>
 
-    <!-- USDT (Polygon) Warnings -->
-    <string name="usdt_polygon_warn">Переконайтесь, що USD₮ надсилається в мережі Polygon, інакше кошти можуть бути втрачені.</string>
-    <string name="usdt_not_ready">Ще не готово, зачекайте</string>
-    <string name="usdt_polygon_warn_title">Тільки мережа Polygon</string>
-
     <!-- Settings -->
     <string name="settings_show_btc">+ ₿TC гаманець</string>
-    <string name="settings_show_usdt">+ USD₮ гаманець</string>
     <string name="settings_show_ta">+ Earn акаунт</string>
 
     <string name="settings_attach_btc_wallet">Приєднати ₿TC гаманець</string>
@@ -109,7 +102,6 @@
     <string name="dialog_fee_estimating">оцінюється&#8230;</string>
     <string name="dialog_change_feerate">Змінити комісію&#8230;</string>
 
-    <string name="dialog_send_usdt"><![CDATA[Надіслати <b>USD₮</b> на адресу<br>%1$s]]></string>
     <string name="dialog_send_btc"><![CDATA[Надіслати <b>₿TC</b> на адресу<br>%1$s%2$s]]></string>
     <string name="dialog_send_btc_many"><![CDATA[Надіслати <b>₿TC</b><br><b>на кілька адрес</b>]]></string>
     <string name="dialog_send_btc_confirm_fiat">Фіатна сума</string>

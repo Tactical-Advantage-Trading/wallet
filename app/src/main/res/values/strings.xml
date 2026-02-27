@@ -7,7 +7,7 @@
     <string name="tap_to_receive">Tap to receive</string>
     <string name="recent_activity">Recents</string>
     <string name="wallets">Wallets</string>
-    <string name="typing_hints">₿TC or USD₮ address</string>
+    <string name="typing_hints">₿TC address</string>
     <string name="search_recent">Type address / transaction id / hash</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="emergency_mode">Something went wrong</string>
@@ -15,7 +15,6 @@
 
     <!-- Wallet Management -->
     <string name="bitcoin_wallet">₿TC</string>
-    <string name="usdt_wallet">USD₮</string>
     <string translatable="false" name="wallet_send">Send</string>
 
     <string name="setup_create_new">Create new wallet</string>
@@ -75,14 +74,8 @@
         <item>%1$s days</item>
     </array>
 
-    <!-- USDT (Polygon) Warnings -->
-    <string name="usdt_polygon_warn">Please make sure USD₮ is going to be transferred over Polygon network, otherwise loss of funds may occur.</string>
-    <string name="usdt_not_ready">Not ready yet, please wait a bit</string>
-    <string name="usdt_polygon_warn_title">Polygon network only</string>
-
     <!-- Settings -->
     <string name="settings_show_btc">Show BTC wallet</string>
-    <string name="settings_show_usdt">Show USDT wallet</string>
     <string name="settings_show_ta">Show Earn account</string>
 
     <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
@@ -109,7 +102,6 @@
     <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
 
-    <string name="dialog_send_usdt"><![CDATA[Send <b>USD₮</b> to address<br>%1$s]]></string>
     <string name="dialog_send_btc"><![CDATA[Send <b>₿TC</b> to address<br>%1$s%2$s]]></string>
     <string name="dialog_send_btc_many"><![CDATA[Send <b>₿TC</b><br><b>to many addresses</b>]]></string>
     <string name="dialog_send_btc_confirm_fiat">Fiat value</string>

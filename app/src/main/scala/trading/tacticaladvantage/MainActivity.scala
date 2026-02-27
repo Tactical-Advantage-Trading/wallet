@@ -21,11 +21,10 @@ import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import immortan.Tools._
 import immortan._
-import immortan.sqlite.{CompleteUsdtWalletInfo, DbStreams}
+import immortan.sqlite.DbStreams
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
-import org.web3j.crypto.Keys.toChecksumAddress
 import rx.lang.scala.Subscription
 import scodec.bits.ByteVector
 import spray.json._
@@ -45,16 +44,12 @@ object MainActivity {
   case class BtcAddressAndPrivKey(address: String, privKey: ByteVector32)
   case class Accumulator(identities: Set[String], infos: Set[ItemDetails] = Set.empty) {
     def withBtcInfo(info: BtcInfo): Accumulator = Accumulator(identities ++ info.relatedTxids, infos + info)
-    def withUsdtInfo(info: UsdtInfo): Accumulator = Accumulator(identities + info.identity, infos + info)
   }
 
   val ITEMS = 1
   var displayFullIxInfoHistory: Boolean = false
   var idsToDisplayAnyway: Set[String] = Set.empty
-
-  var usdtInfosToConsider: Iterable[UsdtInfo] = Nil
   var btcInfosToConsider: Iterable[BtcInfo] = Nil
-
   var infosFromDb: Iterable[ItemDetails] = Nil
   var allInfos: Seq[ItemDetails] = Nil
 }
@@ -75,9 +70,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // PAYMENT LIST
 
   def loadRecentInfos: Unit = {
-    usdtInfosToConsider = WalletApp.usdtTxDataBag.listRecentTxs(10).map(WalletApp.usdtTxDataBag.toInfo)
     btcInfosToConsider = WalletApp.btcTxDataBag.listRecentTxs(10).map(WalletApp.btcTxDataBag.toInfo)
-    infosFromDb = usdtInfosToConsider ++ btcInfosToConsider
+    infosFromDb = btcInfosToConsider
 
     if (!displayFullIxInfoHistory) {
       // First, select a number of most recent chronological items to display by default
@@ -86,13 +80,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       // Then, we init accumulator with those
       val accumulator1 = Accumulator(idsToDisplayAnyway)
       val accumulator2 = sortedCandidates.foldLeft(accumulator1) {
-        case (acc, info: UsdtInfo) => acc.withUsdtInfo(info)
         case (acc, info: BtcInfo) => acc.withBtcInfo(info)
       }
 
       // Then see if any dropped ones should be displayed
       val accumulator3 = infosFromDb.foldLeft(accumulator2) {
-        case (acc, info: UsdtInfo) if idsToDisplayAnyway.contains(info.identity) => acc.withUsdtInfo(info)
         case (acc, info: BtcInfo) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
         case (acc, info: BtcInfo) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
         case (acc, info: BtcInfo) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
@@ -107,9 +99,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   def loadSearchedBtcInfos(query: String): Unit = {
     val query1 = query.replaceAll("\\s", "").toLowerCase
-    val usdt = WalletApp.usdtTxDataBag.searchTransactions(query1).map(WalletApp.usdtTxDataBag.toInfo)
     val btc = WalletApp.btcTxDataBag.searchTransactions(query1).map(WalletApp.btcTxDataBag.toInfo)
-    infosFromDb = usdt ++ btc
+    infosFromDb = btc
   }
 
   def fillAllInfos: Unit = {
@@ -436,12 +427,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       openListItems += item.identity
 
       item match {
-        case info: UsdtInfo =>
-          for (usdtLabel <- info.description.label) addFlowChip(extraInfo, usdtLabel, R.drawable.border_yellow, None)
-          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short0x), R.drawable.border_gray) {
-            me browse s"https://polygonscan.com/tx/${info.identity}"
-          }
-
         case info: BtcInfo =>
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
@@ -462,21 +447,18 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       currentDetails match {
         case info: BtcInfo if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
-        case info: UsdtInfo if info.identity == CompleteUsdtWalletInfo.NOIDENTITY => itemView.setAlpha(0.6F)
         case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
 
       currentDetails match {
         case info: BtcInfo => statusIcon setImageResource btcStatusIcon(info)
-        case info: UsdtInfo => statusIcon setImageResource usdtStatusIcon(info)
       }
 
       currentDetails match {
         case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(R.id.btcInBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(R.id.btcOutBoosted)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(R.id.btcOutCancelled)
-        case _: UsdtInfo => setVisibleIcon(R.id.usdtInOut)
         case _: BtcInfo => setVisibleIcon(R.id.btcInOut)
       }
 
@@ -485,7 +467,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
         case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
         case info: BtcInfo => amount.setText(BtcDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
-        case info: UsdtInfo => amount.setText(Denomination.fiatDirectedTT(info.receivedUsdtString, info.sentUsdtString, cardOut, cardIn, info.isIncoming).html)
       }
     }
 
@@ -505,19 +486,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       else if (hasNoWallets) R.drawable.question_24
       else R.drawable.hourglass_empty_24
     }
-
-    def usdtStatusIcon(info: UsdtInfo): Int = {
-      val in = WalletApp.linkUsdt.data.okWallets.get(info.description.toAddr)
-      val out = WalletApp.linkUsdt.data.okWallets.get(info.description.fromAddr)
-      val isDeeplyBuried = (in ++ out).exists(_.chainTip - info.block >= 20)
-      val isUnknown = info.identity == CompleteUsdtWalletInfo.NOIDENTITY
-      val isAlien = in.isEmpty && out.isEmpty
-
-      if (info.isDoubleSpent && isDeeplyBuried) R.drawable.block_24
-      else if (info.isDoubleSpent || isUnknown || isAlien) R.drawable.question_24
-      else if (isDeeplyBuried) R.drawable.done_24
-      else R.drawable.hourglass_empty_24
-    }
   }
 
   // LISTENERS
@@ -528,14 +496,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   private val btcChainListener = new WalletEventsListener {
     override def onWalletReady(event: WalletReady): Unit =
       DbStreams.next(DbStreams.txStream)
-  }
-
-  private val usdtListener = new LinkUsdt.Listener(LinkUsdt.GENERAL_ERROR) {
-    override def onChainTip(chainTip: Long): Unit = paymentAdapterDataChanged.run
-    override def onResponse(args: Option[LinkUsdt.ResponseArguments] = None): Unit = args.foreach {
-      case fail: LinkUsdt.UsdtFailure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
-      case _ => // Not interested in anything else
-    }
   }
 
   private val taErrorListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
@@ -568,7 +528,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   override def onDestroy: Unit = {
     try ElectrumWallet.catcher ! WalletEventsCatcher.Remove(btcChainListener) catch none
     try WalletApp.linkClient ! LinkClient.CmdRemove(taErrorListener) catch none
-    try WalletApp.linkUsdt ! LinkUsdt.CmdRemove(usdtListener) catch none
     try WalletApp.fiatRates.listeners -= fiatListener catch none
     viewUpdateSub.foreach(_.unsubscribe)
     cardsResetSub.foreach(_.unsubscribe)
@@ -610,12 +569,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         case None => WalletApp.app.quickToast(sign_address_not_found)
       }
 
-    case data: String if toChecksumAddress(data) == data =>
-      WalletApp.linkUsdt.data.withRealAddress.headOption match {
-        case Some(info) => bringSendUsdtPopup(new UsdtSendView(info), data)
-        case None => WalletApp.app.quickToast(error_no_wallet)
-      }
-
     case _ =>
       whenNone.run
   }
@@ -639,7 +592,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         ElectrumWallet.catcher ! btcChainListener
         WalletApp.fiatRates.listeners += fiatListener
         WalletApp.linkClient ! taErrorListener
-        WalletApp.linkUsdt ! usdtListener
 
         itemsList.addHeaderView(walletCards.view)
         itemsList.addFooterView(expandContainer)
@@ -753,55 +705,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     androidx.transition.TransitionManager.beginDelayedTransition(walletCards.view)
     setVis(!isSettingsOn, walletCards.settingsContainer)
     walletCards.updateView
-  }
-
-  def bringSendUsdtPopup(sendView: UsdtSendView, address: String): Unit = {
-    val title = new TitleView(getString(dialog_send_usdt) format address.short0x)
-    val builder = titleBodyAsViewBuilder(title.asColoredView(R.color.usdt), sendView.body)
-    var fee = BigDecimal(-1)
-
-    def reactOnInput(unused: String): BigDecimal = {
-      val value = BigDecimal(sendView.editView.rmc.fiatInputAmount.getNumericValueBigDecimal)
-      val canProceed = value >= CompleteUsdtWalletInfo.DUST_THRESHOLD && value <= sendView.info.lastBalanceDecimal
-      updatePosButton(alert, isEnabled = fee >= 0 && canProceed).run
-      value
-    }
-
-    def attempt(alert: AlertDialog): Unit = {
-      val inputAmount = reactOnInput(unused = null)
-      val finalAmount = if (inputAmount + fee > sendView.info.lastBalanceDecimal) sendView.info.lastBalanceDecimal - fee else inputAmount
-      sendView.confirmView.confirmAmount.secondItem setText Denomination.fiatTT("0", finalAmount.toString, null, cardIn, isIncoming = false).html
-      sendView.confirmView.chainEditButton setOnClickListener onButtonTap(sendView switchToDefault alert)
-      sendView.confirmView.chainCancelButton setOnClickListener onButtonTap(alert.dismiss)
-      WalletApp.app.hideKeys(sendView.editView.rmc.fiatInputAmount)
-      sendView.setButtonsVisible(alert, on = false)
-      sendView.switchTo(sendView.confirmView)
-
-      sendView.confirmView.chainNextButton setOnClickListener onButtonTap {
-        val desc = UsdtDescription(fromAddr = sendView.info.lcAddress, toAddr = address)
-        val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, recipient = address, Biconomy.USDt, amount = (BigDecimal(10).pow(6) * finalAmount).toBigInt.toString)
-        runFutureProcessOnUI(broadcastUsdt(desc, req, finalAmount, fee), onFail) { case None => cleanFailedBroadcast(desc.fromAddr, "USD₮ transfer failed") case _ => }
-        alert.dismiss
-      }
-    }
-
-    def useMax(unused: AlertDialog): Unit = sendView.editView.rmc.updateFiatText(sendView.info.lastBalanceDecimal.toString)
-    lazy val alert = mkCheckFormNeutral(attempt, none, useMax, builder, dialog_ok, dialog_cancel, dialog_max)
-    sendView.editView.rmc.fiatInputAmount addTextChangedListener onTextChange(reactOnInput)
-    updatePosButton(alert, isEnabled = false).run
-
-    val req = Biconomy.TxDetailsRequest(sendView.info.xPriv, address, Biconomy.USDt)
-    runInFutureProcessOnUI(WalletApp.biconomy.estimateTxGas(req), onFail) {
-      case Some(response) =>
-        fee = BigDecimal(response.feeAmount).max(fee) + CompleteUsdtWalletInfo.DUST_THRESHOLD
-        val humanFee = Denomination.fiatTT("0", fee.toString, null, cardIn, isIncoming = false)
-        sendView.editView.fvc.feeRate setText getString(dialog_fee).format(humanFee).html
-        sendView.confirmView.confirmFee.secondItem setText humanFee.html
-        reactOnInput(unused = null)
-      case None =>
-        val errorMsg = s"<font color=$cardZero>${me getString dialog_fee_error}</font>"
-        sendView.editView.fvc.feeRate setText getString(dialog_fee).format(errorMsg).html
-    }
   }
 
   def plainTitle(uri: PlainBitcoinUri): TitleView = {
@@ -1039,7 +942,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   def paymentAdapterDataChanged: TimerTask = UITask {
     // Do not show an exand button IF user has chosen to show full history OR searching is on OR we have nothing extra to show
-    val expandHideCases = displayFullIxInfoHistory || isSearchOn || btcInfosToConsider.size + usdtInfosToConsider.size <= allInfos.size
+    val expandHideCases = displayFullIxInfoHistory || isSearchOn || btcInfosToConsider.size <= allInfos.size
     setVisMany(allInfos.nonEmpty -> walletCards.recentActivity, !expandHideCases -> expandContainer)
     paymentsAdapter.notifyDataSetChanged
   }
@@ -1051,16 +954,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     WalletApp.seenInfos(info.identity) = info
     DbStreams.next(DbStreams.txStream)
     ElectrumWallet.broadcast(finalTx)
-  }
-
-  def broadcastUsdt(desc: UsdtDescription, req: Biconomy.TxDetailsRequest, amount: BigDecimal, fee: BigDecimal) = Future {
-    val info = UsdtInfo(identity = CompleteUsdtWalletInfo.NOIDENTITY, network = UsdtDescription.POLYGON, block = Long.MaxValue, receivedUsdtString = "0",
-      sentUsdtString = amount.toString, feeUsdtString = fee.toString, seenAt = System.currentTimeMillis, updatedAt = System.currentTimeMillis,
-      desc, WalletApp.linkUsdt.data.totalBalance.toLong, incoming = 0L, doubleSpent = 0L)
-    WalletApp.pendingInfos(desc.fromAddr) = info
-    WalletApp.seenInfos(desc.fromAddr) = info
-    DbStreams.next(DbStreams.txStream)
-    WalletApp.biconomy.send(req)
   }
 
   def cleanFailedBtcBroadcast(info: BtcInfo, failedKey: String, message: String): Unit = {
@@ -1172,18 +1065,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, attachment, 0)
       setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
       infoContainer setBackgroundResource bgResource
-    }
-  }
-
-  abstract class UsdtWalletCard(val xPriv: String) extends WalletCard {
-    infoContainer setBackgroundResource R.color.usdt
-    imageTip setImageResource R.drawable.add_24
-
-    def updateView: Unit = {
-      val info = WalletApp.linkUsdt.data.wallets.find(_.xPriv == xPriv).get
-      infoWalletLabel setText info.label.asSome.filter(_.trim.nonEmpty).getOrElse(me getString usdt_wallet)
-      balanceWallet setText Denomination.fiatTT(info.lastBalance, "0", "#FFFFFF", signCardZero, isIncoming = true).html
-      setVisMany(info.isDust -> imageTip, !info.isDust -> balanceContainer, false -> balanceWalletFiat)
     }
   }
 
@@ -1344,12 +1225,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.postInitBtcWallet(spec = nativeSpec)
     }
 
-    def showUsdtWalletCard = {
-      WalletApp.linkUsdt ! WalletApp.createUsdtWallet(WalletApp.secret)
-      WalletApp.linkUsdt ! LinkUsdt.CmdEnsureUsdtAccounts
-      WalletApp.linkUsdt ! WsListener.CmdConnect
-    }
-
     def showTaCard = {
       WalletApp.setShowTaCard(show = true)
       DbStreams.next(DbStreams.walletStream)
@@ -1380,16 +1255,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
         }
 
-      val usdtCards =
-        for (info <- WalletApp.linkUsdt.data.wallets) yield new UsdtWalletCard(info.xPriv) {
-          override def hide: Unit = WalletApp.linkUsdt ! LinkUsdt.CmdRemoveWallet(xPriv = info.xPriv)
-          override def onTap: Unit = WalletApp.linkUsdt.data.withRealAddress.find(_.xPriv == xPriv) match {
-            case Some(info) => goToWithValue(ClassNames.qrUsdtActivityClass, info)
-            case None => WalletApp.app.quickToast(usdt_not_ready)
-          }
-        }
-
-      val wallets = btcCards.toList ++ usdtCards
+      val wallets = btcCards.toList
       if (WalletApp.getShowTaCard) wallets :+ taClientCard
       else wallets
     }
@@ -1412,7 +1278,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       if (isSettingsOn) {
         if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, getString(settings_show_btc), R.drawable.border_yellow)(showBtcWalletCard)
-        if (WalletApp.linkUsdt.data.wallets.isEmpty) addFlowChip(settingsButtons, getString(settings_show_usdt), R.drawable.border_yellow)(showUsdtWalletCard)
         if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(showTaCard)
         addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
         addFlowChip(settingsButtons, getString(settings_attach_btc_wallet), R.drawable.border_blue)(attachBtcWallet)
