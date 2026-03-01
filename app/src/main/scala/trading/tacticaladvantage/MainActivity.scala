@@ -55,7 +55,7 @@ object MainActivity {
 }
 
 class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataChecker { me =>
-  lazy val paymentTypeIconIds = List(R.id.btcInOut, R.id.btcInBoosted, R.id.btcOutBoosted, R.id.btcOutCancelled, R.id.usdtInOut)
+  lazy val paymentTypeIconIds = List(R.id.btcInOut, R.id.btcInBoosted, R.id.btcOutBoosted, R.id.btcOutCancelled)
   lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
   lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
@@ -169,7 +169,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
 
-    val intent = LinkClient.DepositIntent(response.tx.txid.toHex, LinkClient.BTC)
+    val intent = LinkClient.DepositIntent(response.tx.txid.toHex)
     WalletApp.linkClient ! LinkClient.Request(intent, listener.id)
     WalletApp.linkClient ! listener
   }
@@ -1120,8 +1120,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     taDeposit setOnClickListener onButtonTap {
-      val getLoanAd = LinkClient.GetLoanAd(asset = LinkClient.BTC)
-      WalletApp.linkClient ! LinkClient.Request(getLoanAd, loanAdListener.id)
+      WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
       WalletApp.linkClient ! loanAdListener
       taDeposit.setEnabled(false)
     }
@@ -1148,27 +1147,26 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         taLoansContainer.addView(parent)
       }
 
-      val btcStatus = status.forAsset(LinkClient.BTC)
-      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, btcStatus.pendingWithdraws.isEmpty) match {
+      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, status.pendingWithdraws.isEmpty) match {
         case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
         case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
         case _ => None
       }
 
-      if (btcStatus.pendingDeposits.nonEmpty) {
+      if (status.pendingDeposits.nonEmpty) {
         taInfo setText getString(ta_pending_deposit)
         setVis(isVisible = true, taInfo)
-      } else if (btcStatus.pendingWithdraws.nonEmpty) {
-        val humanDate = WalletApp.when(btcStatus.withdrawDate, WalletApp.app.dateFormat)
-        taInfo setText getString(btcStatus.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
+      } else if (status.pendingWithdraws.nonEmpty) {
+        val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
+        taInfo setText getString(status.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
         setVis(isVisible = true, taInfo)
       }
 
       def requestWithdraw: Unit = {
         val doRequestWithdraw: Int => Unit = pos =>
           ElectrumWallet.specs.values.find(spec => spec.data.keys.ewt.secrets.nonEmpty && spec.info.core.attachedMaster.isEmpty) match {
-            case Some(spec) if pos == 1 => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC, PartialInterestNative))
-            case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), LinkClient.BTC, FullBalance))
+            case Some(spec) if pos == 1 => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), PartialInterestNative))
+            case Some(spec) => call(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), FullBalance))
             case None => WalletApp.app.quickToast(error_no_wallet)
           }
 
@@ -1179,7 +1177,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       def cancelScheduledWithdraw: Unit =
-        call(LinkClient.CancelWithdraw(LinkClient.BTC))
+        call(LinkClient.CancelWithdraw)
 
       def call(request: LinkClient.RequestArguments): Unit = {
         val withdrawListener = new LinkClient.Listener("withdraw-request") {

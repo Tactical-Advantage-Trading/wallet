@@ -63,55 +63,6 @@ object BtcTxTable extends Table {
   }
 }
 
-object UsdtWalletTable extends Table {
-  val (table, address, xPriv, lastBalance, lastNonce, lastTip, label) = ("usdtwallet", "address", "xpriv", "lastbalance", "lastnonce", "lasttip", "label")
-
-  val newUpdSql = s"INSERT OR REPLACE INTO $table ($address, $xPriv, $lastBalance, $lastNonce, $lastTip, $label) VALUES (?, ?, ?, ?, ?, ?)"
-
-  val selectSql = s"SELECT * FROM $table ORDER BY $id ASC"
-
-  val killSql = s"DELETE FROM $table WHERE $xPriv = ?"
-
-  def createStatements: Seq[String] =
-    s"""CREATE TABLE IF NOT EXISTS $table(
-      $IDAUTOINC, $address TEXT NOT NULL, $xPriv TEXT NOT NULL $UNIQUE,
-      $lastBalance TEXT NOT NULL, $lastNonce TEXT NOT NULL,
-      $lastTip INTEGER NOT NULL, $label TEXT NOT NULL
-    )""" :: Nil
-}
-
-object UsdtTxTable extends Table {
-  val (search, table, hash, network, block, receivedUsdt, sentUsdt, feeUsdt, seenAt, updatedAt, description, balanceUsdt, incoming, doubleSpent) =
-    ("tsearch", "usdt", "hash", "network", "block", "received", "sent", "fee", "seen", "updated", "desc", "balance", "incoming", "doublespent")
-
-  // With usdt-provider, we may see the same tx many times (for example: added to block, then removed shortly after, then re-added again), so we replace
-  private val inserts = s"$hash, $network, $block, $receivedUsdt, $sentUsdt, $feeUsdt, $seenAt, $updatedAt, $description, $balanceUsdt, $incoming, $doubleSpent"
-  val newSql = s"INSERT OR REPLACE INTO $table ($inserts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-  val newVirtualSql = s"INSERT INTO $fts$table ($search, $hash) VALUES (?, ?)"
-
-  // Selecting
-
-  val selectRecentSql = s"SELECT * FROM $table ORDER BY $id DESC LIMIT ?"
-
-  val searchSql = s"SELECT * FROM $table WHERE $hash IN (SELECT DISTINCT $hash FROM $fts$table WHERE $search MATCH ? LIMIT 10)"
-
-  // Updating
-
-  val updateDescriptionSql = s"UPDATE $table SET $description = ? WHERE $hash = ?"
-
-  def createStatements: Seq[String] = {
-    val createTable = s"""CREATE TABLE IF NOT EXISTS $table(
-      $IDAUTOINC, $hash TEXT NOT NULL $UNIQUE, $network INTEGER NOT NULL, $block INTEGER NOT NULL, $receivedUsdt TEXT NOT NULL,
-      $sentUsdt TEXT NOT NULL, $feeUsdt TEXT NOT NULL, $seenAt INTEGER NOT NULL, $updatedAt INTEGER NOT NULL, $description TEXT NOT NULL,
-      $balanceUsdt TEXT NOT NULL, $incoming INTEGER NOT NULL, $doubleSpent INTEGER NOT NULL
-    )"""
-
-    val addSearchTable = s"CREATE VIRTUAL TABLE IF NOT EXISTS $fts$table USING $fts($search, $hash)"
-    createTable :: addSearchTable :: Nil
-  }
-}
-
 object DataTable extends Table {
   val (table, label, content) = ("data", "label", "content")
 

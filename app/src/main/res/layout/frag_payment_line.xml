@@ -50,12 +50,6 @@
                 <ImageView style="@style/BoundedView" android:background="@drawable/shortcut_20" android:rotation="90"/>
             </LinearLayout>
 
-            <!-- USDT incoming -->
-
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/usdtInOut">
-                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_tether_24"/>
-            </LinearLayout>
-
             <!-- Content -->
 
             <LinearLayout

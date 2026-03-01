@@ -2,7 +2,7 @@ package trading.tacticaladvantage.sqlite
 
 import android.content.Context
 import android.database.sqlite.{SQLiteDatabase, SQLiteOpenHelper}
-import immortan.sqlite.{BtcTxTable, BtcWalletTable, DBInterface, DataTable, ElectrumHeadersTable, PreparedQuery, RichCursor, UsdtTxTable, UsdtWalletTable}
+import immortan.sqlite.{BtcTxTable, BtcWalletTable, DBInterface, DataTable, ElectrumHeadersTable, PreparedQuery, RichCursor}
 
 class DBInterfaceSQLiteAndroid(context: Context, name: String) extends SQLiteOpenHelper(context, name, null, 3) with DBInterface {
   val base: SQLiteDatabase = getWritableDatabase
@@ -31,12 +31,8 @@ class DBInterfaceSQLiteAndroid(context: Context, name: String) extends SQLiteOpe
     }
 
   def onCreate(dbs: SQLiteDatabase): Unit = {
-    UsdtTxTable.createStatements.foreach(dbs.execSQL)
-    UsdtWalletTable.createStatements.foreach(dbs.execSQL)
-
     BtcTxTable.createStatements.foreach(dbs.execSQL)
     BtcWalletTable.createStatements.foreach(dbs.execSQL)
-
     ElectrumHeadersTable.createStatements.foreach(dbs.execSQL)
     DataTable.createStatements.foreach(dbs.execSQL)
   }
