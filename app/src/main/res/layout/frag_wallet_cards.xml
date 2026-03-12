@@ -10,7 +10,7 @@
         android:id="@+id/defaultHeader"
         style="@style/StandardLinearLayout">
 
-        <!-- Indicators, search, settings -->
+        <!-- Indicators, settings -->
 
         <RelativeLayout
             android:layout_marginTop="10dp"
@@ -22,17 +22,6 @@
                 android:alpha="0.4"
                 android:id="@+id/fiatUnitPriceAndChange"
                 android:layout_centerVertical="true"
-                style="@style/BoundedView"/>
-
-            <ImageButton
-                android:padding="6dp"
-                android:onClick="bringSearch"
-                android:id="@+id/enterSearchMode"
-                android:layout_centerVertical="true"
-                android:src="@drawable/ic_search_24"
-                android:layout_toStartOf="@id/settingsButton"
-                android:background="?android:selectableItemBackground"
-                android:layout_marginEnd="@dimen/chip_default_padding_edge"
                 style="@style/BoundedView"/>
 
             <ImageButton
@@ -101,18 +90,4 @@
             style="@style/BoundedView"/>
 
     </LinearLayout>
-
-    <!-- Search field -->
-
-    <EditText
-        style="@style/FillingView"
-        android:layout_marginTop="15dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginStart="12dp"
-        android:hint="@string/search_recent"
-        android:id="@+id/searchField"
-        android:visibility="gone"
-        android:inputType="text"
-        android:maxLines="1"/>
-
 </LinearLayout>

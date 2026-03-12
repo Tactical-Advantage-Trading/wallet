@@ -18,7 +18,7 @@ zxingAndroidEmbedded = "4.3.0"
 nvWebsocketClient = "2.14"
 rxscala = "0.27.0"
 multidex = "2.0.1"
-material = "1.12.0"
+material = "1.13.0"
 web3j = "5.0.2"
 
 [libraries]

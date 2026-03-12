@@ -8,7 +8,8 @@
         style="@style/FillingView"
         android:layout_width="wrap_content"
         android:text="@string/emergency_mode"
-        android:textSize="@dimen/header_size"/>
+        android:textSize="@dimen/header_size"
+        android:layout_marginTop="20dp"/>
 
     <com.ornach.nobobutton.NoboButton
         android:layout_marginTop="45dp"

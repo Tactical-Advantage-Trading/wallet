@@ -13,7 +13,6 @@ import spray.json._
 
 class SQLiteBtcTx(val db: DBInterface) {
   def listRecentTxs(limit: Int): RichCursor = db.select(BtcTxTable.selectRecentSql, limit.toString)
-  def searchTransactions(rawSearchQuery: String): RichCursor = db.search(BtcTxTable.searchSql, rawSearchQuery.toLowerCase)
 
   def addSearchableTransaction(search: String, txid: ByteVector32): Unit = {
     val newVirtualSqlPQ = db.makePreparedQuery(BtcTxTable.newVirtualSql)

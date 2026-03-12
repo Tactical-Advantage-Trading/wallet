@@ -8,7 +8,6 @@
     <string name="recent_activity">Нещодавнє</string>
     <string name="wallets">Гаманці</string>
     <string name="typing_hints">₿TC адреса</string>
-    <string name="search_recent">Введіть адресу / ID транзакції / хеш</string>
     <string name="copied_to_clipboard">Скопійовано</string>
     <string name="emergency_mode">Щось пішло не так</string>
     <string name="error_log">Експортувати помилки</string>

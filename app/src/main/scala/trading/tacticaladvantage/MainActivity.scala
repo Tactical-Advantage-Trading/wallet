@@ -97,12 +97,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def loadSearchedBtcInfos(query: String): Unit = {
-    val query1 = query.replaceAll("\\s", "").toLowerCase
-    val btc = WalletApp.btcTxDataBag.searchTransactions(query1).map(WalletApp.btcTxDataBag.toInfo)
-    infosFromDb = btc
-  }
-
   def fillAllInfos: Unit = {
     val pending = WalletApp.pendingInfos.values
     val displayed = pending.toList ++ infosFromDb
@@ -112,16 +106,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   def loadRecent: Unit = {
     loadRecentInfos
     fillAllInfos
-  }
-
-  def loadSearch(query: String): Unit = {
-    loadSearchedBtcInfos(query)
-    fillAllInfos
-  }
-
-  val searchWorker: ThrottledWork[String, Unit] = new ThrottledWork[String, Unit] {
-    override def work(query: String): Unit = if (query.nonEmpty) loadSearch(query) else loadRecent
-    override def process(query: String, searchResultEffect: Unit): Unit = paymentAdapterDataChanged.run
   }
 
   val paymentsAdapter: BaseAdapter = new BaseAdapter {
@@ -573,16 +557,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       whenNone.run
   }
 
-  override def onBackPressed: Unit = {
-    if (isSearchOn) rmSearch(view = null)
-    else if (displayFullIxInfoHistory) {
-      displayFullIxInfoHistory = false
-      allInfos = allInfos.take(ITEMS)
-      paymentAdapterDataChanged.run
-    } else super.onBackPressed
-  }
-
-  def isSearchOn: Boolean = walletCards.searchField.getTag.asInstanceOf[Boolean]
   def isSettingsOn: Boolean = walletCards.settingsContainer.getVisibility == View.VISIBLE
 
   override def START(state: Bundle): Unit =
@@ -607,14 +581,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         walletCards.resetCards
         runAnd { loadRecent } { paymentAdapterDataChanged.run }
-        walletCards.searchField addTextChangedListener onTextChange(searchWorker.addWork)
-
-        // STREAMS
-
         viewUpdateSub = Rx.uniqueFirstAndLastWithinWindow(DbStreams.txStream, 500.millis) {
           // Full view update when it makes sense to load new infos from db (info added, broadcasted, description changed)
           // For BTC txs specifically, we also leverage this opportunity to check whether they got confirmed or double-spent
-          if (!isSearchOn) loadRecent
 
           for {
             info <- btcInfosToConsider if !info.isDoubleSpent && !info.isConfirmed
@@ -654,20 +623,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
   // VIEW HANDLERS
-
-  def bringSearch(view: View): Unit = {
-    walletCards.searchField.setTag(true)
-    androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
-    setVisMany(false -> walletCards.defaultHeader, true -> walletCards.searchField)
-  }
-
-  def rmSearch(view: View): Unit = {
-    walletCards.searchField.setTag(false)
-    walletCards.searchField.setText(new String)
-    androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
-    setVisMany(true -> walletCards.defaultHeader, false -> walletCards.searchField)
-    WalletApp.app.hideKeys(walletCards.searchField)
-  }
 
   def bringPasteAddressDialog: Unit = {
     def doBringPasteAddressDialog: Unit = {
@@ -941,8 +896,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    // Do not show an exand button IF user has chosen to show full history OR searching is on OR we have nothing extra to show
-    val expandHideCases = displayFullIxInfoHistory || isSearchOn || btcInfosToConsider.size <= allInfos.size
+    val expandHideCases = displayFullIxInfoHistory || btcInfosToConsider.size <= allInfos.size
     setVisMany(allInfos.nonEmpty -> walletCards.recentActivity, !expandHideCases -> expandContainer)
     paymentsAdapter.notifyDataSetChanged
   }
@@ -1200,10 +1154,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     var isEarnAccountExpanded = false
     val view = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
     val fiatUnitPriceAndChange = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
-    val defaultHeader = view.findViewById(R.id.defaultHeader).asInstanceOf[LinearLayout]
     val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
-    val searchField = view.findViewById(R.id.searchField).asInstanceOf[EditText]
     val manager = new WalletCardManager(holder)
 
     // Settings region
@@ -1211,12 +1163,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>v3.2-6</font>"
+    val appName = s"${me getString app_name} <font color=$cardZero>v3.3-8</font>"
     val btc = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)
     nameAndVer.setText(appName.html)
-    searchField.setTag(false)
 
     def showBtcWalletCard = {
       val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret)
