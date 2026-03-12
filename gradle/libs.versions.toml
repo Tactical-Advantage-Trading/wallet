@@ -1,16 +1,15 @@
 [versions]
-agp = "8.12.1"
-coreKtx = "1.17.0"
+agp = "8.12.3"
+coreKtx = "1.18.0"
 akkaActor = "2.3.14"
-commonsCodec = "1.19.0"
-guava = "33.4.8-android"
+commonsCodec = "1.21.0"
+guava = "33.5.0-android"
 json4sNative = "4.0.6"
-nettyAll = "4.1.42.Final"
 okhttp = "5.1.0"
 quicklens = "1.9.12"
 scalaParserCombinators = "2.2.0"
 scodecCore = "1.11.4"
-secp256k1KmpJniAndroid = "0.18.0"
+secp256k1KmpJniAndroid = "0.19.0"
 sprayJson = "1.3.6"
 recyclerview = "1.4.0"
 appcompat = "1.7.1"
@@ -20,7 +19,7 @@ nvWebsocketClient = "2.14"
 rxscala = "0.27.0"
 multidex = "2.0.1"
 material = "1.12.0"
-web3j = "5.0.0"
+web3j = "5.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,7 +27,6 @@ akka-actor = { module = "com.typesafe.akka:akka-actor_2.11", version.ref = "akka
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 json4s-native = { module = "org.json4s:json4s-native_2.11", version.ref = "json4sNative" }
-netty-all = { module = "io.netty:netty-all", version.ref = "nettyAll" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 quicklens = { module = "com.softwaremill.quicklens:quicklens_2.11", version.ref = "quicklens" }
 scala-parser-combinators = { module = "org.scala-lang.modules:scala-parser-combinators_2.11", version.ref = "scalaParserCombinators" }
@@ -47,4 +45,4 @@ web3j = { group = "org.web3j", name = "core", version.ref = "web3j" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-scalaAndroid = { id = "com.soundcorset.scala-android", version = "25.0417.2204" }
+scalaAndroid = { id = "com.soundcorset.scala-android", version = "26.0124.2208" }

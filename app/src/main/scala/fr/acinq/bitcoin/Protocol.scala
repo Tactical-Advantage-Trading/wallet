@@ -3,10 +3,10 @@ package fr.acinq.bitcoin
 import java.io._
 import java.net.{Inet4Address, Inet6Address, InetAddress}
 import java.nio.{ByteBuffer, ByteOrder}
-
 import scodec.bits._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.language.implicitConversions
 
 /**
  * see https://en.bitcoin.it/wiki/Protocol_specification
@@ -204,7 +204,7 @@ object Protocol {
     for (_ <- 1L to count) {
       items += reader(input, protocolVersion)
     }
-    items.toSeq
+    items
   }
 
   def readCollection[T](input: InputStream, reader: (InputStream, Long) => T, protocolVersion: Long): Seq[T] = readCollection(input, reader, None, protocolVersion)
@@ -285,12 +285,6 @@ trait BtcSerializable[T] {
 }
 
 object Message extends BtcSerializer[Message] {
-  val MagicMain = 0xD9B4BEF9L
-  val MagicTestNet = 0xDAB5BFFAL
-  val MagicTestnet3 = 0x0709110BL
-  val MagicNamecoin = 0xFEB4BEF9L
-  val MagicSegnet = 0xC4A1ABDC
-
   override def read(in: InputStream, protocolVersion: Long): Message = {
     val magic = uint32(in)
     val buffer = new Array[Byte](12)

@@ -133,7 +133,7 @@ object Block extends BtcSerializer[Block] {
       List(
         Transaction(version = 1,
           txIn = List(TxIn.coinbase(script)),
-          txOut = List(TxOut(amount = 50 btc, publicKeyScript = scriptPubKey)),
+          txOut = List(TxOut(amount = 50.btc, publicKeyScript = scriptPubKey)),
           lockTime = 0))
     )
   }
@@ -141,8 +141,6 @@ object Block extends BtcSerializer[Block] {
   val TestnetGenesisBlock = LivenetGenesisBlock.copy(header = LivenetGenesisBlock.header.copy(time = 1296688602, nonce = 414098458))
 
   val RegtestGenesisBlock = LivenetGenesisBlock.copy(header = LivenetGenesisBlock.header.copy(bits = 0x207fffffL, nonce = 2, time = 1296688602))
-
-  val SegnetGenesisBlock = LivenetGenesisBlock.copy(header = LivenetGenesisBlock.header.copy(bits = 503447551, time = 1452831101, nonce = 0))
 
   /**
     * Proof of work: hash(block) <= target difficulty

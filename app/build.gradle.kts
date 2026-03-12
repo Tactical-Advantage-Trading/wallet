@@ -11,9 +11,9 @@ android {
 
     defaultConfig {
         applicationId = "trading.tacticaladvantage"
-        versionName = "3.2"
-        versionCode = 6
-        targetSdk = 33
+        versionName = "3.3"
+        versionCode = 7
+        targetSdk = 36
         minSdk = 28
 
         vectorDrawables {
@@ -40,7 +40,7 @@ android {
 
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/*"
         }
     }
 }
@@ -66,7 +66,6 @@ dependencies {
     implementation(libs.spray.json)
     implementation(libs.json4s.native)
     implementation(libs.commons.codec)
-    implementation(libs.netty.all)
     implementation(libs.okhttp)
     implementation(libs.guava)
 }
