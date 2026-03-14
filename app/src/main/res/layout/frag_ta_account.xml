@@ -43,12 +43,6 @@
         android:id="@+id/taLoansContainer"
         android:orientation="vertical"/>
 
-    <com.ornach.nobobutton.NoboButton
-        android:layout_marginTop="20dp"
-        app:nb_text="@string/ta_loan"
-        android:id="@+id/taDeposit"
-        style="@style/GreenButton"/>
-
     <TextView
         style="@style/BoundedView"
         android:visibility="gone"

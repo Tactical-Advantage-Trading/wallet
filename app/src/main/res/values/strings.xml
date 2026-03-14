@@ -7,13 +7,13 @@
     <string name="tap_to_receive">Tap to receive</string>
     <string name="recent_activity">Recents</string>
     <string name="wallets">Wallets</string>
-    <string name="typing_hints">₿TC address</string>
+    <string name="typing_hints">BTC address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="emergency_mode">Something went wrong</string>
     <string name="error_log">Export error logs</string>
 
     <!-- Wallet Management -->
-    <string name="bitcoin_wallet">₿TC</string>
+    <string name="bitcoin_wallet">BTC</string>
     <string translatable="false" name="wallet_send">Send</string>
 
     <string name="setup_create_new">Create new wallet</string>
@@ -34,8 +34,8 @@
 
     <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
-    <string name="ta_loan">Loan ₿TC</string>
-    <string name="ta_btc_loan_label">Earn account ₿TC loan</string>
+
+    <string name="ta_btc_loan_label">Earn account BTC loan</string>
     <string name="ta_loan_duration">Duration</string>
     <string name="ta_loan_annual_return">Annual return</string>
 
@@ -44,13 +44,12 @@
 
     <string name="ta_withdraw_full">Withdraw full balance</string>
     <string name="ta_withdraw_interest">Withdraw interest only</string>
-
-    <string name="ta_withdraw_off">cancel withdraw</string>
-    <string name="ta_withdraw_on">withdraw</string>
-
     <string name="ta_pending_deposit">Processing a deposit</string>
-    <string name="ta_logout">log out</string>
-    <string name="ta_support">get support</string>
+    <string name="ta_withdraw_off">Cancel withdraw</string>
+    <string name="ta_withdraw_on">Withdraw</string>
+    <string name="ta_support">Support</string>
+    <string name="ta_logout">Log out</string>
+    <string name="ta_loan">Loan</string>
 
     <string name="ta_signup_warn"><![CDATA[
         Automatic client registration is not working yet and each signup is approved manually.<br><br> Email us at
@@ -101,8 +100,8 @@
     <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
 
-    <string name="dialog_send_btc"><![CDATA[Send <b>₿TC</b> to address<br>%1$s%2$s]]></string>
-    <string name="dialog_send_btc_many"><![CDATA[Send <b>₿TC</b><br><b>to many addresses</b>]]></string>
+    <string name="dialog_send_btc"><![CDATA[Send <b>BTC</b> to address<br>%1$s%2$s]]></string>
+    <string name="dialog_send_btc_many"><![CDATA[Send <b>BTC</b><br><b>to many addresses</b>]]></string>
     <string name="dialog_send_btc_confirm_fiat">Fiat value</string>
     <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>

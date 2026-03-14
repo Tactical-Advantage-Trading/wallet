@@ -46,7 +46,7 @@ object MainActivity {
     def withBtcInfo(info: BtcInfo): Accumulator = Accumulator(identities ++ info.relatedTxids, infos + info)
   }
 
-  val ITEMS = 1
+  val DEFAULT_SHOW_ITEMS = 1
   var displayFullIxInfoHistory: Boolean = false
   var idsToDisplayAnyway: Set[String] = Set.empty
   var btcInfosToConsider: Iterable[BtcInfo] = Nil
@@ -74,8 +74,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     infosFromDb = btcInfosToConsider
 
     if (!displayFullIxInfoHistory) {
-      // First, select a number of most recent chronological items to display by default
-      val sortedCandidates = infosFromDb.toList.sortBy(_.seenAt)(Ordering[Long].reverse).take(ITEMS)
+      // First, select a number of most recent chronological items to be displayed by default
+      val sortedCandidates = infosFromDb.toList.sortBy(_.seenAt)(Ordering[Long].reverse).take(DEFAULT_SHOW_ITEMS)
 
       // Then, we init accumulator with those
       val accumulator1 = Accumulator(idsToDisplayAnyway)
@@ -575,7 +575,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         expand setOnClickListener onButtonTap {
           androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
-          runAnd(displayFullIxInfoHistory = true)(action = loadRecent)
+          runAnd(displayFullIxInfoHistory = !displayFullIxInfoHistory)(action = loadRecent)
           paymentAdapterDataChanged.run
         }
 
@@ -896,8 +896,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    val expandHideCases = displayFullIxInfoHistory || btcInfosToConsider.size <= allInfos.size
-    setVisMany(allInfos.nonEmpty -> walletCards.recentActivity, !expandHideCases -> expandContainer)
+    setVis(allInfos.nonEmpty, walletCards.recentActivity)
+    setVis(btcInfosToConsider.size > DEFAULT_SHOW_ITEMS, expandContainer)
     paymentsAdapter.notifyDataSetChanged
   }
 
@@ -1056,7 +1056,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
     val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
     val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
-    val taDeposit: NoboButton = wrap.findViewById(R.id.taDeposit).asInstanceOf[NoboButton]
     val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
     val taInfo: TextView = wrap.findViewById(R.id.taInfo).asInstanceOf[TextView]
 
@@ -1067,16 +1066,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         onDisconnected
       }
 
-      override def onDisconnected: Unit = {
+      override def onDisconnected: Unit =
         WalletApp.linkClient ! LinkClient.CmdRemove(this)
-        UITask(taDeposit setEnabled true).run
-      }
-    }
-
-    taDeposit setOnClickListener onButtonTap {
-      WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
-      WalletApp.linkClient ! loanAdListener
-      taDeposit.setEnabled(false)
     }
 
     def updateView(status: LinkClient.UserStatus): Unit = {
@@ -1142,6 +1133,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = false).run)
         WalletApp.linkClient ! LinkClient.Request(request, withdrawListener.id)
         WalletApp.linkClient ! withdrawListener
+      }
+
+      addFlowChip(taExtended, getString(ta_loan), R.drawable.border_yellow) {
+        WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
+        WalletApp.linkClient ! loanAdListener
       }
 
       withdrawButtonOpt
@@ -1218,7 +1214,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateView: Unit = {
       val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
       val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
-      fiatUnitPriceAndChange.setText(s"₿ ≈ $unitRate $change".html)
+      fiatUnitPriceAndChange.setText(s"B ≈ $unitRate $change".html)
       manager.cardViews.foreach(_.updateView)
 
       settingsButtons.removeAllViewsInLayout
