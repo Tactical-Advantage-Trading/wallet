@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout style="@style/StandardXYMarginLinearLayout"
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:f="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:visibility="gone">
@@ -21,7 +20,6 @@
         style="@style/BoundedView"
         android:layout_marginTop="10dp"
         android:id="@+id/taBalancesTitle"
-        android:layout_marginBottom="@dimen/corner_radius"
         android:textColor="@color/cardZeroText"
         android:text="@string/ta_balances"/>
 
@@ -34,7 +32,6 @@
         style="@style/BoundedView"
         android:id="@+id/taLoansTitle"
         android:layout_marginTop="10dp"
-        android:layout_marginBottom="@dimen/corner_radius"
         android:textColor="@color/cardZeroText"
         android:text="@string/ta_loans"/>
 
@@ -46,7 +43,7 @@
     <TextView
         style="@style/BoundedView"
         android:visibility="gone"
-        android:paddingTop="20dp"
+        android:paddingTop="15dp"
         android:id="@+id/taInfo"/>
 
     <org.apmem.tools.layouts.FlowLayout
