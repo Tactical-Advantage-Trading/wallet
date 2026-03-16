@@ -18,7 +18,7 @@
 
     <TextView
         style="@style/BoundedView"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="15dp"
         android:id="@+id/taBalancesTitle"
         android:textColor="@color/cardZeroText"
         android:text="@string/ta_balances"/>
@@ -43,11 +43,11 @@
     <TextView
         style="@style/BoundedView"
         android:visibility="gone"
-        android:paddingTop="15dp"
+        android:paddingTop="10dp"
         android:id="@+id/taInfo"/>
 
     <org.apmem.tools.layouts.FlowLayout
-        android:layout_marginTop="15dp"
+        android:layout_marginTop="10dp"
         android:id="@+id/taExtended"
         style="@style/FillingView"
         f:layout_newLine="true"/>
