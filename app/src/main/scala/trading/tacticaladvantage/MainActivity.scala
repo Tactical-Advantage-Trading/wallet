@@ -401,13 +401,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       item match {
         case info: BtcInfo =>
+          val isRbfCancel = info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL)
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
+          val fee = BtcDenom.parsed(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
           for (btcLabel <- info.description.label) addFlowChip(extraInfo, btcLabel, R.drawable.border_white, None)
-          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray) {
-            me browse s"https://mempool.space/tx/${info.identity}"
-          }
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray)(me browse s"https://mempool.space/tx/${info.identity}")
+          if (!info.isIncoming || isRbfCancel || info.description.cpfpOf.isDefined) addFlowChip(extraInfo, getString(popup_fee).format(fee), R.drawable.border_gray)(none)
 
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_white)(self boostRBF info)
           if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_white)(self cancelRBF info)

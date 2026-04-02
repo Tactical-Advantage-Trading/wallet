@@ -25,7 +25,7 @@
             <TextView
                 style="@style/FillingView"
                 android:id="@+id/rbfIssue"
-                android:background="@color/paymentAwait"
+                android:background="@android:color/holo_red_dark"
                 android:paddingBottom="15dp"
                 android:paddingStart="15dp"
                 android:paddingTop="10dp"

@@ -25,12 +25,6 @@ object Denomination {
 
   def fiatTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String =
     "<tt>" + fiat(incoming, outgoing, inColor, outColor, isIncoming) + "</tt>"
-
-  def fiatDirectedTT(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean): String = {
-    val base = fiatTT(incoming, outgoing, inColor, outColor, isIncoming)
-    val direction = if (isIncoming) "+&#160;" else "-&#160;"
-    s"$direction$base"
-  }
 }
 
 trait Denomination {
