@@ -48,9 +48,11 @@
     <string name="ta_logout">Вийти</string>
     <string name="ta_loan">Позика</string>
 
-    <string name="ta_signup_warn"><![CDATA[
-        Автоматична реєстрація клієнтів ще не працює, кожну заявку схвалюємо вручну.<br><br> Напишіть нам на
-        <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b>, щоб стати клієнтом.
+    <string name="ta_account_disabled"><![CDATA[
+        Ваш обліковий запис наразі деактивовано, тому внесення та виведення коштів недоступні.<br><br>
+        Ймовірна причина полягає в тому, що ваш обліковий запис ще не затверджено як акаунт кваліфікованого інвестора або його було деактивовано вручну.<br><br>
+        Будь ласка, зв’яжіться з нами за адресою <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b>,
+        якщо ви бажаєте подати заявку на отримання статусу кваліфікованого інвестора.
     ]]></string>
 
     <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>

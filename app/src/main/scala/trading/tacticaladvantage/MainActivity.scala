@@ -409,9 +409,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
             me browse s"https://mempool.space/tx/${info.identity}"
           }
 
-          if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostRBF info)
-          if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_yellow)(self cancelRBF info)
-          if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_yellow)(self boostCPFP info)
+          if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_white)(self boostRBF info)
+          if (canRBF) addFlowChip(extraInfo, getString(dialog_cancel), R.drawable.border_white)(self cancelRBF info)
+          if (canCPFP) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_white)(self boostCPFP info)
       }
     }
 
@@ -473,8 +473,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   private val taErrorListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
     override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
+      case LinkClient.Failure(LinkClient.ACCOUNT_BANNED) => extendedWarn(msgRes = ta_account_disabled).run
       case fail: LinkClient.Failure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
       case _ => // Not interested in anything else
+    }
+
+    def extendedWarn(msgRes: Int) = UITask {
+      val title = new TitleView(me getString msgRes).asDefView
+      val bld = titleBodyAsViewBuilder(null, title).setPositiveButton(dialog_ok, null)
+      showForm(bld.create)
     }
   }
 
@@ -775,7 +782,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   def bringTaSignInDialogEmail(titleMsg: String): Unit = {
     val (builder, extraInputLayout, extraInputField) = singleInputPopupBuilder(new TitleView(titleMsg).asDefView)
-    lazy val alert = mkCheckFormNeutral(proceed, none, signUpWarn, builder, dialog_ok, dialog_cancel, dialog_signup)
+    lazy val alert = mkCheckForm(proceed, none, builder, dialog_ok, dialog_cancel)
 
     lazy val listener = new LinkClient.Listener("login-email") {
       override def onDisconnected: Unit = onText(extraInputField.getText.toString)
@@ -787,13 +794,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val email = extraInputField.getText.toString
       timer.schedule(bringTaSignInDialogPass(email), 225)
       alert.dismiss
-    }
-
-    def signUpWarn(unused: AlertDialog): Unit = {
-      val title = new TitleView(me getString ta_signup_warn)
-      val bld = titleBodyAsViewBuilder(null, title.asDefView)
-      val bld1 = bld.setPositiveButton(dialog_ok, null)
-      showForm(bld1.create)
     }
 
     def proceed(unused: AlertDialog): Unit = {
@@ -890,7 +890,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     else if (spendable.size == 1) onOk(specs = spendable)
     else if (usable.size == 1) onOk(specs = usable)
     else {
-      val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_yellow, None)
+      val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_white, None)
       val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
       lazy val alert = mkCheckForm(proceed, none, titleBodyAsViewBuilder(title.view, cardsContainer), dialog_ok, dialog_cancel)
 
@@ -948,7 +948,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val balanceWalletFiat: TextView = cardWrap.findViewById(R.id.balanceWalletFiat).asInstanceOf[TextView]
     val balanceWallet: TextView = cardWrap.findViewById(R.id.balanceWallet).asInstanceOf[TextView]
     val cardButtons: FlowLayout = cardWrap.findViewById(R.id.cardButtons).asInstanceOf[FlowLayout]
-    addFlowChip(cardButtons, getString(dialog_hide), R.drawable.border_blue)(hide)
+    addFlowChip(cardButtons, getString(dialog_hide), R.drawable.border_white)(hide)
 
     def hide: Unit = none
     def updateView: Unit
@@ -1042,8 +1042,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, status.pendingWithdraws.isEmpty) match {
-        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_yellow)(requestWithdraw).asSome
-        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_yellow)(cancelScheduledWithdraw).asSome
+        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_white)(requestWithdraw).asSome
+        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_white)(cancelScheduledWithdraw).asSome
         case _ => None
       }
 
@@ -1075,12 +1075,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           }
         }
 
-        WalletApp.linkClient ! LinkClient.Request(request, withdrawListener.id)
         withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = false).run)
+        WalletApp.linkClient ! LinkClient.Request(request, withdrawListener.id)
         WalletApp.linkClient ! withdrawListener
       }
 
-      lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_yellow) {
+      lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_white) {
         WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
         updateViewEnabled(getLoanAdButton, isEnabled = false).run
         WalletApp.linkClient ! loanAdListener
@@ -1101,8 +1101,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       getLoanAdButton
       withdrawButtonOpt
-      addFlowChip(taExtended, getString(ta_support), R.drawable.border_blue)(me browse "mailto:contact@tactical-advantage.trading")
-      addFlowChip(taExtended, getString(ta_logout), R.drawable.border_blue)(WalletApp.linkClient ! LinkClient.LoggedOut)
+
+      addFlowChip(taExtended, getString(ta_support), R.drawable.border_white)(me browse "mailto:contact@tactical-advantage.trading")
+      addFlowChip(taExtended, getString(ta_logout), R.drawable.border_white)(WalletApp.linkClient ! LinkClient.LoggedOut)
     }
   }
 
@@ -1183,10 +1184,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       if (isSettingsOn) {
         val title = getString(settings_show).format(me getString bitcoin_wallet)
-        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, title, R.drawable.border_yellow)(showBtcWalletCard)
-        if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_yellow)(showTaCard)
-        addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_blue)(viewRecoveryCode)
-        addFlowChip(settingsButtons, getString(settings_attach_wallet), R.drawable.border_blue)(attachBtcWallet)
+        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, title, R.drawable.border_white)(showBtcWalletCard)
+        if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_white)(showTaCard)
+        addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_white)(viewRecoveryCode)
+        addFlowChip(settingsButtons, getString(settings_attach_wallet), R.drawable.border_white)(attachBtcWallet)
       }
     }
   }

@@ -52,9 +52,10 @@
     <string name="ta_logout">Log out</string>
     <string name="ta_loan">Loan</string>
 
-    <string name="ta_signup_warn"><![CDATA[
-        Automatic client registration is not working yet and each signup is approved manually.<br><br> Email us at
-        <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> to become a client.
+    <string name="ta_account_disabled"><![CDATA[
+        Your account is currently disabled, so deposits and withdrawals are unavailable.<br><br>
+        The most likely reason is that your account has not yet been approved as a qualified investor account, or it has been manually suspended.<br><br>
+        Please contact us at <b><a href="mailto:contact@tactical-advantage.trading">contact@tactical-advantage.trading</a></b> if you would like to apply for qualified investor status.
     ]]></string>
 
     <string name="dev_info"><![CDATA[by <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>

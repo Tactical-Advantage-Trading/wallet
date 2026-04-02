@@ -13,18 +13,18 @@
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_yellow"
+            android:background="@drawable/border_white"
             android:id="@+id/feeRate"/>
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_yellow"
+            android:background="@drawable/border_white"
             android:visibility="invisible"
             android:id="@+id/bitcoinFee"/>
 
         <TextView
             style="@style/ChipTextGrayMargin"
-            android:background="@drawable/border_yellow"
+            android:background="@drawable/border_white"
             android:visibility="invisible"
             android:id="@+id/fiatFee"/>
 

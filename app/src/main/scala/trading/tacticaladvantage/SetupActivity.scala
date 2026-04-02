@@ -48,7 +48,7 @@ trait MnemonicActivity { me: BaseActivity =>
 
     for (mnemonicWord \ mnemonicIndex <- WalletApp.secret.mnemonic.zipWithIndex) {
       val oneWord = s"<font color=$cardZero>${mnemonicIndex + 1}</font> $mnemonicWord"
-      addFlowChip(content.flow, oneWord, R.drawable.border_blue, None)
+      addFlowChip(content.flow, oneWord, R.drawable.border_white, None)
     }
   }
 
