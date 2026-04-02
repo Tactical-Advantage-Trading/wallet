@@ -52,6 +52,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="bitcoin"/>
+                <data android:scheme="ecash"/>
             </intent-filter>
         </activity>
 
@@ -67,11 +68,6 @@
 
         <activity
             android:name=".QRBtcActivity"
-            android:launchMode="singleTask"
-            android:theme="@style/NoActionBar"/>
-
-        <activity
-            android:name=".QRSigActivity"
             android:launchMode="singleTask"
             android:theme="@style/NoActionBar"/>
 

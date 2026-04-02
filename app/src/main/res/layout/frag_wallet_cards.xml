@@ -20,6 +20,7 @@
 
             <TextView
                 android:alpha="0.4"
+                android:textSize="16sp"
                 android:id="@+id/fiatUnitPriceAndChange"
                 android:layout_centerVertical="true"
                 style="@style/BoundedView"/>
@@ -54,7 +55,6 @@
                 android:linksClickable="true"
                 android:layout_marginTop="10dp"
                 android:layout_marginBottom="15dp"
-                android:textColorLink="@color/btcLogo"
                 style="@style/BoundedView"/>
 
             <org.apmem.tools.layouts.FlowLayout

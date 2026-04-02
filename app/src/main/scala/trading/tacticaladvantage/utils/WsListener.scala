@@ -17,14 +17,6 @@ object WsListener {
   case object CmdConnect
   case object CmdConnected
   case object CmdDisconnected
-
-  case class BinaryMessage(binary: Bytes) {
-    def asLongTry: scala.util.Try[Long] = scala.util.Try {
-      ByteBuffer.wrap(binary, 0, java.lang.Long.BYTES)
-        .order(ByteOrder.BIG_ENDIAN)
-        .getLong
-    }
-  }
 }
 
 class WsListener[T, V](host: StateMachine[T], parse: String => Try[V], errorFun: String => Unit) extends WebSocketAdapter {
@@ -37,7 +29,4 @@ class WsListener[T, V](host: StateMachine[T], parse: String => Try[V], errorFun:
       errorFun(exception.stackTraceAsString)
       ws.disconnect
     }
-
-  override def onBinaryMessage(ws: WebSocket, binary: Bytes): Unit =
-    host ! BinaryMessage(binary)
 }

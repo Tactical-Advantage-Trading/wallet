@@ -15,7 +15,6 @@
             android:id="@+id/devInfo"
             android:linksClickable="true"
             android:layout_marginTop="10dp"
-            android:textColorLink="@color/btcLogo"
             style="@style/BoundedView"/>
 
         <com.ornach.nobobutton.NoboButton

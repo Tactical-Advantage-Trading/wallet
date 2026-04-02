@@ -5,8 +5,6 @@ import fr.acinq.eclair._
 import immortan.Tools._
 import immortan.utils.Denomination
 import immortan.{BtcDescription, PlainBtcDescription}
-import org.bouncycastle.util.encoders.Base64
-import scodec.bits.ByteVector
 import trading.tacticaladvantage.utils.InputParser._
 import trading.tacticaladvantage.utils.uri.Uri
 
@@ -18,32 +16,26 @@ object InputParser {
   case object DoNotEraseRecordedValue
   type Checker = PartialFunction[Any, Any]
 
+  val bitcoin: String = "bitcoin:"
+  val ecash: String = "ecash:"
+
   def checkAndMaybeErase(fun: Checker): Unit = fun(value) match {
     case DoNotEraseRecordedValue => // Do nothing, value is retained
     case _ => value = null // Erase recorded value
   }
 
   def removePrefix(raw: String): String = raw.split(':').toList match {
-    case prefix :: content if bitcoin.startsWith(prefix.toLowerCase) =>
-      content.mkString.replace("//", "")
+    case prefix :: content if bitcoin.startsWith(prefix.toLowerCase) => content.mkString.replace("//", "")
+    case prefix :: content if ecash.startsWith(prefix.toLowerCase) => throw new Exception("TODO Ecash")
     case _ => raw
   }
 
   def recordValue(raw: String): Unit = value = parse(raw)
 
-  private[this] val bip322Sign = "(?im).*?(bip322sign)([A-Za-z0-9+/=a-fA-F|-]+)".r.unanchored
-  private[this] val bip322Verify = "(?im).*?(bip322verify)([A-Za-z0-9+/=a-fA-F|-]+)".r.unanchored
-  val bitcoin: String = "bitcoin:"
-
-  def parse(raw: String): Any = raw.take(2880) match {
-    case bip322Sign(_, rawData) => BIP322Data.parseSign(rawData)
-    case bip322Verify(_, rawData) => BIP322Data.parseVerify(rawData)
-    case _ if raw.startsWith("0x") => raw
-
-    case _ =>
-      val withoutSlashes = removePrefix(raw).trim
-      val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, raw)
-      addressToAmount getOrElse PlainBitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
+  def parse(raw: String): Any = {
+    val withoutSlashes = removePrefix(raw take 2880).trim
+    val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, raw)
+    addressToAmount getOrElse PlainBitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
   }
 }
 
@@ -67,31 +59,6 @@ case class PlainBitcoinUri(uri: Try[Uri], address: String) extends BitcoinUri {
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
   val desc: BtcDescription = PlainBtcDescription(List(address), label)
   val maxAmount: MilliSatoshi = MAX_MSAT
-}
-
-object BIP322Data {
-  def fromBase64String(raw64: String) = new String(Base64 decode raw64)
-  def toBase64String(raw: String) = Base64.toBase64String(raw.getBytes)
-
-  def parseVerify(raw: String): BIP322VerifyData = raw split '|' match {
-    case Array(address, hash, sig64, "-") => BIP322VerifyData(address, ByteVector.fromValidHex(hash), sig64, Option.empty)
-    case Array(address, hash, sig64, msg) => BIP322VerifyData(address, ByteVector.fromValidHex(hash), sig64, fromBase64String(msg).asSome)
-    case _ => throw new RuntimeException
-  }
-
-  def parseSign(raw: String): BIP32SignData = raw split '|' match {
-    case Array(message, address) => BIP32SignData(message, address)
-    case _ => throw new RuntimeException
-  }
-}
-
-case class BIP322VerifyData(address: String, messageHash: ByteVector, signature64: String, message: Option[String] = None) {
-  def serialize: String = s"bip322verify$address|${messageHash.toHex}|$signature64|${message.map(_.getBytes).map(Base64.toBase64String) getOrElse "-"}"
-}
-
-case class BIP32SignData(message64: String, address: String) {
-  lazy val message: String = BIP322Data.fromBase64String(message64)
-  def serialize: String = s"bip322sign$message64|$address"
 }
 
 object MultiAddressParser extends RegexParsers {

@@ -2,20 +2,21 @@
 <resources>
     <!-- General & Navigation -->
     <string name="lang">eng</string>
-    <string name="app_name">Key wallet</string>
+    <string translatable="false" name="app_name">Key wallet</string>
     <string name="select_wallets">Select wallets</string>
     <string name="tap_to_receive">Tap to receive</string>
     <string name="recent_activity">Recents</string>
     <string name="wallets">Wallets</string>
-    <string name="typing_hints">BTC address</string>
+    <string name="typing_hints">Receiver address</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="emergency_mode">Something went wrong</string>
     <string name="error_log">Export error logs</string>
 
     <!-- Wallet Management -->
-    <string name="bitcoin_wallet">BTC</string>
-    <string translatable="false" name="wallet_send">Send</string>
+    <string translatable="false" name="ecash_wallet">ECA</string>
+    <string translatable="false" name="bitcoin_wallet">BTC</string>
 
+    <string name="wallet_send">Send</string>
     <string name="setup_create_new">Create new wallet</string>
     <string name="setup_restore_existing">Restore existing wallet</string>
     <string name="setup_create_new_hint">This will create a fresh wallet with zero balance and new recovery phrase. Choose this option if you wish to start from scratch.</string>
@@ -35,9 +36,9 @@
     <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
 
-    <string name="ta_btc_loan_label">Earn account BTC loan</string>
     <string name="ta_loan_duration">Duration</string>
     <string name="ta_loan_annual_return">Annual return</string>
+    <string name="ta_btc_loan_label">Earn account BTC loan</string>
 
     <string name="ta_withdraw_full_when">Next full withdraw %1$s</string>
     <string name="ta_withdraw_interest_when">Next interest withdraw %1$s</string>
@@ -73,10 +74,10 @@
     </array>
 
     <!-- Settings -->
-    <string name="settings_show_btc">Show BTC wallet</string>
+    <string name="settings_show">Show %1$s wallet</string>
     <string name="settings_show_ta">Show Earn account</string>
 
-    <string name="settings_attach_btc_wallet">Attach BTC wallet</string>
+    <string name="settings_attach_wallet">Attach wallet</string>
     <string name="settings_view_recovery_phrase">View recovery phrase</string>
     <string name="settings_view_revocery_phrase_ext">These words allow to restore wallet balance on any device, please keep them secret at all times!</string>
 
@@ -100,9 +101,9 @@
     <string name="dialog_fee_estimating">estimating&#8230;</string>
     <string name="dialog_change_feerate">Change feerate&#8230;</string>
 
-    <string name="dialog_send_btc"><![CDATA[Send <b>BTC</b> to address<br>%1$s%2$s]]></string>
-    <string name="dialog_send_btc_many"><![CDATA[Send <b>BTC</b><br><b>to many addresses</b>]]></string>
-    <string name="dialog_send_btc_confirm_fiat">Fiat value</string>
+    <string name="dialog_send"><![CDATA[Send <b>%1$s</b> to address<br>%2$s%3$s]]></string>
+    <string name="dialog_send_many"><![CDATA[Send <b>%1$s</b><br><b>to many addresses</b>]]></string>
+    <string name="dialog_send_confirm_fiat">Fiat value</string>
     <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>
 
@@ -117,7 +118,6 @@
     <string name="description_rbf_cancel">RBF canceling</string>
     <string name="description_rbf_boost">RBF boosting</string>
     <string name="description_cpfp">CPFP boosting</string>
-    <string name="tx_btc">Bitcoin Transaction</string>
 
     <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>address</b>&#160;%1$s]]></string>
@@ -135,24 +135,4 @@
     <string name="rbf_cancel_explain"><![CDATA[Apply RBF to this outgoing transaction to increase its fee and <b>get it back to wallet</b>]]></string>
     <string name="rbf_err_foreign_inputs">Can not boost this transaction because it contains inputs not belonging to this wallet</string>
     <string name="rbf_err_parents_missing">Can not boost this transaction because its parents are missing in this wallet</string>
-
-    <!-- Sign & Verify Messages -->
-    <string name="sign_address_not_found">Requested address is not found</string>
-    <string name="sign_sign_message_notx_title"><![CDATA[Sign message using address<br><br><b>%1$s</b>]]></string>
-    <string name="sign_signed_message_title"><![CDATA[<b>Message signed with address</b><br>%1$s]]></string>
-
-    <string name="sign_sign_message">Sign message</string>
-    <string name="sign_sig_only">Share signature and hash only</string>
-    <string name="sign_sig_only_info">Do not reveal a message itself</string>
-    <string name="sign_message">Message</string>
-    <string name="sign_sign">Sign</string>
-
-    <string name="verify_ok">SIGNATURE MATCHES</string>
-    <string name="verify_no">SIGNATURE DOES NOT MATCH</string>
-
-    <string name="verify_details"><![CDATA[
-        <br>Signed with Bitcoin address<br><b>%1$s</b><br><br>
-        BIP322 Message hash<br><b>%2$s</b><br><br>
-        Message text<br><b>%3$s</b>
-    ]]></string>
 </resources>

@@ -2,20 +2,17 @@
 <resources>
     <!-- General & Navigation -->
     <string name="lang">ukr</string>
-    <string name="app_name">Key wallet</string>
     <string name="select_wallets">Оберіть гаманці</string>
     <string name="tap_to_receive">Отримати</string>
     <string name="recent_activity">Нещодавнє</string>
     <string name="wallets">Гаманці</string>
-    <string name="typing_hints">BTC адреса</string>
+    <string name="typing_hints">Адреса отримувача</string>
     <string name="copied_to_clipboard">Скопійовано</string>
     <string name="emergency_mode">Щось пішло не так</string>
     <string name="error_log">Експортувати помилки</string>
 
     <!-- Wallet Management -->
-    <string name="bitcoin_wallet">BTC</string>
-    <string translatable="false" name="wallet_send">Надіслати</string>
-
+    <string name="wallet_send">Надіслати</string>
     <string name="setup_create_new">Створити новий гаманець</string>
     <string name="setup_restore_existing">Відновити гаманець</string>
     <string name="setup_create_new_hint">Це створить новий гаманець із нульовим балансом і новою фразою відновлення. Оберіть цей варіант, щоб почати з нуля.</string>
@@ -35,9 +32,9 @@
     <string name="ta_balances">Баланс</string>
     <string name="ta_loans">Активні позики</string>
 
-    <string name="ta_btc_loan_label">BTC позика в Earn акаунті</string>
     <string name="ta_loan_duration">Тривалість</string>
     <string name="ta_loan_annual_return">Річна дохідність</string>
+    <string name="ta_btc_loan_label">BTC позика в Earn акаунті</string>
 
     <string name="ta_withdraw_full_when">Наступне повне зняття %1$s</string>
     <string name="ta_withdraw_interest_when">Наступне зняття відсотків %1$s</string>
@@ -73,10 +70,10 @@
     </array>
 
     <!-- Settings -->
-    <string name="settings_show_btc">+ BTC гаманець</string>
+    <string name="settings_show">+ %1$s гаманець</string>
     <string name="settings_show_ta">+ Earn акаунт</string>
 
-    <string name="settings_attach_btc_wallet">Приєднати BTC гаманець</string>
+    <string name="settings_attach_wallet">Додати гаманець</string>
     <string name="settings_view_recovery_phrase">Переглянути фразу відновлення</string>
     <string name="settings_view_revocery_phrase_ext">Ці слова дозволяють відновити баланс гаманця на будь-якому пристрої, тримайте їх у секреті!</string>
 
@@ -100,9 +97,9 @@
     <string name="dialog_fee_estimating">оцінюється&#8230;</string>
     <string name="dialog_change_feerate">Змінити комісію&#8230;</string>
 
-    <string name="dialog_send_btc"><![CDATA[Надіслати <b>BTC</b> на адресу<br>%1$s%2$s]]></string>
-    <string name="dialog_send_btc_many"><![CDATA[Надіслати <b>BTC</b><br><b>на кілька адрес</b>]]></string>
-    <string name="dialog_send_btc_confirm_fiat">Фіатна сума</string>
+    <string name="dialog_send"><![CDATA[Надіслати <b>%1$s</b> на адресу<br>%1$s%2$s]]></string>
+    <string name="dialog_send_many"><![CDATA[Надіслати <b>%1$s</b><br><b>на кілька адрес</b>]]></string>
+    <string name="dialog_send_confirm_fiat">Фіатна сума</string>
     <string name="dialog_send_confirm_amount">Сума відправки</string>
     <string name="dialog_send_confirm_fee">Комісія мережі</string>
 
@@ -117,7 +114,6 @@
     <string name="description_rbf_cancel">RBF скасування</string>
     <string name="description_rbf_boost">RBF прискорення</string>
     <string name="description_cpfp">CPFP прискорення</string>
-    <string name="tx_btc">Біткоїн транзакція</string>
 
     <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>адреса</b>&#160;%1$s]]></string>
@@ -135,24 +131,4 @@
     <string name="rbf_cancel_explain"><![CDATA[Застосуйте RBF до цієї вихідної транзакції, щоб підвищити комісію та <b>повернути кошти в гаманець</b>]]></string>
     <string name="rbf_err_foreign_inputs">Не можна прискорити цю транзакцію, бо вона містить входи з іншого гаманця</string>
     <string name="rbf_err_parents_missing">Не можна прискорити цю транзакцію, бо відсутні її батьківські транзакції</string>
-
-    <!-- Sign & Verify Messages -->
-    <string name="sign_address_not_found">Запитану адресу не знайдено</string>
-    <string name="sign_sign_message_notx_title"><![CDATA[Підписати повідомлення адресою<br><br><b>%1$s</b>]]></string>
-    <string name="sign_signed_message_title"><![CDATA[<b>Повідомлення підписане адресою</b><br>%1$s]]></string>
-
-    <string name="sign_sign_message">Підписати повідомлення</string>
-    <string name="sign_sig_only">Поділитися лише підписом і хешем</string>
-    <string name="sign_sig_only_info">Не розкривати сам текст повідомлення</string>
-    <string name="sign_message">Повідомлення</string>
-    <string name="sign_sign">Підписати</string>
-
-    <string name="verify_ok">ПІДПИС СПІВПАДАЄ</string>
-    <string name="verify_no">ПІДПИС НЕ СПІВПАДАЄ</string>
-
-    <string name="verify_details"><![CDATA[
-        <br>Підписано біткоїн-адресою<br><b>%1$s</b><br><br>
-        BIP322 хеш повідомлення<br><b>%2$s</b><br><br>
-        Текст повідомлення<br><b>%3$s</b>
-    ]]></string>
 </resources>

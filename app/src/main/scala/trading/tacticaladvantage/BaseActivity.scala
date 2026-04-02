@@ -45,7 +45,6 @@ object BaseActivity {
   implicit class StringOps(source: String) {
     def html: Spanned = android.text.Html.fromHtml(source)
     def humanFour: String = "<tt>" + source.grouped(4).mkString(s"\u0020") + "</tt>"
-    def short0x: String = s"<tt><i>${source take 2}</i></tt>&#160;${source.drop(2).short}"
 
     def short: String = {
       val len = source.length
@@ -60,7 +59,6 @@ object BaseActivity {
 
 object ClassNames {
   val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
-  val qrSigActivityClass: Class[QRSigActivity] = classOf[QRSigActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
 }
 
@@ -68,7 +66,8 @@ object Colors {
   val cardIn: String = "#" + WalletApp.app.getResources.getString(R.color.colorAccent).substring(3)
   val cardOut: String = "#" + WalletApp.app.getResources.getString(R.color.cardOutText).substring(3)
   val cardZero: String = "#" + WalletApp.app.getResources.getString(R.color.cardZeroText).substring(3)
-  val signCardZero: String = "#" + WalletApp.app.getResources.getString(R.color.signCardZeroText).substring(3)
+  val signCardZeroBtc: String = "#" + WalletApp.app.getResources.getString(R.color.signCardBTCZeroText).substring(3)
+  val signCardZeroEca: String = "#" + WalletApp.app.getResources.getString(R.color.signCardBTCZeroText).substring(3)
 }
 
 trait ExternalDataChecker  {
@@ -305,7 +304,6 @@ trait BaseActivity extends AppCompatActivity { me =>
     updateViewEnabled(getPositiveButton(alert), isEnabled)
 
   class RateManagerContent(val container: View) {
-    def updateFiatText(value: String): Unit = runAnd(fiatInputAmount.requestFocus)(fiatInputAmount setText value)
     def updateBtcText(value: String): Unit = runAnd(inputAmount.requestFocus)(inputAmount setText value)
     val fiatInputAmount = container.findViewById(R.id.fiatInputAmount).asInstanceOf[CurrencyEditText]
     val fiatInputAmountHint = container.findViewById(R.id.fiatInputAmountHint).asInstanceOf[TextView]
@@ -434,7 +432,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val chainNextButton = host.findViewById(R.id.chainNextButton).asInstanceOf[NoboButton]
     val chainEditButton = host.findViewById(R.id.chainEditButton).asInstanceOf[NoboButton]
     val chainCancelButton = host.findViewById(R.id.chainCancelButton).asInstanceOf[NoboButton]
-    val confirmFiat = new TwoSidedItem(host.findViewById(R.id.confirmFiat), getString(dialog_send_btc_confirm_fiat), new String)
+    val confirmFiat = new TwoSidedItem(host.findViewById(R.id.confirmFiat), getString(dialog_send_confirm_fiat), new String)
     val confirmAmount = new TwoSidedItem(host.findViewById(R.id.confirmAmount), getString(dialog_send_confirm_amount), new String)
     val confirmFee = new TwoSidedItem(host.findViewById(R.id.confirmFee), getString(dialog_send_confirm_fee), new String)
   }

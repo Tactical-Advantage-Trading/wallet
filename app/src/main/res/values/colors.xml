@@ -3,13 +3,12 @@
     <color name="bg">#282B30</color>
     <color name="colorAccent">#FAFAFA</color>
 
-    <color name="paymentAwait">#E08f04</color>
+    <color name="paymentAwait">#F0F0F0</color>
     <color name="paymentDone">#99CC00</color>
-    <color name="btcLogo">#E08f04</color>
 
     <color name="paymentPassiveBorder">#555555</color>
     <color name="cardBitcoinSigning">#E08f04</color>
-    <color name="usdt">#50AF95</color>
+    <color name="cardEcashSigning">#D01008</color>
 
     <color name="buttonGreenRipple">#8BD670</color>
     <color name="buttonGreenBorder">#5B8F36</color>
@@ -18,7 +17,8 @@
 
     <color name="cardOutText">#88FF88</color>
     <color name="cardZeroText">#888888</color>
-    <color name="signCardZeroText">#fBB945</color>
+    <color name="signCardBTCZeroText">#FBB945</color>
+    <color name="signCardECAZeroText">#F9615B</color>
 
     <!-- nachos -->
 

@@ -23,7 +23,6 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
 import trading.tacticaladvantage.utils.WsListener
 
-import java.io.{File, FileOutputStream}
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.{Date, Locale}
@@ -70,7 +69,7 @@ object WalletApp {
   }
 
   def makeAlive: Unit = {
-    ElectrumWallet.chainHash = Block.LivenetGenesisBlock.hash
+    ElectrumWallet.chainHash = Block.TestnetGenesisBlock.hash
     val interface = new DBInterfaceSQLiteAndroid(app, "misc.db")
 
     interface txWrap {
@@ -142,7 +141,6 @@ object WalletApp {
 
     // Client
 
-
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {
         case data: LinkClient.UserStatus => linkClient ! LinkClient.Request(LinkClient.GetUserStatus(data.sessionToken), id)
@@ -154,26 +152,6 @@ object WalletApp {
         case status: LinkClient.UserStatus => linkClient ! status
         case _ =>
       }
-    }
-  }
-
-  def assetToInternal(assetName: String, destName: String): Unit = {
-    val destFile = new File(app.getFilesDir, destName)
-    val outStream = new FileOutputStream(destFile)
-    val inStream = app.getAssets.open(assetName)
-
-    try {
-      val buffer = new Bytes(2048)
-      var bytesRead = inStream.read(buffer)
-      destFile.getParentFile.mkdirs
-
-      while (bytesRead != -1) {
-        outStream.write(buffer, 0, bytesRead)
-        bytesRead = inStream.read(buffer)
-      }
-    } finally {
-      inStream.close
-      outStream.close
     }
   }
 
