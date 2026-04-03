@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+venv/
+env/
+.venv/
+
+# Build outputs
+dist/
+build/
+out/
+*.o
+*.a
+*.so
+
+# Version control
+.git/
+.github/
+.gitignore
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+.env.local
+*.pem
+secrets/
+
+# Logs & caches
+*.log
+.cache/
+tmp/
+temp/
+
+# Project-specific
+fastlane/
+feature_graphics.png
+screenshot_frame.png
+
