@@ -31,7 +31,7 @@ case class Blockchain(chainHash: ByteVector32,
 
   import Blockchain._
 
-  require(chainHash == Block.LivenetGenesisBlock.hash || chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash, s"invalid chain hash $chainHash")
+  require(chainHash == Block.LivenetGenesisBlock.hash || chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash || chainHash == Block.Testnet4GenesisBlock.hash, s"invalid chain hash $chainHash")
 
   def tip = bestchain.last
 
