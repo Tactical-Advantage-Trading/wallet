@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn test:*)",
+      "Bash(java -version)",
+      "Bash(grep -E \"\\\\.\\(scala|java|kt\\)$\")",
+      "Bash(find /workspace -type f -name \"*.scala\" -exec wc -l {} +)",
+      "Bash(wc -l /workspace/app/src/main/java/fr/acinq/bitcoin/*.scala)",
+      "Bash(./gradlew assembleRelease)",
+      "Bash(update-alternatives --list java)",
+      "Read(//usr/lib/jvm/**)",
+      "Read(//usr/local/lib/**)"
+    ]
+  }
+}

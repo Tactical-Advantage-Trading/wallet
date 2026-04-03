@@ -147,11 +147,11 @@ object WalletApp {
 
     // In case these are needed early
     LNParams.logBag = new SQLiteLog(miscInterface)
-    LNParams.chainHash = Block.LivenetGenesisBlock.hash
+    LNParams.chainHash = Block.Testnet4GenesisBlock.hash
     LNParams.routerConf = RouterConf(initRouteMaxLength = 10, LNParams.maxCltvExpiryDelta)
     LNParams.connectionProvider = if (ensureTor) new TorConnectionProvider(app) else new ClearnetConnectionProvider
     LNParams.ourInit = LNParams.createInit
-    LNParams.syncParams = new SyncParams
+    LNParams.syncParams = new TestNetSyncParams
     LNParams.ourInit = LNParams.createInit
   }
 
@@ -192,12 +192,14 @@ object WalletApp {
       case _ if currentCustomElectrum.isSuccess => ElectrumServerAddress(currentCustomElectrum.get.socketAddress, SSL.DECIDE).asSome.toSet
       case Block.LivenetGenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_mainnet.json")
       case Block.TestnetGenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_testnet.json")
+      case Block.Testnet4GenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_testnet4.json")
       case _ => throw new RuntimeException
     }
 
     CheckPoint.loadFromChainHash = {
       case Block.LivenetGenesisBlock.hash => CheckPoint.load(app.getAssets open "checkpoints_mainnet.json")
       case Block.TestnetGenesisBlock.hash => CheckPoint.load(app.getAssets open "checkpoints_testnet.json")
+      case Block.Testnet4GenesisBlock.hash => CheckPoint.load(app.getAssets open "checkpoints_testnet4.json")
       case _ => throw new RuntimeException
     }
 
