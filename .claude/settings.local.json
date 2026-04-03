@@ -12,7 +12,11 @@
       "Read(//usr/local/lib/**)",
       "Bash(find /app/valet/app/src/main/res/mipmap-* -type f)",
       "Bash(find /app/valet/app/src/main/res/drawable* -type f)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "WebSearch",
+      "WebFetch(domain:mempool.space)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:bips.dev)"
     ]
   }
 }
