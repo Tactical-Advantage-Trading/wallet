@@ -58,7 +58,7 @@ object BaseActivity {
 }
 
 object ClassNames {
-  val qrBtcActivityClass: Class[QRBtcActivity] = classOf[QRBtcActivity]
+  val qrCoinActivityClass: Class[QRCoinActivity] = classOf[QRCoinActivity]
   val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
 }
 

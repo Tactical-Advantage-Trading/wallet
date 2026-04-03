@@ -1,12 +1,11 @@
 package immortan.utils
 
 import fr.acinq.bitcoin._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet
 import fr.acinq.eclair.blockchain.fee._
-import immortan.CanBeShutDown
 import immortan.sqlite.SQLiteData
 import immortan.utils.FeeRates._
 import immortan.utils.ImplicitJsonFormats._
+import immortan.{CanBeShutDown, ConnectionProvider}
 
 
 object FeeRates {
@@ -44,10 +43,10 @@ object FeeRates {
 class FeeRates(bag: SQLiteData) extends CanBeShutDown {
   override def becomeShutDown: Unit = listeners = Set.empty
 
-  def reloadData: FeeratesPerKB = fr.acinq.eclair.secureRandom nextInt 3 match {
-    case 0 => new EsploraFeeProvider("https://blockstream.info/api/fee-estimates").provide
-    case 1 => new EsploraFeeProvider("https://mempool.space/api/fee-estimates").provide
-    case _ => BitgoFeeProvider.provide
+  def reloadData(provider: ConnectionProvider): FeeratesPerKB = fr.acinq.eclair.secureRandom nextInt 3 match {
+    case 0 => new EsploraFeeProvider("https://blockstream.info/api/fee-estimates").provide(provider)
+    case 1 => new EsploraFeeProvider("https://mempool.space/api/fee-estimates").provide(provider)
+    case _ => BitgoFeeProvider.provide(provider)
   }
 
   def updateInfo(newPerKB: FeeratesPerKB): Unit = {
@@ -73,7 +72,7 @@ trait FeeRatesListener {
 }
 
 trait FeeRatesProvider {
-  def provide: FeeratesPerKB
+  def provide(provider: ConnectionProvider): FeeratesPerKB
   val url: String
 }
 
@@ -82,8 +81,8 @@ trait FeeRatesProvider {
 class EsploraFeeProvider(val url: String) extends FeeRatesProvider {
   type EsploraFeeStructure = Map[String, Long]
 
-  def provide: FeeratesPerKB = {
-    val structure = to[EsploraFeeStructure](ElectrumWallet.connectionProvider.get(url).string)
+  def provide(provider: ConnectionProvider): FeeratesPerKB = {
+    val structure = to[EsploraFeeStructure](provider.get(url).string)
 
     FeeratesPerKB(
       mempoolMinFee = extractFeerate(structure, 1008),
@@ -113,8 +112,8 @@ case class BitGoFeeRateStructure(feeByBlockTarget: Map[String, Long], feePerKb: 
 object BitgoFeeProvider extends FeeRatesProvider {
   val url = "https://www.bitgo.com/api/v2/btc/tx/fee"
 
-  def provide: FeeratesPerKB = {
-    val structure = to[BitGoFeeRateStructure](ElectrumWallet.connectionProvider.get(url).string)
+  def provide(provider: ConnectionProvider): FeeratesPerKB = {
+    val structure = to[BitGoFeeRateStructure](provider.get(url).string)
 
     FeeratesPerKB(
       mempoolMinFee = extractFeerate(structure, 1008),

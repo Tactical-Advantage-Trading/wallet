@@ -1,9 +1,8 @@
 package immortan.utils
 
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet
-import immortan.{CanBeShutDown, Tools}
 import immortan.sqlite.SQLiteData
 import immortan.utils.ImplicitJsonFormats._
+import immortan.{CanBeShutDown, ConnectionProvider, Tools}
 
 
 object FiatRates {
@@ -21,9 +20,9 @@ class FiatRates(bag: SQLiteData) extends CanBeShutDown {
     "twd" -> "New Taiwan Dollar", "krw" -> "South Korean won", "clp" -> "Chilean Peso", "sgd" -> "Singapore Dollar", "hkd" -> "Hong Kong Dollar", "pln" -> "Polish złoty",
     "dkk" -> "Danish Krone", "sek" -> "Swedish Krona", "chf" -> "Swiss franc", "huf" -> "Hungarian forint")
 
-  def reloadData: Tools.Fiat2Btc = fr.acinq.eclair.secureRandom nextInt 2 match {
-    case 0 => to[CoinGecko](ElectrumWallet.connectionProvider.get("https://api.coingecko.com/api/v3/exchange_rates").string).rates.map { case (code, item) => code.toLowerCase -> item.value }
-    case 1 => to[FiatRates.BlockchainInfoItemMap](ElectrumWallet.connectionProvider.get("https://blockchain.info/ticker").string).map { case (code, item) => code.toLowerCase -> item.last }
+  def reloadData(provider: ConnectionProvider): Tools.Fiat2Btc = fr.acinq.eclair.secureRandom nextInt 2 match {
+    case 0 => to[CoinGecko](provider.get("https://api.coingecko.com/api/v3/exchange_rates").string).rates.map { case (code, item) => code.toLowerCase -> item.value }
+    case 1 => to[FiatRates.BlockchainInfoItemMap](provider.get("https://blockchain.info/ticker").string).map { case (code, item) => code.toLowerCase -> item.last }
   }
 
   def updateInfo(newRates: Tools.Fiat2Btc): Unit = {

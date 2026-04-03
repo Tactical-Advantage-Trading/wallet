@@ -2,14 +2,16 @@ package trading.tacticaladvantage.utils
 
 import fr.acinq.bitcoin.{BtcAmount, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
+import immortan.{CoinDescription, ItemDescription}
 import immortan.Tools._
 import immortan.utils.Denomination
-import immortan.{BtcDescription, PlainBtcDescription}
+import trading.tacticaladvantage.WalletApp
 import trading.tacticaladvantage.utils.InputParser._
 import trading.tacticaladvantage.utils.uri.Uri
 
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.{Success, Try}
+
 
 object InputParser {
   var value: Any = new String
@@ -26,7 +28,7 @@ object InputParser {
 
   def removePrefix(raw: String): String = raw.split(':').toList match {
     case prefix :: content if bitcoin.startsWith(prefix.toLowerCase) => content.mkString.replace("//", "")
-    case prefix :: content if ecash.startsWith(prefix.toLowerCase) => throw new Exception("TODO Ecash")
+    case prefix :: content if ecash.startsWith(prefix.toLowerCase) => content.mkString.replace("//", "")
     case _ => raw
   }
 
@@ -35,29 +37,29 @@ object InputParser {
   def parse(raw: String): Any = {
     val withoutSlashes = removePrefix(raw take 2880).trim
     val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, raw)
-    addressToAmount getOrElse PlainBitcoinUri.fromRaw(s"$bitcoin$withoutSlashes")
+    addressToAmount getOrElse PlainCoinUri.fromRaw(s"$bitcoin$withoutSlashes")
   }
 }
 
-trait BitcoinUri {
+trait CoinUri {
   val maxAmount: MilliSatoshi
   val amount: Option[MilliSatoshi]
-  val desc: BtcDescription
+  val desc: ItemDescription
   val address: String
 }
 
-object PlainBitcoinUri {
-  def fromRaw(raw: String): PlainBitcoinUri = {
+object PlainCoinUri {
+  def fromRaw(raw: String): PlainCoinUri = {
     val dataWithoutPrefix = InputParser.removePrefix(raw)
     val uri = Uri.parse(s"$bitcoin//$dataWithoutPrefix")
-    PlainBitcoinUri(Success(uri), uri.getHost)
+    PlainCoinUri(Success(uri), uri.getHost)
   }
 }
 
-case class PlainBitcoinUri(uri: Try[Uri], address: String) extends BitcoinUri {
+case class PlainCoinUri(uri: Try[Uri], address: String) extends CoinUri {
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
-  val desc: BtcDescription = PlainBtcDescription(List(address), label)
+  val desc: ItemDescription = CoinDescription(List(address), label, WalletApp.ID_BTC)
   val maxAmount: MilliSatoshi = MAX_MSAT
 }
 

@@ -8,14 +8,12 @@ trait Table {
   val UNIQUE = "UNIQUE"
 }
 
-object BtcWalletTable extends Table {
+object WalletTable extends Table {
   val (table, info, xPub, data, lastBalance, label) = ("btcwallet", "info", "xpub", "data", "lastbalance", "label")
 
   val newSql = s"INSERT OR IGNORE INTO $table ($info, $xPub, $data, $lastBalance, $label) VALUES (?, ?, ?, ?, ?)"
 
   val updSql = s"UPDATE $table SET $data = ?, $lastBalance = ? WHERE $xPub = ?"
-
-  val updLabelSql = s"UPDATE $table SET $label = ? WHERE $xPub = ?"
 
   val selectSql = s"SELECT * FROM $table ORDER BY $id ASC"
 
@@ -28,7 +26,7 @@ object BtcWalletTable extends Table {
     )""" :: Nil
 }
 
-object BtcTxTable extends Table {
+object TxTable extends Table {
   val (search, table, rawTx, txid, pub, depth, receivedSat, sentSat, feeSat, seenAt, updatedAt, description, balanceMsat, fiatRates, incoming, doubleSpent) =
     ("tsearch", "btc", "raw", "txid", "pub", "depth", "received", "sent", "fee", "seen", "updated", "desc", "balance", "fiatrates", "incoming", "doublespent")
 
@@ -41,8 +39,6 @@ object BtcTxTable extends Table {
   // Selecting
 
   val selectRecentSql = s"SELECT * FROM $table ORDER BY $id DESC LIMIT ?"
-
-  val searchSql = s"SELECT * FROM $table WHERE $txid IN (SELECT DISTINCT $txid FROM $fts$table WHERE $search MATCH ? LIMIT 10)"
 
   // Updating
 

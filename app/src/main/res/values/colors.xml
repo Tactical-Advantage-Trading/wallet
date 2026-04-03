@@ -4,7 +4,9 @@
     <color name="colorAccent">#FAFAFA</color>
     <color name="paymentDone">#99CC00</color>
 
-    <color name="paymentPassiveBorder">#555555</color>
+    <color name="borderLite">#999999</color>
+    <color name="borderDark">#555555</color>
+
     <color name="cardBitcoinSigning">#E08f04</color>
     <color name="cardEcashSigning">#D01008</color>
 

@@ -59,21 +59,21 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   implicit val semanticOrderFmt: JsonFormat[SemanticOrder] = jsonFormat[String, Long, SemanticOrder](SemanticOrder.apply, "id", "order")
   implicit val rbfParams: JsonFormat[RBFParams] = jsonFormat[ByteVector32, Long, RBFParams](RBFParams.apply, "ofTxid", "mode")
 
-  implicit object BtcDescriptionFmt extends JsonFormat[BtcDescription] {
-    def read(raw: JsValue): BtcDescription = raw.asJsObject.fields(TAG) match {
-      case JsString("PlainBtcDescription") => raw.convertTo[PlainBtcDescription]
+  implicit object BtcDescriptionFmt extends JsonFormat[ItemDescription] {
+    def read(raw: JsValue): ItemDescription = raw.asJsObject.fields(TAG) match {
+      case JsString("CoinDescription") => raw.convertTo[CoinDescription]
       case _ => throw new Exception
     }
 
-    def write(internal: BtcDescription): JsValue = internal match {
-      case btcDescription: PlainBtcDescription => btcDescription.toJson
+    def write(internal: ItemDescription): JsValue = internal match {
+      case btcDescription: CoinDescription => btcDescription.toJson
       case _ => throw new Exception
     }
   }
 
-  implicit val plainBtcDescriptionFmt: JsonFormat[PlainBtcDescription] =
-    taggedJsonFmt(jsonFormat[StringList, Option[String], Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams], Option[BigDecimal],
-      PlainBtcDescription](PlainBtcDescription.apply, "addresses", "label", "semanticOrder", "cpfpBy", "cpfpOf", "rbf", "taRoi"), tag = "PlainBtcDescription")
+  implicit val plainBtcDescriptionFmt: JsonFormat[CoinDescription] =
+    taggedJsonFmt(jsonFormat[StringList, Option[String], Int, Option[SemanticOrder], Option[ByteVector32], Option[ByteVector32], Option[RBFParams], Option[BigDecimal],
+      CoinDescription](CoinDescription.apply, "addresses", "label", "networkId", "semanticOrder", "cpfpBy", "cpfpOf", "rbf", "taRoi"), tag = "CoinDescription")
 
   // Fiat feerates
 

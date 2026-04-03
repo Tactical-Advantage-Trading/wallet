@@ -6,6 +6,7 @@ import immortan.utils.ImplicitJsonFormats._
 import fr.acinq.eclair._
 import java.util.Date
 
+
 case class SemanticOrder(id: String, order: Long)
 case class RBFParams(ofTxid: ByteVector32, mode: Long)
 
@@ -30,6 +31,20 @@ sealed trait ItemDescription {
   val taRoi: Option[BigDecimal]
   val semanticOrder: Option[SemanticOrder]
   val label: Option[String]
+  val networkId: Int
+}
+
+object CoinDescription {
+  final val RBF_CANCEL = 1
+  final val RBF_BOOST = 2
+}
+
+case class CoinDescription(addresses: StringList, label: Option[String], networkId: Int, semanticOrder: Option[SemanticOrder] = None,
+                           cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None, rbf: Option[RBFParams] = None,
+                           taRoi: Option[BigDecimal] = None) extends ItemDescription {
+  def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
+  def withNewOrderCond(order: Option[SemanticOrder] = None): CoinDescription = if (semanticOrder.isDefined) this else copy(semanticOrder = order)
+  def withNewCPFPBy(txid: ByteVector32): CoinDescription = copy(cpfpBy = txid.asSome)
 }
 
 sealed trait ItemDetails {
@@ -45,36 +60,9 @@ sealed trait ItemDetails {
   val identity: String
 }
 
-// BTC tx
-
-sealed trait BtcDescription extends ItemDescription {
-  def canBeCPFPd: Boolean = cpfpBy.isEmpty && cpfpOf.isEmpty
-  def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription
-  def withNewCPFPBy(txid: ByteVector32): BtcDescription
-  def queryText(txid: ByteVector32): String
-  def addresses: StringList
-
-  val cpfpBy: Option[ByteVector32]
-  val cpfpOf: Option[ByteVector32]
-  val rbf: Option[RBFParams]
-}
-
-object BtcDescription {
-  final val RBF_CANCEL = 1
-  final val RBF_BOOST = 2
-}
-
-case class PlainBtcDescription(addresses: StringList, label: Option[String] = None, semanticOrder: Option[SemanticOrder] = None,
-                               cpfpBy: Option[ByteVector32] = None, cpfpOf: Option[ByteVector32] = None, rbf: Option[RBFParams] = None,
-                               taRoi: Option[BigDecimal] = None) extends BtcDescription {
-  override def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
-  override def withNewOrderCond(order: Option[SemanticOrder] = None): BtcDescription = if (semanticOrder.isDefined) this else copy(semanticOrder = order)
-  override def withNewCPFPBy(txid: ByteVector32): BtcDescription = copy(cpfpBy = txid.asSome)
-}
-
-case class BtcInfo(txString: String, identity: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
-                   feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: BtcDescription, balanceSnapshot: MilliSatoshi,
-                   fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
+case class CoinDetails(txString: String, identity: String, extPubsString: String, depth: Long, receivedSat: Satoshi, sentSat: Satoshi,
+                       feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: CoinDescription, balanceSnapshot: MilliSatoshi,
+                       fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
   override val isDoubleSpent: Boolean = 1L == doubleSpent
   val isIncoming: Boolean = 1L == incoming
   val isConfirmed: Boolean = depth > 0

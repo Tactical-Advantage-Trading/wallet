@@ -95,10 +95,7 @@ object BlockHeader extends BtcSerializer[BlockHeader] {
 case class BlockHeader(version: Long, hashPreviousBlock: ByteVector32, hashMerkleRoot: ByteVector32, time: Long, bits: Long, nonce: Long) extends BtcSerializable[BlockHeader] {
   lazy val hash: ByteVector32 = Crypto.hash256(BlockHeader.write(this))
 
-  // hash is reversed here (same as tx id)
   lazy val blockId = hash.reverse
-
-  def blockProof = BlockHeader.blockProof(this)
 
   override def serializer: BtcSerializer[BlockHeader] = BlockHeader
 }
@@ -142,66 +139,11 @@ object Block extends BtcSerializer[Block] {
 
   val RegtestGenesisBlock = LivenetGenesisBlock.copy(header = LivenetGenesisBlock.header.copy(bits = 0x207fffffL, nonce = 2, time = 1296688602))
 
-  /**
-    * Proof of work: hash(block) <= target difficulty
-    *
-    * @param block
-    * @return true if the input block validates its expected proof of work
-    */
   def checkProofOfWork(block: Block): Boolean = BlockHeader.checkProofOfWork(block.header)
-
-  /**
-    *
-    * @param tx coinbase transaction
-    * @return the witness reserved value included in the input of this tx if any
-    */
-  def witnessReservedValue(tx: Transaction): Option[ByteVector] = tx.txIn(0).witness match {
-    case ScriptWitness(Seq(nonce)) if nonce.length == 32 => Some(nonce)
-    case _ => None
-  }
-
-  /**
-    *
-    * @param tx coinbase transaction
-    * @return the witness commitment included in this transaction, if any
-    */
-  def witnessCommitment(tx: Transaction): Option[ByteVector32] = tx.txOut.map(o => Script.parse(o.publicKeyScript)).reverse.collectFirst {
-    // we've reversed the outputs because if there are more than one scriptPubKey matching the pattern, the one with
-    // the highest output index is assumed to be the commitment.
-    case OP_RETURN :: OP_PUSHDATA(commitmentHeader, _) :: Nil if commitmentHeader.length == 36 && Protocol.uint32(commitmentHeader.take(4).toArray, ByteOrder.BIG_ENDIAN) == 0xaa21a9edL => ByteVector32(commitmentHeader.takeRight(32))
-  }
-
-  /**
-    * Checks the witness commitment of a block
-    *
-    * @param block block
-    * @return true if the witness commitment for this block is valid, or if this block does not contain a witness commitment
-    *         nor any segwit transactions.
-    */
-  def checkWitnessCommitment(block: Block): Boolean = {
-    val coinbase = block.tx.head
-    (witnessReservedValue(coinbase), witnessCommitment(coinbase)) match {
-      case (Some(nonce), Some(commitment)) =>
-        val rootHash = MerkleTree.computeRoot(ByteVector32.Zeroes +: block.tx.tail.map(tx => tx.whash))
-        val commitmentHash = Crypto.hash256(rootHash ++ nonce)
-        commitment == commitmentHash
-      case _ if block.tx.exists(_.hasWitness) => false // block has segwit transactions but no witness commitment
-      case _ => true
-    }
-  }
 }
 
-/**
-  * Bitcoin block
-  *
-  * @param header block header
-  * @param tx     transactions
-  */
-case class Block(header: BlockHeader, tx: Seq[Transaction]) extends BtcSerializable[Block] {
-  lazy val hash = header.hash
-
-  lazy val blockId = header.blockId
-
+case class Block(header: BlockHeader, tx: Seq[Transaction] = Nil) extends BtcSerializable[Block] {
   override def serializer: BtcSerializer[Block] = Block
+  lazy val hash = header.hash
 }
 

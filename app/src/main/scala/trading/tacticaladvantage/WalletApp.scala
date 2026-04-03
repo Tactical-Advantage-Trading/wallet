@@ -10,10 +10,10 @@ import android.text.format.{DateFormat, DateUtils}
 import android.view.inputmethod.InputMethodManager
 import android.widget.{EditText, Toast}
 import androidx.multidex.MultiDex
-import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
+import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
 import fr.acinq.bitcoin.{Block, Satoshi}
 import fr.acinq.eclair._
-import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{TransactionReceived, chainHash}
+import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.TransactionReceived
 import fr.acinq.eclair.blockchain.electrum._
 import immortan.Tools._
 import immortan._
@@ -29,63 +29,47 @@ import java.util.{Date, Locale}
 import scala.collection.mutable
 import scala.util.Try
 
-object WalletApp {
-  var extDataBag: SQLiteData = _
-  var btcTxDataBag: SQLiteBtcTx = _
-  var btcWalletBag: SQLiteBtcWallet = _
 
-  var feeRates: FeeRates = _
-  var fiatRates: FiatRates = _
-  var secret: WalletSecret = _
-  var linkClient: LinkClient = _
-  var app: WalletApp = _
-
-  var currentBtcNode = Option.empty[InetSocketAddress]
-  val seenInfos = mutable.Map.empty[String, ItemDetails]
+class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
+  val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
+  val seenInfos = mutable.Map.empty[String, ItemDetails]
+  var currentNode = Option.empty[InetSocketAddress]
 
-  final val FIAT_CODE = "fiatCode"
-  final val SHOW_TA_CARD = "showTaCard"
-  def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
-  def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
-  def setShowTaCard(show: Boolean): Unit = app.prefs.edit.putBoolean(SHOW_TA_CARD, show).commit
+  var walletBag: SQLiteWallet = _
+  var extDataBag: SQLiteData = _
+  var txDataBag: SQLiteTx = _
 
-  def isAlive: Boolean =
-    null != btcTxDataBag && null != btcWalletBag &&
-      null != extDataBag && null != app
+  var master: ExtendedPrivateKey = _
+  var fiatRates: FiatRates = _
+  var feeRates: FeeRates = _
+  var electrum: Electrum = _
 
-  def isOperational: Boolean =
-    null != ElectrumWallet.chainHash && null != secret &&
-      null != fiatRates && null != feeRates && linkClient != null
+  def isAlive: Boolean = null != txDataBag && null != walletBag && null != extDataBag
+  def isOperational: Boolean = null != master && null != electrum && null != fiatRates && null != feeRates
 
   def freePossiblyUsedRuntimeResouces: Unit = {
-    try ElectrumWallet.becomeShutDown catch none
-    try linkClient.becomeShutDown catch none
     try fiatRates.becomeShutDown catch none
     try feeRates.becomeShutDown catch none
+    try electrum.becomeShutDown catch none
     // non-alive and non-operational
-    btcTxDataBag = null
-    secret = null
+    txDataBag = null
+    master = null
   }
 
-  def makeAlive: Unit = {
-    ElectrumWallet.chainHash = Block.TestnetGenesisBlock.hash
-    val interface = new DBInterfaceSQLiteAndroid(app, "misc.db")
+  def makeAlive(app: WalletApp): Unit = {
+    val interface = new DBInterfaceSQLiteAndroid(app, s"$id.db")
 
     interface txWrap {
+      walletBag = new SQLiteWallet(interface)
       extDataBag = new SQLiteData(interface)
-      btcTxDataBag = new SQLiteBtcTx(interface)
-      btcWalletBag = new SQLiteBtcWallet(interface)
+      txDataBag = new SQLiteTx(interface)
     }
-
-    ElectrumWallet.connectionProvider = new ClearnetConnectionProvider
-    ElectrumWallet.params = WalletParameters(extDataBag, btcWalletBag, btcTxDataBag)
   }
 
-  def makeOperational(sec: WalletSecret): Unit = {
-    require(isAlive, "Must be alive before operational")
-    linkClient = new LinkClient(extDataBag)
-    secret = sec
+  def makeOperational(app: WalletApp, key: ExtendedPrivateKey, servers: String, checkpoints: String, strict: Boolean): Unit = {
+    electrum = new Electrum(WalletParameters(extDataBag, walletBag, txDataBag), genesis.hash)
+    master = key
 
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
@@ -102,45 +86,122 @@ object WalletApp {
         extDataBag.putFiatRatesInfo(info)
     }
 
-    // BTC
+    electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], app.getAssets open servers), "pool")
+    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, app.getAssets open checkpoints, strict), "sync")
+    electrum.catcher = electrum.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
-    ElectrumClientPool.loadFromChainHash = {
-      case Block.LivenetGenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_mainnet.json")
-      case Block.TestnetGenesisBlock.hash => ElectrumClientPool.readServerAddresses(app.getAssets open "servers_testnet.json")
-      case _ => throw new RuntimeException
-    }
-
-    CheckPoint.loadFromChainHash = {
-      case Block.LivenetGenesisBlock.hash => CheckPoint.load(app.getAssets open "checkpoints_mainnet.json")
-      case Block.TestnetGenesisBlock.hash => CheckPoint.load(app.getAssets open "checkpoints_testnet.json")
-      case _ => throw new RuntimeException
-    }
-
-    ElectrumWallet.pool = ElectrumWallet.system.actorOf(Props(classOf[ElectrumClientPool], ElectrumWallet.chainHash, ElectrumWallet.ec), "pool")
-    ElectrumWallet.sync = ElectrumWallet.system.actorOf(Props(classOf[ElectrumChainSync], ElectrumWallet.pool, ElectrumWallet.params.headerDb, ElectrumWallet.chainHash), "sync")
-    ElectrumWallet.catcher = ElectrumWallet.system.actorOf(Props(new WalletEventsCatcher), "catcher")
-
-    ElectrumWallet.catcher ! new WalletEventsListener {
-      override def onChainDisconnected: Unit = currentBtcNode = Option.empty[InetSocketAddress]
-      override def onChainMasterSelected(event: InetSocketAddress): Unit = currentBtcNode = event.asSome
-
+    electrum.catcher ! new WalletEventsListener {
       override def onTransactionReceived(event: TransactionReceived): Unit = {
-        def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: BtcDescription, isIncoming: Long): Unit = btcTxDataBag.db txWrap {
-          btcTxDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
-          btcTxDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
+        def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: CoinDescription, isIncoming: Long): Unit = txDataBag.db txWrap {
+          txDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
+          txDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
           pendingInfos.remove(event.tx.txid.toHex)
         }
 
         seenInfos.get(event.tx.txid.toHex) match {
-          case Some(seen: BtcInfo) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
-          case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 1L)
-          case None => addTx(event.received, event.sent - event.received, Satoshi(0L), PlainBtcDescription(event.addresses), isIncoming = 0L)
+          case Some(seen: CoinDetails) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
+          case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), CoinDescription(event.addresses, None, id), isIncoming = 1L)
+          case None => addTx(event.received, event.sent - event.received, Satoshi(0L), CoinDescription(event.addresses, label = None, id), isIncoming = 0L)
         }
       }
+
+      override def onChainDisconnected: Unit = currentNode = Option.empty[InetSocketAddress]
+      override def onChainMasterSelected(event: InetSocketAddress): Unit = currentNode = event.asSome
     }
+  }
 
-    // Client
+  def createBtcWallet(ord: Long = 0L): WalletSpec = {
+    val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, master, electrum.chainHash, ord)
+    val btcSpec = electrum.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, lastBalance = Satoshi(0L), ticker)
+    walletBag.addWallet(btcSpec.info, electrum.params.emptyPersistentDataBytes, btcSpec.data.keys.ewt.xPub.publicKey)
+    btcSpec
+  }
 
+  def attachWallet(master1: ExtendedPrivateKey): Unit = {
+    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = master1.asSome)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, master1, electrum.chainHash, 0L)
+    val spec = electrum.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = ticker)
+    walletBag.addWallet(spec.info, electrum.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    postInitWallet(spec)
+  }
+
+  def initWallet(info: CompleteWalletInfo, ord: Long): Unit = {
+    val ext = info.core.attachedMaster.getOrElse(WalletApp.secret.keys.bitcoinMaster)
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, electrum.chainHash, ord)
+    val spec = electrum.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
+    electrum.specs.update(ewt.xPub, spec)
+    spec.walletRef ! info.initData
+  }
+
+  def postInitWallet(spec: WalletSpec): Unit = {
+    electrum.specs.update(spec.data.keys.ewt.xPub, spec)
+    spec.walletRef ! electrum.params.emptyPersistentDataBytes
+    electrum.sync ! ElectrumWallet.ChainFor(spec.walletRef)
+  }
+
+  def removeWallet(key: ExtendedPublicKey): Unit = {
+    electrum.specs.remove(key).foreach(_.walletRef ! PoisonPill)
+    walletBag.remove(key.publicKey)
+  }
+
+  def initWallets = {
+    val (native, attached) = walletBag.listWallets.partition(_.core.attachedMaster.isDefined)
+    for (walletInfo \ ord <- native.zipWithIndex) initWallet(walletInfo, ord)
+    for (walletInfo <- attached) initWallet(walletInfo, ord = 0L)
+
+    connectionProvider doWhenReady {
+      electrum.pool ! ElectrumClientPool.InitConnect
+
+      val feeratePeriodHours = 2
+      val rateRetry = Rx.retry(Rx.ioQueue.map(_ => feeRates reloadData connectionProvider), Rx.incSec, 3 to 18 by 3)
+      val rateRepeat = Rx.repeat(rateRetry, Rx.incHour, feeratePeriodHours to Int.MaxValue by feeratePeriodHours)
+      val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
+      feerateObs.foreach(feeRates.updateInfo, none)
+
+      val fiatPeriodSecs = 60 * 3
+      val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates reloadData connectionProvider), Rx.incSec, 3 to 18 by 3)
+      val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
+      fiatRepeat.foreach(fiatRates.updateInfo, none)
+    }
+  }
+}
+
+object WalletApp {
+  final val ID_BTC = 1
+  final val ID_ECA = 2
+  final val FIAT_CODE = "fiatCode"
+  final val SHOW_TA_CARD = "showTaCard"
+  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, "BTC", Block.LivenetGenesisBlock)
+  val eca = new NetworkWalletGroup(WalletApp.ID_ECA, "ECA", Block.TestnetGenesisBlock)
+
+  var linkClient: LinkClient = _
+  var secret: WalletSecret = _
+  var app: WalletApp = _
+
+  def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
+  def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
+  def setShowTaCard(show: Boolean) = app.prefs.edit.putBoolean(SHOW_TA_CARD, show).commit
+
+  def isAlive: Boolean = null != app && null != btc && null != eca && btc.isAlive && eca.isAlive
+  def isOperational: Boolean = null != secret && null != linkClient && btc.isOperational && eca.isOperational
+
+  def freePossiblyUsedRuntimeResouces = {
+    try btc.freePossiblyUsedRuntimeResouces catch none
+    try eca.freePossiblyUsedRuntimeResouces catch none
+    secret = null
+  }
+
+  def makeAlive = {
+    btc.makeAlive(app)
+    eca.makeAlive(app)
+  }
+
+  def makeOperational(sec: WalletSecret) = {
+    btc.makeOperational(app, sec.keys.bitcoinMaster, "btc_servers.json", "btc_checkpoints.json", strict = true)
+    eca.makeOperational(app, sec.keys.ecashMaster, "eca_servers.json", "eca_checkpoints.json", strict = false)
+    secret = sec
+
+    linkClient = new LinkClient(btc.extDataBag)
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {
         case data: LinkClient.UserStatus => linkClient ! LinkClient.Request(LinkClient.GetUserStatus(data.sessionToken), id)
@@ -155,80 +216,27 @@ object WalletApp {
     }
   }
 
-  def createBtcWallet(sec: WalletSecret, ord: Long = 0L): WalletSpec = {
-    val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, sec.keys.bitcoinMaster, ElectrumWallet.chainHash, ord)
-    val btcSpec = ElectrumWallet.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), app getString bitcoin_wallet)
-    btcWalletBag.addWallet(btcSpec.info, ElectrumWallet.params.emptyPersistentDataBytes, btcSpec.data.keys.ewt.xPub.publicKey)
-    btcSpec
-  }
-
-  def attachBtcWallet(keys: MasterKeys): Unit = {
-    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = keys.bitcoinMaster.asSome)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, keys.bitcoinMaster, ElectrumWallet.chainHash, 0L)
-
-    if (ElectrumWallet.specs.contains(ewt.xPub) || secret.keys.bitcoinMaster == keys.bitcoinMaster) return
-    val spec = ElectrumWallet.makeSigningWalletParts(core, ewt, Satoshi(0L), label = app getString bitcoin_wallet)
-    btcWalletBag.addWallet(spec.info, ElectrumWallet.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
-    postInitBtcWallet(spec)
-  }
-
-  def initBtcWallet(info: CompleteBtcWalletInfo, ord: Long): Unit = {
-    val ext = info.core.attachedMaster.getOrElse(secret.keys.bitcoinMaster)
-    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, chainHash, ord)
-    val spec = ElectrumWallet.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
-    ElectrumWallet.specs.update(ewt.xPub, spec)
-    spec.walletRef ! info.initData
-  }
-
-  def postInitBtcWallet(spec: WalletSpec): Unit = {
-    ElectrumWallet.specs.update(spec.data.keys.ewt.xPub, spec)
-    spec.walletRef ! ElectrumWallet.params.emptyPersistentDataBytes
-    ElectrumWallet.sync ! ElectrumWallet.ChainFor(spec.walletRef)
-  }
-
-  def removeBtcWallet(key: ExtendedPublicKey): Unit = {
-    ElectrumWallet.specs.remove(key).foreach(_.walletRef ! PoisonPill)
-    btcWalletBag.remove(key.publicKey)
-  }
-
-  def initTaCard = {
+  def initTaCard = if (getShowTaCard) {
     // This is a single place where we should bypass sequential threading
     for (status <- linkClient.loadUserStatus) linkClient.data = status
     linkClient ! WsListener.CmdConnect
   }
 
   def initWallets = {
-    val (native, attached) = btcWalletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-    for (btcWalletInfo \ ord <- native.zipWithIndex) initBtcWallet(btcWalletInfo, ord)
-    for (btcWalletInfo <- attached) initBtcWallet(btcWalletInfo, ord = 0L)
-    // This is a single place where we should bypass sequential threading
-    if (getShowTaCard) initTaCard
-
-    ElectrumWallet.connectionProvider doWhenReady {
-      ElectrumWallet.pool ! ElectrumClientPool.InitConnect
-
-      val feeratePeriodHours = 2
-      val rateRetry = Rx.retry(Rx.ioQueue.map(_ => feeRates.reloadData), Rx.incSec, 3 to 18 by 3)
-      val rateRepeat = Rx.repeat(rateRetry, Rx.incHour, feeratePeriodHours to Int.MaxValue by feeratePeriodHours)
-      val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
-      feerateObs.foreach(feeRates.updateInfo, none)
-
-      val fiatPeriodSecs = 60 * 3
-      val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates.reloadData), Rx.incSec, 3 to 18 by 3)
-      val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
-      fiatRepeat.foreach(fiatRates.updateInfo, none)
-    }
+    btc.initWallets
+    eca.initWallets
+    initTaCard
   }
 
   // Fiat conversion
 
   def currentRate(rates: Fiat2Btc, code: String): Try[Double] = Try(rates apply code)
   def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenom.factor)
-  val currentMsatInFiatHuman: MilliSatoshi => String = msat => msatInFiatHuman(fiatRates.info.rates, fiatCode, msat, Denomination.formatFiatShort)
+  def currentMsatInFiatHuman(fr: FiatRates, msat: MilliSatoshi): String = msatInFiatHuman(fr, fiatCode, msat, Denomination.formatFiatShort)
 
-  def msatInFiatHuman(rates: Fiat2Btc, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {
-    val fiatAmount: String = msatInFiat(rates, code)(msat).map(decimalFormat.format).getOrElse(default = "?")
-    fiatRates.customFiatSymbols.get(code).map(sign => s"$sign$fiatAmount").getOrElse(s"$fiatAmount $code")
+  def msatInFiatHuman(fr: FiatRates, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {
+    val fiatAmount: String = msatInFiat(fr.info.rates, code)(msat).map(decimalFormat.format).getOrElse(default = "?")
+    fr.customFiatSymbols.get(code).map(sign => s"$sign$fiatAmount").getOrElse(s"$fiatAmount $code")
   }
 
   val uLocale = ULocale.forLocale(Locale.getDefault)

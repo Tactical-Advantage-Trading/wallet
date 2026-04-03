@@ -7,13 +7,13 @@ import immortan.Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{BtcDenom, Rx}
-import immortan.{BtcDescription, CanBeShutDown, PlainBtcDescription, StateMachine}
+import immortan.{CanBeShutDown, CoinDescription, StateMachine}
 import spray.json._
-import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.R.drawable._
 import trading.tacticaladvantage.LinkClient._
+import trading.tacticaladvantage.R.drawable._
+import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.WsListener._
-import trading.tacticaladvantage.utils.{BitcoinUri, WsListener}
+import trading.tacticaladvantage.utils.{CoinUri, WsListener}
 
 import java.util.Date
 import scala.util.Try
@@ -163,9 +163,8 @@ object LinkClient {
 
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
 
-  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with BitcoinUri {
-    val label: Option[String] = WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome
-    val desc: BtcDescription = PlainBtcDescription(List(address), label, taRoi = roi.asSome)
+  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
+    val desc: CoinDescription = CoinDescription(List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome, WalletApp.ID_BTC, taRoi = roi.asSome)
     val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
     val amount: Option[MilliSatoshi] = None
     val tag = "LoanAd"

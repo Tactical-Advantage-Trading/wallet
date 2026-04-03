@@ -39,13 +39,13 @@ import scala.util.{Failure, Success, Try}
 
 object MainActivity {
   case class Accumulator(identities: Set[String], infos: Set[ItemDetails] = Set.empty) {
-    def withBtcInfo(info: BtcInfo): Accumulator = Accumulator(identities ++ info.relatedTxids, infos + info)
+    def withBtcInfo(info: CoinDetails): Accumulator = Accumulator(identities ++ info.relatedTxids, infos + info)
   }
 
   val DEFAULT_SHOW_ITEMS = 1
   var displayFullIxInfoHistory: Boolean = false
   var idsToDisplayAnyway: Set[String] = Set.empty
-  var btcInfosToConsider: Iterable[BtcInfo] = Nil
+  var btcInfosToConsider: Iterable[CoinDetails] = Nil
   var infosFromDb: Iterable[ItemDetails] = Nil
   var allInfos: Seq[ItemDetails] = Nil
 }
@@ -66,7 +66,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // PAYMENT LIST
 
   def loadRecent: Unit = {
-    btcInfosToConsider = WalletApp.btcTxDataBag.listRecentTxs(10).map(WalletApp.btcTxDataBag.toInfo)
+    btcInfosToConsider = WalletApp.txDataBag.listRecentTxs(10).map(WalletApp.txDataBag.reify)
     infosFromDb = btcInfosToConsider
 
     if (!displayFullIxInfoHistory) {
@@ -76,14 +76,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       // Then, we init accumulator with those
       val accumulator1 = Accumulator(idsToDisplayAnyway)
       val accumulator2 = sortedCandidates.foldLeft(accumulator1) {
-        case (acc, info: BtcInfo) => acc.withBtcInfo(info)
+        case (acc, info: CoinDetails) => acc.withBtcInfo(info)
       }
 
       // Then see if any dropped ones should be displayed
       val accumulator3 = infosFromDb.foldLeft(accumulator2) {
-        case (acc, info: BtcInfo) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
-        case (acc, info: BtcInfo) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
-        case (acc, info: BtcInfo) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
+        case (acc, info: CoinDetails) if acc.identities.intersect(info.relatedTxids).nonEmpty => acc.withBtcInfo(info)
+        case (acc, info: CoinDetails) if idsToDisplayAnyway.contains(info.identity) => acc.withBtcInfo(info)
+        case (acc, info: CoinDetails) if !info.isConfirmed && !info.isDoubleSpent => acc.withBtcInfo(info)
         case (acc, _) => acc
       }
 
@@ -168,12 +168,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     // CPFP / RBF
 
-    def boostCPFP(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
+    def boostCPFP(info: CoinDetails): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
       case Nil => WalletApp.app.quickToast(error_no_wallet)
       case wallets => doBoostCPFP(wallets, info)
     }
 
-    def doBoostCPFP(specs: Seq[WalletSpec], info: BtcInfo): Unit = {
+    def doBoostCPFP(specs: Seq[WalletSpec], info: CoinDetails): Unit = {
       val changeSpec = ElectrumWallet.orderByImportance(candidates = specs).head
       val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
@@ -211,14 +211,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val cpfpBumpOrder = SemanticOrder(info.txid.toHex, System.currentTimeMillis)
         // Only update parent semantic order if it does not already have one, record it BEFORE sending CPFP
         val parentDescWithOrder = info.description.withNewOrderCond(cpfpBumpOrder.copy(order = Long.MinValue).asSome)
-        WalletApp.btcTxDataBag.updDescription(parentDescWithOrder, info.txid)
+        WalletApp.txDataBag.updDescription(parentDescWithOrder, info.txid)
 
         runInFutureProcessOnUI(ElectrumWallet.makeCPFP(specs, fromOutPoints.toSet, ourPubKeyScript, feeView.rate), onFail) { response =>
           val desc = PlainBtcDescription(address :: Nil, label = None, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
           alert.dismiss
 
           runFutureProcessOnUI(broadcastBtc(desc, response.tx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
-            case None => WalletApp.btcTxDataBag.updDescription(parentDescWithOrder.withNewCPFPBy(response.tx.txid), info.txid)
+            case None => WalletApp.txDataBag.updDescription(parentDescWithOrder.withNewCPFPBy(response.tx.txid), info.txid)
             case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
@@ -235,13 +235,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       sendView.switchToDefault(alert)
     }
 
-    def boostRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
+    def boostRBF(info: CoinDetails): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
       case specs if specs.size < info.extPubs.size => WalletApp.app.quickToast(error_no_wallet)
       case specs if info.description.taRoi.isDefined => doBoostRBF(specs, info, txSendProxyTa)
       case specs => doBoostRBF(specs, info, txToSendProxyNoop)
     }
 
-    def doBoostRBF(specs: Seq[WalletSpec], info: BtcInfo, txToSendProxy: TxToSendProxy): Unit = {
+    def doBoostRBF(specs: Seq[WalletSpec], info: CoinDetails, txToSendProxy: TxToSendProxy): Unit = {
       val currentFee = BtcDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
       val sendView = new BtcSendView(specs, MAX_MSAT)
@@ -289,7 +289,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         def proceedBroadcastWithoutConfirm(response: GenerateTxResponse): Unit = runAnd(alert1.dismiss) {
           val desc = PlainBtcDescription(Nil, None, rbfBumpOrder.asSome, None, None, rbfParams.asSome, taRoi = info.description.taRoi)
           runFutureProcessOnUI(broadcastBtc(desc, response.tx, received = Satoshi(0L), info.sentSat, response.fee, incoming = 0), onFail) {
-            case None => WalletApp.btcTxDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
+            case None => WalletApp.txDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
             case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
@@ -311,12 +311,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       sendView.switchToDefault(alert)
     }
 
-    def cancelRBF(info: BtcInfo): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
+    def cancelRBF(info: CoinDetails): Unit = info.extPubs.flatMap(ElectrumWallet.specs.get) match {
       case Nil => WalletApp.app.quickToast(error_no_wallet)
       case specs => doCancelRBF(specs, info)
     }
 
-    def doCancelRBF(specs: Seq[WalletSpec], info: BtcInfo): Unit = {
+    def doCancelRBF(specs: Seq[WalletSpec], info: CoinDetails): Unit = {
       val changeSpec = ElectrumWallet.orderByImportance(candidates = specs).head
       val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
       val ourPubKeyScript = ElectrumWallet.addressToPubKeyScript(address)
@@ -368,7 +368,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           alert.dismiss
 
           runFutureProcessOnUI(broadcastBtc(desc, response.tx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
-            case None => WalletApp.btcTxDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
+            case None => WalletApp.txDataBag.updDescription(info.description.withNewOrderCond(rbfBumpOrder.copy(order = Long.MaxValue).asSome), info.txid)
             case Some(error) => cleanFailedBtcBroadcast(info, response.tx.txid.toHex, error.message)
           }
         }
@@ -400,7 +400,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       openListItems += item.identity
 
       item match {
-        case info: BtcInfo =>
+        case info: CoinDetails =>
           val isRbfCancel = info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL)
           val canRBF = !info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.cpfpOf.isEmpty
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
@@ -420,27 +420,27 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       meta setText WalletApp.when(currentDetails.date, WalletApp.app.dateFormat)
 
       currentDetails match {
-        case info: BtcInfo if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
+        case info: CoinDetails if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
         case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.6F)
         case _ => itemView.setAlpha(1F)
       }
 
       currentDetails match {
-        case info: BtcInfo => statusIcon setImageResource btcStatusIcon(info)
+        case info: CoinDetails => statusIcon setImageResource btcStatusIcon(info)
       }
 
       currentDetails match {
-        case info: BtcInfo if info.description.cpfpOf.isDefined => setVisibleIcon(R.id.btcInBoosted)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(R.id.btcOutBoosted)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(R.id.btcOutCancelled)
-        case _: BtcInfo => setVisibleIcon(R.id.btcInOut)
+        case info: CoinDetails if info.description.cpfpOf.isDefined => setVisibleIcon(R.id.btcInBoosted)
+        case info: CoinDetails if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => setVisibleIcon(R.id.btcOutBoosted)
+        case info: CoinDetails if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => setVisibleIcon(R.id.btcOutCancelled)
+        case _: CoinDetails => setVisibleIcon(R.id.btcInOut)
       }
 
       currentDetails match {
-        case info: BtcInfo if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
-        case info: BtcInfo if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
-        case info: BtcInfo => amount.setText(BtcDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
+        case info: CoinDetails if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
+        case info: CoinDetails if info.description.rbf.exists(_.mode == BtcDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
+        case info: CoinDetails if info.description.rbf.exists(_.mode == BtcDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
+        case info: CoinDetails => amount.setText(BtcDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
       }
     }
 
@@ -450,7 +450,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       lastVisibleIconId = id
     }
 
-    def btcStatusIcon(info: BtcInfo): Int = {
+    def btcStatusIcon(info: CoinDetails): Int = {
       // Ephemeral tx has no connected wallet while it's being broadcasted
       // User may remove a wallet while related transactions are getting confirmed
       val hasNoWallets = info.extPubs.flatMap(ElectrumWallet.specs.get).isEmpty
@@ -525,7 +525,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
   override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
-    case pbu: PlainBitcoinUri if Try(ElectrumWallet addressToPubKeyScript pbu.address).isSuccess =>
+    case pbu: PlainCoinUri if Try(ElectrumWallet addressToPubKeyScript pbu.address).isSuccess =>
       bringSingleAddressSelector(pbu, plainTitle, txToSendProxyNoop).run
 
     case a2a: MultiAddressParser.AddressToAmount if a2a.values.nonEmpty =>
@@ -574,7 +574,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
             relatedSpec <- info.extPubs.flatMap(ElectrumWallet.specs.get).headOption
             doubleSpent = ElectrumWallet.doubleSpent(relatedSpec.data.keys.ewt.xPub, info.tx)
             if doubleSpent.depth != info.depth || doubleSpent.isDoubleSpent != info.isDoubleSpent
-          } WalletApp.btcTxDataBag.updStatus(info.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
+          } WalletApp.txDataBag.updStatus(info.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
 
           UITask(walletCards.updateView).run
           paymentAdapterDataChanged.run
@@ -646,7 +646,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     walletCards.updateView
   }
 
-  def plainTitle(uri: PlainBitcoinUri): TitleView = {
+  def plainTitle(uri: PlainCoinUri): TitleView = {
     val label = uri.label.map(label => s"<br><br><b>$label</b>").getOrElse(new String)
     val caption = getString(dialog_send).format(getString(bitcoin_wallet), uri.address.short, label)
     new TitleView(caption)
@@ -681,7 +681,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def bringSingleAddressSelector[T <: BitcoinUri](pbu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
+  def bringSingleAddressSelector[T <: CoinUri](pbu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
     val pubKeyScript = ElectrumWallet.addressToPubKeyScript(pbu.address)
 
     new BtcWalletSelector(makeTitle apply pbu) {
@@ -860,7 +860,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def broadcastBtc(desc: BtcDescription, finalTx: Transaction, received: Satoshi, sent: Satoshi, fee: Satoshi, incoming: Int): Future[OkOrError] = {
-    val info = BtcInfo(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0L, received, sent, fee, seenAt = System.currentTimeMillis,
+    val info = CoinDetails(finalTx.toString, finalTx.txid.toHex, invalidPubKey.toString, depth = 0L, received, sent, fee, seenAt = System.currentTimeMillis,
       updatedAt = System.currentTimeMillis, desc, 0L.msat, WalletApp.fiatRates.info.rates.toJson.compactPrint, incoming, doubleSpent = 0L)
     WalletApp.pendingInfos(info.identity) = info
     WalletApp.seenInfos(info.identity) = info
@@ -868,8 +868,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     ElectrumWallet.broadcast(finalTx)
   }
 
-  def cleanFailedBtcBroadcast(info: BtcInfo, failedKey: String, message: String): Unit = {
-    WalletApp.btcTxDataBag.updDescription(info.description, info.txid)
+  def cleanFailedBtcBroadcast(info: CoinDetails, failedKey: String, message: String): Unit = {
+    WalletApp.txDataBag.updDescription(info.description, info.txid)
     cleanFailedBroadcast(failedKey, message)
   }
 
@@ -1158,7 +1158,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       val btcCards =
         for (xPub <- ElectrumWallet.specs.keys) yield new BtcWalletCard(xPub) {
-          override def onTap: Unit = goToWithValue(ClassNames.qrBtcActivityClass, xPub)
+          override def onTap: Unit = goToWithValue(ClassNames.qrCoinActivityClass, xPub)
           override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
         }
 

@@ -26,7 +26,7 @@
                 style="@style/BoundedView"/>
 
             <ImageButton
-                android:padding="6dp"
+                android:padding="5dp"
                 android:id="@+id/settingsButton"
                 android:onClick="toggleSettingsMode"
                 android:src="@drawable/settings_24"

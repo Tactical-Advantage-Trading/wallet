@@ -1,79 +1,22 @@
-/*
- * Copyright 2019 ACINQ SAS
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package fr.acinq.eclair.blockchain.electrum
 
-import fr.acinq.bitcoin.{Block, BlockHeader, ByteVector32, decodeCompact}
+import fr.acinq.bitcoin.{BlockHeader, ByteVector32, decodeCompact}
 import immortan.sqlite.SQLiteData
 
 import java.math.BigInteger
 import scala.annotation.tailrec
 
-case class Blockchain(chainHash: ByteVector32, checkpoints: Vector[CheckPoint], headersMap: Map[ByteVector32, Blockchain.BlockIndex],
+
+case class Blockchain(enforceSameBits: Boolean, checkpoints: Vector[CheckPoint], headersMap: Map[ByteVector32, Blockchain.BlockIndex],
                       bestchain: Vector[Blockchain.BlockIndex], orphans: Map[ByteVector32, BlockHeader] = Map.empty) {
 
-  import Blockchain._
-
-  require(chainHash == Block.LivenetGenesisBlock.hash || chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash, s"invalid chain hash $chainHash")
-
   def tip = bestchain.last
-
   def height = if (bestchain.isEmpty) 0 else bestchain.last.height
 
-  /**
-    * Build a chain of block indexes
-    *
-    * This is used in case of reorg to rebuilt the new best chain
-    *
-    * @param index last index of the chain
-    * @param acc   accumulator
-    * @return the chain that starts at the genesis block and ends at index
-    */
-  @tailrec
-  private def buildChain(index: BlockIndex, acc: Vector[BlockIndex] = Vector.empty[BlockIndex]): Vector[BlockIndex] = {
-    index.parent match {
-      case None => index +: acc
-      case Some(parent) => buildChain(parent, index +: acc)
-    }
+  def getHeader(height: Int): Option[BlockHeader] = {
+    val isOk = bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size
+    if (isOk) Some(bestchain(height - bestchain.head.height).header) else None
   }
-
-  /**
-    *
-    * @param height block height
-    * @return the encoded difficulty that a block at this height should have
-    */
-  def getDifficulty(height: Int): Option[Long] = height match {
-    case value if value < RETARGETING_PERIOD * (checkpoints.length + 1) =>
-      // we're within our checkpoints
-      val checkpoint = checkpoints(height / RETARGETING_PERIOD - 1)
-      Some(checkpoint.nextBits)
-    case value if value % RETARGETING_PERIOD != 0 =>
-      // we're not at a retargeting height, difficulty is the same as for the previous block
-      getHeader(height - 1).map(_.bits)
-    case _ =>
-      // difficulty retargeting
-      for {
-        previous <- getHeader(height - 1)
-        firstBlock <- getHeader(height - RETARGETING_PERIOD)
-      } yield BlockHeader.calculateNextWorkRequired(previous, firstBlock.time)
-  }
-
-  def getHeader(height: Int): Option[BlockHeader] = if (bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size)
-    Some(bestchain(height - bestchain.head.height).header)
-  else None
 }
 
 object Blockchain {
@@ -97,48 +40,8 @@ object Blockchain {
     override def toString = s"BlockIndex($blockId, $height, ${parent.map(_.blockId)}, $logwork)"
   }
 
-  /**
-    * Build an empty blockchain from a series of checkpoints
-    *
-    * @param chainhash   chain we're on
-    * @param checkpoints list of checkpoints
-    * @return a blockchain instance
-    */
-  def fromCheckpoints(chainhash: ByteVector32, checkpoints: Vector[CheckPoint]): Blockchain = {
-    Blockchain(chainhash, checkpoints, Map.empty, Vector.empty)
-  }
-
-  /**
-    * Used in tests
-    */
-  def fromGenesisBlock(chainhash: ByteVector32, genesis: BlockHeader): Blockchain = {
-    require(chainhash == Block.RegtestGenesisBlock.hash)
-    // the height of the genesis block is 0
-    val blockIndex = BlockIndex(genesis, 0, None, decodeCompact(genesis.bits)._1)
-    Blockchain(chainhash, Vector(), Map(blockIndex.hash -> blockIndex), Vector(blockIndex))
-  }
-
-  /**
-    * load an em
-    *
-    * @param chainHash
-    * @param headerDb
-    * @return
-    */
-  def load(chainHash: ByteVector32, headerDb: SQLiteData): Blockchain = {
-    val checkpoints = CheckPoint.loadFromChainHash(chainHash)
-    val checkpoints1 = headerDb.getTip match {
-      case Some((height, _)) =>
-        val newcheckpoints = for {h <- checkpoints.size * RETARGETING_PERIOD - 1 + RETARGETING_PERIOD to height - RETARGETING_PERIOD by RETARGETING_PERIOD} yield {
-          val cpheader = headerDb.getHeader(h).get
-          val nextDiff = headerDb.getHeader(h + 1).get.bits
-          CheckPoint(cpheader.hash, nextDiff)
-        }
-        checkpoints ++ newcheckpoints
-      case None => checkpoints
-    }
-    Blockchain.fromCheckpoints(chainHash, checkpoints1)
-  }
+  def fromCheckpoints(enforceSameBits: Boolean, checkpoints: Vector[CheckPoint] = Vector.empty): Blockchain =
+    Blockchain(enforceSameBits, checkpoints, Map.empty, Vector.empty)
 
   /**
     * Validate a chunk of 2016 headers
@@ -156,38 +59,30 @@ object Blockchain {
     require(BlockHeader.checkProofOfWork(headers.head))
     headers.tail.foldLeft(headers.head) {
       case (previous, current) =>
-        require(BlockHeader.checkProofOfWork(current))
+        require(BlockHeader checkProofOfWork current)
         require(current.hashPreviousBlock == previous.hash)
         // on mainnet all blocks with a re-targeting window have the same difficulty target
         // on testnet it doesn't hold, there can be a drop in difficulty if there are no blocks for 20 minutes
-        blockchain.chainHash match {
-          case Block.LivenetGenesisBlock | Block.RegtestGenesisBlock.hash => require(current.bits == previous.bits)
-          case _ => ()
-        }
+        if (blockchain.enforceSameBits) require(current.bits == previous.bits)
         current
     }
 
     val cpindex = (height / RETARGETING_PERIOD) - 1
     if (cpindex < blockchain.checkpoints.length) {
-      // check that the first header in the chunk matches our checkpoint
       val checkpoint = blockchain.checkpoints(cpindex)
       require(headers.head.hashPreviousBlock == checkpoint.hash)
-      blockchain.chainHash match {
-        case Block.LivenetGenesisBlock.hash => require(headers.head.bits == checkpoint.nextBits)
-        case _ => ()
-      }
+      if (blockchain.enforceSameBits) require(headers.head.bits == checkpoint.nextBits)
     }
 
-    // if we have a checkpoint after this chunk, check that it is also satisfied
     if (cpindex < blockchain.checkpoints.length - 1) {
       require(headers.length == RETARGETING_PERIOD)
+
       val nextCheckpoint = blockchain.checkpoints(cpindex + 1)
       require(headers.last.hash == nextCheckpoint.hash)
-      blockchain.chainHash match {
-        case Block.LivenetGenesisBlock.hash =>
-          val diff = BlockHeader.calculateNextWorkRequired(headers.last, headers.head.time)
-          require(diff == nextCheckpoint.nextBits)
-        case _ => ()
+
+      if (blockchain.enforceSameBits) {
+        val diff = BlockHeader.calculateNextWorkRequired(headers.last, headers.head.time)
+        require(diff == nextCheckpoint.nextBits)
       }
     }
   }
@@ -235,11 +130,11 @@ object Blockchain {
     require(BlockHeader.checkProofOfWork(header), s"invalid proof of work for $header")
     blockchain.headersMap.get(header.hashPreviousBlock) match {
       case Some(parent) if parent.height == height - 1 =>
-        if (height % RETARGETING_PERIOD != 0 && (blockchain.chainHash == Block.LivenetGenesisBlock.hash || blockchain.chainHash == Block.RegtestGenesisBlock.hash)) {
+        if (height % RETARGETING_PERIOD != 0 && blockchain.enforceSameBits) {
           // check difficulty target, which should be the same as for the parent block
-          // we only check this on mainnet, on testnet rules are much more lax
-          require(header.bits == parent.header.bits, s"header invalid difficulty target for ${header}, it should be ${parent.header.bits}")
+          require(header.bits == parent.header.bits, s"header invalid difficulty target for $header, it should be ${parent.header.bits}")
         }
+
         val blockIndex = BlockIndex(header, height, Some(parent), parent.chainwork + Blockchain.chainWork(header))
         val headersMap1 = blockchain.headersMap + (blockIndex.hash -> blockIndex)
         val bestChain1 = if (parent == blockchain.bestchain.last) {
@@ -271,21 +166,9 @@ object Blockchain {
     }
   }
 
-
-  /**
-    * build a chain of block indexes
-    *
-    * @param index last index of the chain
-    * @param acc   accumulator
-    * @return the chain that starts at the genesis block and ends at index
-    */
   @tailrec
-  def buildChain(index: BlockIndex, acc: Vector[BlockIndex] = Vector.empty[BlockIndex]): Vector[BlockIndex] = {
-    index.parent match {
-      case None => index +: acc
-      case Some(parent) => buildChain(parent, index +: acc)
-    }
-  }
+  def buildChain(index: BlockIndex, acc: Vector[BlockIndex] = Vector.empty[BlockIndex]): Vector[BlockIndex] =
+    index.parent match { case Some(parent) => buildChain(parent, index +: acc) case None => index +: acc }
 
   def chainWork(target: BigInt): BigInt = BigInt(2).pow(256) / (target + BigInt(1))
 
@@ -317,27 +200,17 @@ object Blockchain {
     }
   }
 
-  /**
-    * Computes the difficulty target at a given height.
-    *
-    * @param blockchain blockchain
-    * @param height     height for which we want the difficulty target
-    * @param headerDb   header database
-    * @return the difficulty target for this height
-    */
   def getDifficulty(blockchain: Blockchain, height: Int, headerDb: SQLiteData): Option[Long] = {
-    blockchain.chainHash match {
-      case Block.LivenetGenesisBlock.hash =>
-        (height % RETARGETING_PERIOD) match {
-          case 0 =>
-            for {
-              parent <- blockchain.getHeader(height - 1) orElse headerDb.getHeader(height - 1)
-              previous <- blockchain.getHeader(height - 2016) orElse headerDb.getHeader(height - 2016)
-              target = BlockHeader.calculateNextWorkRequired(parent, previous.time)
-            } yield target
-          case _ => blockchain.getHeader(height - 1) orElse headerDb.getHeader(height - 1) map (_.bits)
-        }
-      case _ => None // no difficulty check on testnet
+    if (!blockchain.enforceSameBits) return None
+    if (height % RETARGETING_PERIOD == 0) {
+      for {
+        parent <- blockchain.getHeader(height - 1) orElse headerDb.getHeader(height - 1)
+        previous <- blockchain.getHeader(height - 2016) orElse headerDb.getHeader(height - 2016)
+      } yield BlockHeader.calculateNextWorkRequired(parent, previous.time)
+    } else {
+      val hot = blockchain.getHeader(height - 1)
+      val cold = headerDb.getHeader(height - 1)
+      hot.orElse(cold).map(_.bits)
     }
   }
 }

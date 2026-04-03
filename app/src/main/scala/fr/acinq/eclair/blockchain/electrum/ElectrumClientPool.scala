@@ -1,21 +1,21 @@
 package fr.acinq.eclair.blockchain.electrum
 
-import java.io.InputStream
-import java.net.InetSocketAddress
-import akka.actor.{Actor, ActorRef, FSM, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
-import fr.acinq.bitcoin.{Block, BlockHeader, ByteVector32}
+import akka.actor._
+import fr.acinq.bitcoin.BlockHeader
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient.SSL
 import fr.acinq.eclair.blockchain.electrum.ElectrumClientPool._
 import org.json4s.JsonAST.{JObject, JString}
 import org.json4s.native.JsonMethods
 
-import scala.concurrent.ExecutionContext
+import java.io.InputStream
+import java.net.InetSocketAddress
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.Random
 
 
-class ElectrumClientPool(chainHash: ByteVector32)(implicit val ec: ExecutionContext) extends Actor with FSM[State, Data] {
-  val serverAddresses: Set[ElectrumServerAddress] = loadFromChainHash(chainHash)
+class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data] {
+  val serverAddresses: Set[ElectrumServerAddress] = readServerAddresses(stream)
   val addresses = collection.mutable.Map.empty[ActorRef, InetSocketAddress]
   val statusListeners = collection.mutable.HashSet.empty[ActorRef]
 
@@ -90,7 +90,7 @@ class ElectrumClientPool(chainHash: ByteVector32)(implicit val ec: ExecutionCont
     case Event(Connect, _) =>
       pickAddress(serverAddresses, addresses.values.toSet) foreach { esa =>
         val resolved = new InetSocketAddress(esa.address.getHostName, esa.address.getPort)
-        val client = context actorOf Props(classOf[ElectrumClient], resolved, esa.ssl, ec)
+        val client = context actorOf Props(classOf[ElectrumClient], resolved, esa.ssl)
         client ! ElectrumClient.AddStatusListener(self)
         addresses += Tuple2(client, esa.address)
         context watch client
@@ -143,27 +143,17 @@ class ElectrumClientPool(chainHash: ByteVector32)(implicit val ec: ExecutionCont
 }
 
 object ElectrumClientPool {
-  case class ElectrumServerAddress(address: InetSocketAddress, ssl: SSL)
-
-  var loadFromChainHash: ByteVector32 => Set[ElectrumServerAddress] = {
-    case Block.LivenetGenesisBlock.hash => readServerAddresses(classOf[ElectrumServerAddress] getResourceAsStream "/electrum/servers_mainnet.json")
-    case Block.TestnetGenesisBlock.hash => readServerAddresses(classOf[ElectrumServerAddress] getResourceAsStream "/electrum/servers_testnet.json")
-    case Block.RegtestGenesisBlock.hash => readServerAddresses(classOf[ElectrumServerAddress] getResourceAsStream "/electrum/servers_regtest.json")
-    case _ => throw new RuntimeException
-  }
-
-  def readServerAddresses(stream: InputStream): Set[ElectrumServerAddress] = try {
-    val JObject(values) = JsonMethods.parse(stream)
-
-    for (Tuple2(name, fields) <- values.toSet) yield {
-      val port = (fields \ "s").asInstanceOf[JString].s.toInt
-      val address = InetSocketAddress.createUnresolved(name, port)
-      ElectrumServerAddress(address, SSL.LOOSE)
+  def readServerAddresses(stream: InputStream): Set[ElectrumServerAddress] =
+    try {
+      val JObject(values) = JsonMethods.parse(stream)
+      for (Tuple2(name, fields) <- values.toSet) yield {
+        val port = (fields \ "s").asInstanceOf[JString].s.toInt
+        val address = InetSocketAddress.createUnresolved(name, port)
+        ElectrumServerAddress(address, SSL.LOOSE)
+      }
+    } finally {
+      stream.close
     }
-
-  } finally {
-    stream.close
-  }
 
   def pickAddress(serverAddresses: Set[ElectrumServerAddress], usedAddresses: Set[InetSocketAddress] = Set.empty): Option[ElectrumServerAddress] =
     Random.shuffle(serverAddresses.filterNot(serverAddress => usedAddresses contains serverAddress.address).toSeq).headOption
@@ -178,6 +168,7 @@ object ElectrumClientPool {
   type TipAndHeader = (Int, BlockHeader)
   type ActorTipAndHeader = Map[ActorRef, TipAndHeader]
 
+  case class ElectrumServerAddress(address: InetSocketAddress, ssl: SSL)
   case class ConnectedData(master: ActorRef, tips: ActorTipAndHeader) extends Data {
     def blockHeight: Int = tips.get(master).map(_._1).getOrElse(0)
   }

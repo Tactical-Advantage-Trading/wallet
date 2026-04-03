@@ -1,8 +1,5 @@
 package fr.acinq.eclair.blockchain.electrum
 
-import java.net.{InetSocketAddress, SocketAddress}
-import java.util
-
 import akka.actor.{Actor, ActorRef, Cancellable, Stash, Terminated}
 import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.bitcoind.rpc.{Error, JsonRPCRequest, JsonRPCResponse}
@@ -16,23 +13,23 @@ import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.handler.codec.string.{LineEncoder, StringDecoder}
 import io.netty.handler.codec.{LineBasedFrameDecoder, MessageToMessageDecoder, MessageToMessageEncoder}
-import io.netty.handler.proxy.Socks5ProxyHandler
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
-import io.netty.resolver.NoopAddressResolverGroup
 import io.netty.util.CharsetUtil
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods
 import org.json4s.{JInt, JLong, JString}
 import scodec.bits.ByteVector
 
+import java.net.{InetSocketAddress, SocketAddress}
+import java.util
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 
-class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL)(implicit val ec: ExecutionContext) extends Actor with Stash {
+class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor with Stash {
 
   val b = new Bootstrap
   b channel classOf[NioSocketChannel]
@@ -62,18 +59,10 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL)(implicit val ec
 
       // Error handler
       ch.pipeline.addLast(new ExceptionHandler)
-
-      ElectrumWallet.connectionProvider.proxyAddress.foreach { address =>
-        // Optional proxy which must be the first handler
-        val handler = new Socks5ProxyHandler(address)
-        ch.pipeline.addFirst(handler)
-      }
     }
   }
 
   val channelOpenFuture: ChannelFuture = b.connect(serverAddress.getHostName, serverAddress.getPort)
-
-  if (ElectrumWallet.connectionProvider.proxyAddress.isDefined) b.resolver(NoopAddressResolverGroup.INSTANCE)
 
   channelOpenFuture addListeners new ChannelFutureListener {
     override def operationComplete(future: ChannelFuture): Unit = {
@@ -102,11 +91,8 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL)(implicit val ec
   }
 
   class ElectrumResponseDecoder extends MessageToMessageDecoder[String] {
-    override def decode(ctx: ChannelHandlerContext, msg: String, out: util.List[AnyRef]): Unit = {
-      val s = msg.asInstanceOf[String]
-      val r = parseResponse(s)
-      out.add(r)
-    }
+    override def decode(ctx: ChannelHandlerContext, msg: String, out: util.List[AnyRef]): Unit =
+      out add parseResponse(msg)
   }
 
   class JsonRPCRequestEncoder extends MessageToMessageEncoder[JsonRPCRequest] {
@@ -115,13 +101,13 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL)(implicit val ec
       import org.json4s._
 
       val json = ("method" -> request.method) ~ ("params" -> request.params.map {
-        case s: String => new JString(s)
-        case b: ByteVector32 => new JString(b.toHex)
-        case f: FeeratePerKw => new JLong(f.toLong)
-        case b: Boolean => new JBool(b)
-        case t: Int => new JInt(t)
-        case t: Long => new JLong(t)
-        case t: Double => new JDouble(t)
+        case s: String => JString(s)
+        case b: ByteVector32 => JString(b.toHex)
+        case f: FeeratePerKw => JLong(f.toLong)
+        case b: Boolean => JBool(b)
+        case t: Int => JInt(t)
+        case t: Long => JLong(t)
+        case t: Double => JDouble(t)
       }) ~ ("id" -> request.id) ~ ("jsonrpc" -> request.jsonrpc)
       val serialized = JsonMethods.compact(JsonMethods.render(json))
       out.add(serialized)
@@ -333,21 +319,6 @@ object ElectrumClient {
   object HeaderSubscriptionResponse {
     def apply(t: (Int, BlockHeader)) = new HeaderSubscriptionResponse(t._1, t._2)
   }
-
-  case class Header(block_height: Long, version: Long, prev_block_hash: ByteVector32, merkle_root: ByteVector32, timestamp: Long, bits: Long, nonce: Long)
-
-  object Header {
-    def makeHeader(height: Long, header: BlockHeader) = ElectrumClient.Header(height, header.version,
-      header.hashPreviousBlock.reverse, header.hashMerkleRoot.reverse, header.time, header.bits, header.nonce)
-
-    val RegtestGenesisHeader: Header = makeHeader(0, Block.RegtestGenesisBlock.header)
-    val TestnetGenesisHeader: Header = makeHeader(0, Block.TestnetGenesisBlock.header)
-    val LivenetGenesisHeader: Header = makeHeader(0, Block.LivenetGenesisBlock.header)
-  }
-
-  case class TransactionHistory(history: Seq[TransactionHistoryItem]) extends Response
-
-  case class AddressStatus(address: String, status: String) extends Response
 
   case class ServerError(request: Request, error: Error) extends Response
 

@@ -13,9 +13,6 @@
     <string name="error_log">Export error logs</string>
 
     <!-- Wallet Management -->
-    <string translatable="false" name="ecash_wallet">ECA</string>
-    <string translatable="false" name="bitcoin_wallet">BTC</string>
-
     <string name="wallet_send">Send</string>
     <string name="setup_create_new">Create new wallet</string>
     <string name="setup_restore_existing">Restore existing wallet</string>
