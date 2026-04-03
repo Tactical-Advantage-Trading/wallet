@@ -9,7 +9,10 @@
       "Bash(./gradlew assembleRelease)",
       "Bash(update-alternatives --list java)",
       "Read(//usr/lib/jvm/**)",
-      "Read(//usr/local/lib/**)"
+      "Read(//usr/local/lib/**)",
+      "Bash(find /app/valet/app/src/main/res/mipmap-* -type f)",
+      "Bash(find /app/valet/app/src/main/res/drawable* -type f)",
+      "Bash(grep:*)"
     ]
   }
 }

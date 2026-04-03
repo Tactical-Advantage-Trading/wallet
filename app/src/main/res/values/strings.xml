@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="lang">eng</string>
-    <string name="app_name">Valet</string>
+    <string name="app_name">Valet Testnet</string>
     <string name="sources">View source code</string>
     <string name="twitter">Follow us on Twitter</string>
     <string name="manual">Read manual</string>

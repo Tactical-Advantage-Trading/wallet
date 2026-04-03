@@ -1,14 +1,19 @@
 {
-    "electrum.testnet4.mempool.space": {
-        "pruning": "-",
-        "s": "60002",
-        "t": "60001",
-        "version": "1.4"
-    },
-    "testnet4-electrum.wtcbitcoin.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.4"
-    }
+  "testnet4-bitraamx.wakiyamap.dev": {
+    "pruning": "-",
+    "s": "51002",
+    "t": "51001",
+    "version": "1.4"
+  },
+  "blackie.c3-soft.com": {
+    "pruning": "-",
+    "s": "57010",
+    "t": "57009",
+    "version": "1.4"
+  },
+  "mempool.space": {
+    "pruning": "-",
+    "s": "40002",
+    "version": "1.4"
+  }
 }
