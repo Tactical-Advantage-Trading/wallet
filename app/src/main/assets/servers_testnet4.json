@@ -1,0 +1,14 @@
+{
+    "electrum.testnet4.mempool.space": {
+        "pruning": "-",
+        "s": "60002",
+        "t": "60001",
+        "version": "1.4"
+    },
+    "testnet4-electrum.wtcbitcoin.com": {
+        "pruning": "-",
+        "s": "50002",
+        "t": "50001",
+        "version": "1.4"
+    }
+}
