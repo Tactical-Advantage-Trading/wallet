@@ -30,10 +30,8 @@ import scala.collection.mutable
 import scala.util.Try
 
 
-class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
+class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
-  val pendingInfos = mutable.Map.empty[String, ItemDetails]
-  val seenInfos = mutable.Map.empty[String, ItemDetails]
   var currentNode = Option.empty[InetSocketAddress]
 
   var walletBag: SQLiteWallet = _
@@ -58,7 +56,7 @@ class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
   }
 
   def makeAlive(app: WalletApp): Unit = {
-    val interface = new DBInterfaceSQLiteAndroid(app, s"$id.db")
+    val interface = new DBInterfaceSQLiteAndroid(app, s"$netId.db")
 
     interface txWrap {
       walletBag = new SQLiteWallet(interface)
@@ -95,13 +93,13 @@ class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
         def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: CoinDescription, isIncoming: Long): Unit = txDataBag.db txWrap {
           txDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
           txDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
-          pendingInfos.remove(event.tx.txid.toHex)
+          WalletApp.pendingInfos.remove(event.tx.txid.toHex)
         }
 
-        seenInfos.get(event.tx.txid.toHex) match {
+        WalletApp.seenInfos.get(event.tx.txid.toHex) match {
           case Some(seen: CoinDetails) => addTx(seen.receivedSat, seen.sentSat, seen.feeSat, seen.description, isIncoming = seen.incoming)
-          case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), CoinDescription(event.addresses, None, id), isIncoming = 1L)
-          case None => addTx(event.received, event.sent - event.received, Satoshi(0L), CoinDescription(event.addresses, label = None, id), isIncoming = 0L)
+          case None if event.received > event.sent => addTx(event.received - event.sent, event.sent, Satoshi(0L), CoinDescription(event.addresses, None, netId), isIncoming = 1L)
+          case None => addTx(event.received, event.sent - event.received, Satoshi(0L), CoinDescription(event.addresses, label = None, netId), isIncoming = 0L)
         }
       }
 
@@ -110,11 +108,11 @@ class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
     }
   }
 
-  def createBtcWallet(ord: Long = 0L): WalletSpec = {
+  def createWallet(ord: Long): WalletSpec = {
     val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, master, electrum.chainHash, ord)
-    val btcSpec = electrum.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, lastBalance = Satoshi(0L), ticker)
-    walletBag.addWallet(btcSpec.info, electrum.params.emptyPersistentDataBytes, btcSpec.data.keys.ewt.xPub.publicKey)
-    btcSpec
+    val spec = electrum.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), ticker)
+    walletBag.addWallet(spec.info, electrum.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
+    spec
   }
 
   def attachWallet(master1: ExtendedPrivateKey): Unit = {
@@ -164,6 +162,13 @@ class NetworkWalletGroup(val id: Int, ticker: String, genesis: Block) {
       fiatRepeat.foreach(fiatRates.updateInfo, none)
     }
   }
+
+  def checkConfirms(infos: Iterable[CoinDetails] = Nil) = for {
+    coinInfo <- infos if !coinInfo.isDoubleSpent && !coinInfo.isConfirmed
+    relatedSpec <- coinInfo.extPubs.flatMap(electrum.specs.get).headOption
+    doubleSpent = electrum.doubleSpent(relatedSpec.data.keys.ewt.xPub, coinInfo.tx)
+    if doubleSpent.depth != coinInfo.depth || doubleSpent.isDoubleSpent != coinInfo.isDoubleSpent
+  } txDataBag.updStatus(coinInfo.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
 }
 
 object WalletApp {
@@ -171,8 +176,11 @@ object WalletApp {
   final val ID_ECA = 2
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
+
   val btc = new NetworkWalletGroup(WalletApp.ID_BTC, "BTC", Block.LivenetGenesisBlock)
   val eca = new NetworkWalletGroup(WalletApp.ID_ECA, "ECA", Block.TestnetGenesisBlock)
+  val pendingInfos = mutable.Map.empty[String, ItemDetails]
+  val seenInfos = mutable.Map.empty[String, ItemDetails]
 
   var linkClient: LinkClient = _
   var secret: WalletSecret = _
@@ -230,8 +238,8 @@ object WalletApp {
 
   // Fiat conversion
 
-  def currentRate(rates: Fiat2Btc, code: String): Try[Double] = Try(rates apply code)
-  def msatInFiat(rates: Fiat2Btc, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(perBtc => msat.toLong * perBtc / BtcDenom.factor)
+  def currentRate(rates: Fiat2Coin, code: String): Try[Double] = Try(rates apply code)
+  def msatInFiat(rates: Fiat2Coin, code: String)(msat: MilliSatoshi): Try[Double] = currentRate(rates, code).map(per => msat.toLong * per / CoinDenom.factor)
   def currentMsatInFiatHuman(fr: FiatRates, msat: MilliSatoshi): String = msatInFiatHuman(fr, fiatCode, msat, Denomination.formatFiatShort)
 
   def msatInFiatHuman(fr: FiatRates, code: String, msat: MilliSatoshi, decimalFormat: DecimalFormat): String = {

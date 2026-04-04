@@ -12,8 +12,8 @@ object Denomination {
   val formatRoi = new DecimalFormat("#,##0.##%", symbols)
   val formatFiatShort = new DecimalFormat("#,###,###", symbols)
 
-  def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * BtcDenom.factor).toLong.msat
-  def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / BtcDenom.factor
+  def btcBigDecimal2MSat(btc: BigDecimal): MilliSatoshi = (btc * CoinDenom.factor).toLong.msat
+  def msat2BtcBigDecimal(msat: MilliSatoshi): BigDecimal = BigDecimal(msat.toLong) / CoinDenom.factor
 
   def fiat(incoming: String, outgoing: String, inColor: String, outColor: String, isIncoming: Boolean) = {
     val (color, amount) = if (isIncoming) (inColor, incoming) else (outColor, outgoing)
@@ -47,7 +47,7 @@ trait Denomination {
   val sign: String
 }
 
-object BtcDenom extends Denomination { me =>
+object CoinDenom extends Denomination { me =>
   val fmt: DecimalFormat = new DecimalFormat("##0.00000000")
   fmt.setDecimalFormatSymbols(Denomination.symbols)
   val factor = 100000000000L

@@ -29,7 +29,6 @@ import scala.util.Try
 
 class Electrum(val params: WalletParameters, val chainHash: ByteVector32) extends CanBeShutDown {
   def addressToPubKeyScript(address: String): ByteVector = Script write addressToPublicKeyScript(address, chainHash)
-
   val specs = new ConcurrentHashMap[ExtendedPublicKey, WalletSpec].asScala
   implicit val system: ActorSystem = ActorSystem("immortan-actor-system")
 
@@ -200,13 +199,6 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32) extend
     IsDoubleSpentResponse(depth, stamp, isDoubleSpent)
   }
 
-  def orderByImportance(candidates: Seq[WalletSpec] = Nil): Seq[WalletSpec] = candidates.sortBy {
-    case hardware if hardware.data.keys.ewt.secrets.isEmpty && hardware.info.core.masterFingerprint.nonEmpty => 0
-    case default if default.data.keys.ewt.secrets.nonEmpty && default.info.core.attachedMaster.isEmpty => 1
-    case signing if signing.data.keys.ewt.secrets.nonEmpty => 2
-    case _ => 3
-  }
-
   // Async API
 
   def broadcast(tx: Transaction): Future[OkOrError] = pool ? ElectrumClient.BroadcastTransaction(tx) flatMap {
@@ -276,6 +268,13 @@ object ElectrumWallet {
 
   def weight2feeMsat(feeratePerKw: FeeratePerKw, weight: Int): MilliSatoshi = MilliSatoshi(feeratePerKw.toLong * weight)
   def weight2fee(feeratePerKw: FeeratePerKw, weight: Int): Satoshi = weight2feeMsat(feeratePerKw, weight).truncateToSatoshi
+
+  def orderByImportance(candidates: Seq[WalletSpec] = Nil): Seq[WalletSpec] = candidates.sortBy {
+    case hardware if hardware.data.keys.ewt.secrets.isEmpty && hardware.info.core.masterFingerprint.nonEmpty => 0
+    case default if default.data.keys.ewt.secrets.nonEmpty && default.info.core.attachedMaster.isEmpty => 1
+    case signing if signing.data.keys.ewt.secrets.nonEmpty => 2
+    case _ => 3
+  }
 }
 
 class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor {

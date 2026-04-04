@@ -313,16 +313,14 @@ trait BaseActivity extends AppCompatActivity { me =>
     val hintDenom = clickableTextField(container findViewById R.id.hintDenom)
   }
 
-  class RateManager(val rmc: RateManagerContent, fiatCode: String) {
-    val rates = WalletApp.fiatRates.info.rates
+  class RateManager(val rmc: RateManagerContent, rates: Fiat2Coin, fiatCode: String) {
+    def bigDecimalFrom(input: CurrencyEditText): BigDecimal = BigDecimal(input.getNumericValueBigDecimal)
+    def resultMsat: MilliSatoshi = (bigDecimalFrom(rmc.inputAmount) * CoinDenom.factor).toLong.msat
 
     def updateText(value: MilliSatoshi): Unit = {
-      rmc.updateBtcText(BtcDenom.fromMsat(value).toString)
+      rmc.updateBtcText(CoinDenom.fromMsat(value).toString)
       updateFiatInput
     }
-
-    def bigDecimalFrom(input: CurrencyEditText): BigDecimal = BigDecimal(input.getNumericValueBigDecimal)
-    def resultMsat: MilliSatoshi = (bigDecimalFrom(rmc.inputAmount) * BtcDenom.factor).toLong.msat
 
     def updatedFiatFromBtc: String =
       WalletApp.msatInFiat(rates, fiatCode)(resultMsat)
@@ -333,7 +331,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       WalletApp.currentRate(rates, fiatCode)
         .map(perBtc => bigDecimalFrom(rmc.fiatInputAmount) / perBtc)
         .filter(0.000000001D <= _).map(Denomination.btcBigDecimal2MSat)
-        .map(BtcDenom.fromMsat).map(_.toString)
+        .map(CoinDenom.fromMsat).map(_.toString)
         .getOrElse("0.00")
 
     def updateFiatInput: Unit = {
@@ -354,7 +352,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       if (rmc.inputAmount.hasFocus) updateFiatInput
     }
 
-    rmc.inputAmountHint setText BtcDenom.sign.toUpperCase
+    rmc.inputAmountHint setText CoinDenom.sign.toUpperCase
     rmc.fiatInputAmountHint setText fiatCode.toUpperCase
     rmc.fiatInputAmount setLocale Denomination.locale
     rmc.inputAmount setLocale Denomination.locale
@@ -369,7 +367,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val customFeerateOption = container.findViewById(R.id.customFeerateOption).asInstanceOf[TextView]
   }
 
-  class FeeView[T](from: FeeratePerByte, val fvc: FeeViewContent) {
+  class FeeView[T](fr: FiatRates, from: FeeratePerByte, val fvc: FeeViewContent) {
     var worker: ThrottledWork[String, T] = _
     var rate: FeeratePerKw = _
 
@@ -379,8 +377,8 @@ trait BaseActivity extends AppCompatActivity { me =>
       fvc.feeRate.setText(s"$satPerVirtualByteFee sat/vB".html)
 
       feeOpt.foreach { fee =>
-        fvc.fiatFee setText WalletApp.currentMsatInFiatHuman(fee).html
-        fvc.bitcoinFee setText BtcDenom.parsed(fee, cardIn, cardZero).html
+        fvc.fiatFee setText WalletApp.currentMsatInFiatHuman(fr, fee).html
+        fvc.bitcoinFee setText CoinDenom.parsed(fee, cardIn, cardZero).html
       }
     }
 
@@ -465,11 +463,11 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
   }
 
-  class BtcSendView(specs: Seq[WalletSpec], hardMax: MilliSatoshi) extends SendView {
+  class BtcSendView(fr: FiatRates, specs: Seq[WalletSpec], hardMax: MilliSatoshi) extends SendView {
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi.min(hardMax)
-    val canSendFiat = WalletApp.currentMsatInFiatHuman(totalCanSend)
-    val canSend = BtcDenom.parsedTT(totalCanSend, cardIn, cardZero)
-    val rm = new RateManager(editView.rmc, WalletApp.fiatCode)
+    val rm = new RateManager(editView.rmc, fr.info.rates, WalletApp.fiatCode)
+    val canSendFiat = WalletApp.currentMsatInFiatHuman(fr, totalCanSend)
+    val canSend = CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
 
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
     editView.rmc.hintDenom setText getString(dialog_up_to).format(canSend).html

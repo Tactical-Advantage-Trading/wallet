@@ -68,6 +68,6 @@ class OnceBottomSheet(host: BaseActivity, onCreated: OnceBottomSheet => Unit, on
 
   override def barcodeResult(scanningResult: BarcodeResult): Unit = for {
     text <- Option(scanningResult.getText) if System.currentTimeMillis - lastAttempt > 2000
-    _ = host.runInFutureProcessOnUI(InputParser.recordValue(text), failedScan)(successfulScan)
+    _ = host.runInFutureProcessOnUI(InputParser recordValue text, failedScan)(successfulScan)
   } lastAttempt = System.currentTimeMillis
 }

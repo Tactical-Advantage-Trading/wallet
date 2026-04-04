@@ -6,7 +6,7 @@ import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
 import immortan.Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
-import immortan.utils.{BtcDenom, Rx}
+import immortan.utils.{CoinDenom, Rx}
 import immortan.{CanBeShutDown, CoinDescription, StateMachine}
 import spray.json._
 import trading.tacticaladvantage.LinkClient._
@@ -124,7 +124,6 @@ object LinkClient {
 
   case class TotalFunds(balance: BigDecimal, withdrawable: BigDecimal) {
     lazy val amountHuman = toHumanSum(withdrawable)
-    lazy val currency = bitcoin_wallet
     lazy val icon = ic_logo_bitcoin_24
   }
 
@@ -223,11 +222,11 @@ object LinkClient {
   case class CmdRemove(listener: Listener)
 
   def toHumanSum(amount: BigDecimal): String =
-    BtcDenom.parsedTT(Btc(amount).toSatoshi.toMilliSatoshi,
+    CoinDenom.parsedTT(Btc(amount).toSatoshi.toMilliSatoshi,
       Colors.cardIn, Colors.cardZero)
 
   def toHumanInSum(amount: BigDecimal): String =
-    BtcDenom.directedTT(Btc(amount).toSatoshi.toMilliSatoshi, MilliSatoshi(0L),
+    CoinDenom.directedTT(Btc(amount).toSatoshi.toMilliSatoshi, MilliSatoshi(0L),
       Colors.cardOut, Colors.cardIn, Colors.cardZero, isIncoming = true)
 }
 

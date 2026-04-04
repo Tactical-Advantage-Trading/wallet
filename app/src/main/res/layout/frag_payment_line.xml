@@ -30,23 +30,29 @@
                 <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_bitcoin_24"/>
             </LinearLayout>
 
-            <!-- BTC incoming boosted -->
+            <!-- ECA -->
 
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcInBoosted">
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/ecaInOut">
+                <ImageView style="@style/BoundedView" android:background="@drawable/ic_logo_ecash_24"/>
+            </LinearLayout>
+
+            <!-- incoming boosted -->
+
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/inBoosted">
                 <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
                 <ImageView style="@style/BoundedView" android:background="@drawable/arrow_downward_18"/>
             </LinearLayout>
 
-            <!-- BTC outgoing boosted -->
+            <!-- outgoing boosted -->
 
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutBoosted">
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/outBoosted">
                 <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
                 <ImageView style="@style/BoundedView" android:background="@drawable/arrow_upward_18"/>
             </LinearLayout>
 
-            <!-- BTC outgoing cancelled -->
+            <!-- outgoing cancelled -->
 
-            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/btcOutCancelled">
+            <LinearLayout style="@style/Tag" android:gravity="center" android:orientation="horizontal" android:id="@+id/outCancelled">
                 <ImageView style="@style/BoundedView" android:background="@drawable/shortcut_20" android:rotation="90"/>
             </LinearLayout>
 

@@ -7,7 +7,7 @@ import fr.acinq.eclair.MilliSatoshi
 import fr.acinq.eclair.blockchain.fee._
 import fr.acinq.eclair.wire.CommonCodecs._
 import immortan._
-import Tools.{Fiat2Btc, StringList}
+import Tools.{Fiat2Coin, StringList}
 import immortan.sqlite.SigningWallet
 import immortan.utils.FiatRates.CoinGeckoItemMap
 import scodec.bits.BitVector
@@ -83,7 +83,7 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   implicit val coinGeckoFmt: JsonFormat[CoinGecko] = jsonFormat[CoinGeckoItemMap, CoinGecko](CoinGecko.apply, "rates")
 
-  implicit val fiatRatesInfoFmt: JsonFormat[FiatRatesInfo] = jsonFormat[Fiat2Btc, Fiat2Btc, Long, FiatRatesInfo](FiatRatesInfo.apply, "rates", "oldRates", "stamp")
+  implicit val fiatRatesInfoFmt: JsonFormat[FiatRatesInfo] = jsonFormat[Fiat2Coin, Fiat2Coin, Long, FiatRatesInfo](FiatRatesInfo.apply, "rates", "oldRates", "stamp")
 
   // Chain feerates
 

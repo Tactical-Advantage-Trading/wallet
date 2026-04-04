@@ -45,6 +45,7 @@ case class CoinDescription(addresses: StringList, label: Option[String], network
   def queryText(txid: ByteVector32): String = txid.toHex + SEPARATOR + addresses.mkString(SEPARATOR) + SEPARATOR + label.getOrElse(new String)
   def withNewOrderCond(order: Option[SemanticOrder] = None): CoinDescription = if (semanticOrder.isDefined) this else copy(semanticOrder = order)
   def withNewCPFPBy(txid: ByteVector32): CoinDescription = copy(cpfpBy = txid.asSome)
+  def canBeCPFPd: Boolean = cpfpBy.isEmpty && cpfpOf.isEmpty
 }
 
 sealed trait ItemDetails {
@@ -57,6 +58,8 @@ sealed trait ItemDetails {
   val date: Date = new Date(updatedAt)
   val description: ItemDescription
   val isDoubleSpent: Boolean
+  val isConfirmed: Boolean
+  val isIncoming: Boolean
   val identity: String
 }
 
@@ -64,8 +67,8 @@ case class CoinDetails(txString: String, identity: String, extPubsString: String
                        feeSat: Satoshi, seenAt: Long, updatedAt: Long, description: CoinDescription, balanceSnapshot: MilliSatoshi,
                        fiatRatesString: String, incoming: Long, doubleSpent: Long) extends ItemDetails {
   override val isDoubleSpent: Boolean = 1L == doubleSpent
-  val isIncoming: Boolean = 1L == incoming
-  val isConfirmed: Boolean = depth > 0
+  override val isIncoming: Boolean = 1L == incoming
+  override val isConfirmed: Boolean = depth > 0
 
   lazy val extPubs: ExtPubKeys = tryTo[ExtPubKeys](extPubsString).getOrElse(Nil)
   lazy val txid: ByteVector32 = ByteVector32.fromValidHex(identity)

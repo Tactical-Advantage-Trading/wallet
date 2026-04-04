@@ -20,12 +20,12 @@ class FiatRates(bag: SQLiteData) extends CanBeShutDown {
     "twd" -> "New Taiwan Dollar", "krw" -> "South Korean won", "clp" -> "Chilean Peso", "sgd" -> "Singapore Dollar", "hkd" -> "Hong Kong Dollar", "pln" -> "Polish złoty",
     "dkk" -> "Danish Krone", "sek" -> "Swedish Krona", "chf" -> "Swiss franc", "huf" -> "Hungarian forint")
 
-  def reloadData(provider: ConnectionProvider): Tools.Fiat2Btc = fr.acinq.eclair.secureRandom nextInt 2 match {
+  def reloadData(provider: ConnectionProvider): Tools.Fiat2Coin = fr.acinq.eclair.secureRandom nextInt 2 match {
     case 0 => to[CoinGecko](provider.get("https://api.coingecko.com/api/v3/exchange_rates").string).rates.map { case (code, item) => code.toLowerCase -> item.value }
     case 1 => to[FiatRates.BlockchainInfoItemMap](provider.get("https://blockchain.info/ticker").string).map { case (code, item) => code.toLowerCase -> item.last }
   }
 
-  def updateInfo(newRates: Tools.Fiat2Btc): Unit = {
+  def updateInfo(newRates: Tools.Fiat2Coin): Unit = {
     info = FiatRatesInfo(newRates, info.rates, System.currentTimeMillis)
     for (lst <- listeners) lst.onFiatRates(info)
   }
@@ -44,7 +44,7 @@ case class CoinGeckoItem(value: Double)
 case class BlockchainInfoItem(last: Double)
 case class CoinGecko(rates: FiatRates.CoinGeckoItemMap)
 
-case class FiatRatesInfo(rates: Tools.Fiat2Btc, oldRates: Tools.Fiat2Btc, stamp: Long) {
+case class FiatRatesInfo(rates: Tools.Fiat2Coin, oldRates: Tools.Fiat2Coin, stamp: Long) {
   def pctDifference(code: String): Option[String] = List(rates get code, oldRates get code) match {
     case Some(fresh) :: Some(old) :: Nil if fresh > old + old / 200 => Some(s"▲ ${Denomination.formatFiatShort format pctChange(fresh, old).abs}%")
     case Some(fresh) :: Some(old) :: Nil if fresh < old - old / 200 => Some(s"▼ ${Denomination.formatFiatShort format pctChange(fresh, old).abs}%")

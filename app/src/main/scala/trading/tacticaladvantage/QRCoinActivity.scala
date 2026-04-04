@@ -10,7 +10,7 @@ import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import immortan.Tools._
-import immortan.utils.{BtcDenom, Denomination}
+import immortan.utils.{CoinDenom, Denomination}
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
@@ -35,7 +35,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
     }
 
     private def updateView(pbu: PlainCoinUri, holder: QRViewHolder): Unit = pbu.uri foreach { uri =>
-      val humanAmountOpt = for (requestedAmount <- pbu.amount) yield BtcDenom.parsedTT(requestedAmount, cardIn, cardZero)
+      val humanAmountOpt = for (requestedAmount <- pbu.amount) yield CoinDenom.parsedTT(requestedAmount, cardIn, cardZero)
       val contentToShare = if (pbu.amount.isDefined || pbu.label.isDefined) InputParser.bitcoin + InputParser.removePrefix(uri.toString) else pbu.address
 
       val visibleText = (pbu.label, humanAmountOpt) match {
@@ -58,7 +58,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
   }
 
   def editAddress(bu: PlainCoinUri): Unit = {
-    val canReceiveHuman = BtcDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
+    val canReceiveHuman = CoinDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
     val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(MAX_MSAT)
     val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
     val title = getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning)
