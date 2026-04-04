@@ -151,7 +151,7 @@ object WalletApp {
     LNParams.routerConf = RouterConf(initRouteMaxLength = 10, LNParams.maxCltvExpiryDelta)
     LNParams.connectionProvider = if (ensureTor) new TorConnectionProvider(app) else new ClearnetConnectionProvider
     LNParams.ourInit = LNParams.createInit
-    LNParams.syncParams = new TestNetSyncParams
+    LNParams.syncParams = new TestNet4SyncParams
     LNParams.ourInit = LNParams.createInit
   }
 
