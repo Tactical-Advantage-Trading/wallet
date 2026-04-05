@@ -216,11 +216,13 @@ class SyncParams {
 
 class TestNet4SyncParams extends SyncParams {
   val atomiq: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"024c6e1edd12f0792d0c1ddda3abc6e2fde6bf89f2848e00cf8d6a58fabb6c3ab6"), NodeAddress.unresolved(9735, host = 81, 17, 102, 136), "Atomiq")
-  val noname: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"0264fa477e2bb4e8c1eadf20eb4408c28026be7b640be3532b8f292bb719268f84"), NodeAddress.unresolved(9735, host = 86, 104, 228, 145), "Noname")
+  val noname0: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"0264fa477e2bb4e8c1eadf20eb4408c28026be7b640be3532b8f292bb719268f84"), NodeAddress.unresolved(9735, host = 86, 104, 228, 145), "Noname0")
+  val noname1: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"020d84fb6ad938545c15633b38db9e3d6dc34205295359611ae817fa0c417066f7"), NodeAddress.unresolved(9735, host = 54, 252, 10, 243), "Noname1")
+  val noname2: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"02f0bf82f730d2e68453cc612c3e7ca5e021eaa1ead8250a6380c551d1d43bdc1b"), NodeAddress.unresolved(9735, host = 109, 123, 236, 96), "Noname2")
   override val localNode: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"035912832c3eea544dc1c1bd4569f3f1f4ef58887c4df88fa17a899c84f093e3e6"), NodeAddress.unresolved(56175, host = 10, 0, 2, 2), "localhost")
-  override val syncNodes: Set[RemoteNodeInfo] = Set(atomiq, noname)
+  override val syncNodes: Set[RemoteNodeInfo] = Set(atomiq, noname0, noname1, noname2)
   override val phcSyncNodes: Set[RemoteNodeInfo] = Set(localNode)
-  override val minCapacity: MilliSatoshi = MilliSatoshi(100000000L)
+  override val minCapacity: MilliSatoshi = MilliSatoshi(1000000L)
   override val minNormalChansForPHC = 1
   override val maxNodesToSyncFrom = 1
   override val acceptThreshold = 0

@@ -376,5 +376,7 @@ object LogTable extends Table {
 
   val countSql = s"SELECT COUNT(*) FROM $table"
 
+  val clearSql = s"DELETE FROM $table"
+
   def createStatements: Seq[String] = s"""CREATE TABLE IF NOT EXISTS $table($IDAUTOINC, $stamp INTEGER NOT NULL, $tag STRING NOT NULL, $content STRING NOT NULL)""" :: Nil
 }

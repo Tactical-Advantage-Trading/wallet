@@ -361,6 +361,7 @@ class SettingsActivity extends BaseCheckActivity with HasTypicalChainFee with Ch
       def exportLog: Unit = me share LNParams.logBag.recent.map(_.asString).mkString("\n\n")
       val errorCount = s"${me getString error_log} <font color=$cardZero>$count</font>"
       addFlowChip(links.flow, errorCount, R.drawable.border_yellow, _ => exportLog)
+      addFlowChip(links.flow, me getString error_log_clear, R.drawable.border_yellow, _ => LNParams.logBag.clear())
     }
 
     settingsContainer.addView(settingsPageitle.view)

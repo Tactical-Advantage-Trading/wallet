@@ -23,6 +23,7 @@
     <string name="search_recent">Search recent activity</string>
     <string name="emergency_mode">Something went wrong</string>
     <string name="error_log">Export error logs</string>
+    <string name="error_log_clear">Clear error logs</string>
 
     <string name="setup_title">Wallet setup</string>
     <string name="setup_create_new">Create new wallet</string>
