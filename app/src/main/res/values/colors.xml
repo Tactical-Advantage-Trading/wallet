@@ -7,8 +7,8 @@
     <color name="borderLite">#999999</color>
     <color name="borderDark">#555555</color>
 
-    <color name="cardBitcoinSigning">#E08f04</color>
-    <color name="cardEcashSigning">#D01008</color>
+    <color name="signCardBitcoin">#E08f04</color>
+    <color name="signCardEcash">#D01008</color>
 
     <color name="buttonGreenRipple">#8BD670</color>
     <color name="buttonGreenBorder">#5B8F36</color>
@@ -17,8 +17,6 @@
 
     <color name="cardOutText">#88FF88</color>
     <color name="cardZeroText">#888888</color>
-    <color name="signCardBTCZeroText">#FBB945</color>
-    <color name="signCardECAZeroText">#F9615B</color>
 
     <!-- nachos -->
 

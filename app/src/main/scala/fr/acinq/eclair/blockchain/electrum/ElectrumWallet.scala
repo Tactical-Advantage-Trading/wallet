@@ -27,10 +27,10 @@ import scala.math.min
 import scala.util.Try
 
 
-class Electrum(val params: WalletParameters, val chainHash: ByteVector32) extends CanBeShutDown {
+class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysName: String) extends CanBeShutDown { me =>
   def addressToPubKeyScript(address: String): ByteVector = Script write addressToPublicKeyScript(address, chainHash)
   val specs = new ConcurrentHashMap[ExtendedPublicKey, WalletSpec].asScala
-  implicit val system: ActorSystem = ActorSystem("immortan-actor-system")
+  implicit val system: ActorSystem = ActorSystem(sysName)
 
   var catcher: ActorRef = _
   var sync: ActorRef = _
@@ -184,7 +184,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32) extend
 
   def doubleSpent(pub: ExtendedPublicKey, tx: Transaction): IsDoubleSpentResponse = {
     // Transaction is considered double spent if we have overridden it by another and it got confirmed
-    // or if somehow we know nothing about tx (it may be removed locally due to remote RBF-cancel)
+      // or if somehow we know nothing about tx (it may be removed locally due to remote RBF-cancel)
     val data = specs(pub).data
 
     val doubleSpendTrials = for {
@@ -211,7 +211,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32) extend
 
   def makeSigningWalletParts(core: SigningWallet, ewt: ElectrumWalletType, lastBalance: Satoshi, label: String): WalletSpec = {
     val info = CompleteWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
-    val walletRef = system.actorOf(Props(classOf[ElectrumWallet], pool, sync, ewt), ewt.xPub.publicKey.toString)
+    val walletRef = system.actorOf(Props(classOf[ElectrumWallet], me, ewt), ewt.xPub.publicKey.toString)
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 }

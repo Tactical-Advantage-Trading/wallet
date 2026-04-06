@@ -12,16 +12,17 @@ import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import immortan.Tools._
 import immortan.utils.{CoinDenom, Denomination}
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.{InputParser, PlainCoinUri}
 
 import scala.util.Success
 
+
 class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
   lazy private[this] val chainQrCaption = findViewById(R.id.chainQrCaption).asInstanceOf[TextView]
   lazy private[this] val chainQrCodes = findViewById(R.id.chainQrCodes).asInstanceOf[RecyclerView]
   private[this] var addresses: List[PlainCoinUri] = Nil
+  private[this] var group: NetworkWalletGroup = _
   private[this] var spec: WalletSpec = _
 
   val adapter: RecyclerView.Adapter[QRViewHolder] = new RecyclerView.Adapter[QRViewHolder] {
@@ -34,15 +35,15 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
       new QRViewHolder(qrCodeContainer)
     }
 
-    private def updateView(pbu: PlainCoinUri, holder: QRViewHolder): Unit = pbu.uri foreach { uri =>
-      val humanAmountOpt = for (requestedAmount <- pbu.amount) yield CoinDenom.parsedTT(requestedAmount, cardIn, cardZero)
-      val contentToShare = if (pbu.amount.isDefined || pbu.label.isDefined) InputParser.bitcoin + InputParser.removePrefix(uri.toString) else pbu.address
+    private def updateView(cu: PlainCoinUri, holder: QRViewHolder): Unit = cu.uri foreach { uri =>
+      val humanAmountOpt = for (requestedAmount <- cu.amount) yield CoinDenom.parsedTT(requestedAmount, cardIn, cardZero)
+      val contentToShare = if (cu.amount.isDefined || cu.label.isDefined) group.prefix + InputParser.removePrefix(uri.toString) else cu.address
 
-      val visibleText = (pbu.label, humanAmountOpt) match {
-        case Some(label) \ Some(amount) => s"${pbu.address.short}<br><br>$label<br><br>$amount"
-        case None \ Some(amount) => s"${pbu.address.short}<br><br>$amount"
-        case Some(label) \ None => s"${pbu.address.short}<br><br>$label"
-        case _ => pbu.address.short
+      val visibleText = (cu.label, humanAmountOpt) match {
+        case Some(label) \ Some(amount) => s"${cu.address.short}<br><br>$label<br><br>$amount"
+        case None \ Some(amount) => s"${cu.address.short}<br><br>$amount"
+        case Some(label) \ None => s"${cu.address.short}<br><br>$label"
+        case _ => cu.address.short
       }
 
       holder.qrLabel setText visibleText.html
@@ -50,7 +51,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
         def share: Unit = runInFutureProcessOnUI(shareData(qrBitmap, contentToShare), onFail)(none)
         holder.qrCopy setOnClickListener onButtonTap(WalletApp.app copy contentToShare)
         holder.qrCode setOnClickListener onButtonTap(WalletApp.app copy contentToShare)
-        holder.qrEdit setOnClickListener onButtonTap(me editAddress pbu)
+        holder.qrEdit setOnClickListener onButtonTap(me editAddress cu)
         holder.qrShare setOnClickListener onButtonTap(share)
         holder.qrCode setImageBitmap qrBitmap
       }
@@ -59,10 +60,10 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
 
   def editAddress(bu: PlainCoinUri): Unit = {
     val canReceiveHuman = CoinDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
-    val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(MAX_MSAT)
+    val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(group.fiatRates, MAX_MSAT)
     val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
-    val title = getString(dialog_receive_address).asColoredView(R.color.cardBitcoinSigning)
-    lazy val rm = new RateManager(new RateManagerContent(body), WalletApp.fiatCode)
+    lazy val rm = new RateManager(new RateManagerContent(body), group.fiatRates.info.rates, WalletApp.fiatCode)
+    val title = getString(dialog_receive_address).asColoredView(group.bgRes)
 
     mkCheckForm(proceed, none, titleBodyAsViewBuilder(title, rm.rmc.container), dialog_ok, dialog_cancel)
     rm.rmc.hintFiatDenom.setText(getString(dialog_up_to).format(canReceiveFiatHuman).html)
@@ -72,7 +73,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
     def proceed(alert: AlertDialog): Unit = {
       val uriBuilder = bu.uri.get.buildUpon.clearQuery
       val resultMsat = rm.resultMsat.truncateToSatoshi.toMilliSatoshi
-      val uriBuilder1 = if (resultMsat > ElectrumWallet.params.dustLimit) {
+      val uriBuilder1 = if (resultMsat > group.electrum.params.dustLimit) {
         val amount = Denomination.msat2BtcBigDecimal(resultMsat).toString
         uriBuilder.appendQueryParameter("amount", amount)
       } else uriBuilder
@@ -88,7 +89,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
   }
 
   override def PROCEED(state: Bundle): Unit = {
-    setContentView(R.layout.activity_qr_btc)
+    setContentView(R.layout.activity_qr)
     checkExternalData(noneRunnable)
   }
 
@@ -110,7 +111,11 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
   }
 
   override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
-    case key: ExtendedPublicKey => runAnd(spec = ElectrumWallet specs key)(showQRCode)
-    case _ => finish
+    case (group1: NetworkWalletGroup, xPub: ExtendedPublicKey) if group1.electrum.specs.contains(xPub) =>
+      spec = group1.electrum.specs(xPub)
+      group = group1
+      showQRCode
+    case _ =>
+      finish
   }
 }

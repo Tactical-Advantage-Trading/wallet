@@ -11,7 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.RecyclerView
-import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
+import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
@@ -26,7 +26,6 @@ import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
 import spray.json._
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.LinkClient.{FullBalance, PartialInterestNative}
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
@@ -46,12 +45,12 @@ object MainActivity {
   var displayFullIxInfoHistory: Boolean = false
   var idsToDisplayAnyway: Set[String] = Set.empty
   var btcInfosToConsider: Iterable[CoinDetails] = Nil
-  var ecaInfosToConsider: Iterable[CoinDetails] = Nil
+  var ecxInfosToConsider: Iterable[CoinDetails] = Nil
   var allInfos: Seq[ItemDetails] = Nil
 }
 
 class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataChecker { me =>
-  lazy val paymentTypeIconIds = List(R.id.btcInOut, R.id.ecaInOut, R.id.inBoosted, R.id.outBoosted, R.id.outCancelled)
+  lazy val paymentTypeIconIds = List(R.id.btcInOut, R.id.ecxInOut, R.id.inBoosted, R.id.outBoosted, R.id.outCancelled)
   lazy val contentWindow = findViewById(R.id.contentWindow).asInstanceOf[RelativeLayout]
   lazy val itemsList = findViewById(R.id.itemsList).asInstanceOf[ListView]
 
@@ -66,9 +65,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // PAYMENT LIST
 
   def loadRecent: Unit = {
-    btcInfosToConsider = WalletApp.btc.txDataBag.listRecentTxs(10).map(SQLiteTx.reify)
-    ecaInfosToConsider = WalletApp.eca.txDataBag.listRecentTxs(10).map(SQLiteTx.reify)
-    var dbInfos: Iterable[ItemDetails] = btcInfosToConsider ++ ecaInfosToConsider
+    btcInfosToConsider = WalletApp.btc.txDataBag.listRecentTxs(5).map(SQLiteTx.reify)
+    ecxInfosToConsider = WalletApp.ecx.txDataBag.listRecentTxs(5).map(SQLiteTx.reify)
+    var dbInfos: Iterable[ItemDetails] = btcInfosToConsider ++ ecxInfosToConsider
 
     if (!displayFullIxInfoHistory) {
       // First, select a number of most recent chronological items to be displayed by default
@@ -416,8 +415,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateDetails(details: ItemDetails): Unit = {
       currentGroup = details.description.networkId match {
         case WalletApp.ID_BTC => WalletApp.btc
-        case WalletApp.ID_ECA => WalletApp.eca
-        case _ => throw new Exception("!!!")
+        case WalletApp.ID_ECX => WalletApp.ecx
+        case _ => throw new Exception
       }
 
       currentDetails = details
@@ -447,8 +446,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_BOOST) => setVisibleIcon(R.id.outBoosted)
         case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_CANCEL) => setVisibleIcon(R.id.outCancelled)
         case info: CoinDetails if info.description.networkId == WalletApp.ID_BTC => setVisibleIcon(R.id.btcInOut)
-        case info: CoinDetails if info.description.networkId == WalletApp.ID_ECA => setVisibleIcon(R.id.ecaInOut)
-        case _ => throw new Exception("!!!")
+        case info: CoinDetails if info.description.networkId == WalletApp.ID_ECX => setVisibleIcon(R.id.ecxInOut)
+        case _ => throw new Exception
       }
 
       currentDetails match {
@@ -513,9 +512,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   override def onDestroy: Unit = {
     try WalletApp.linkClient ! LinkClient.CmdRemove(taErrorListener) catch none
     try WalletApp.btc.electrum.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
-    try WalletApp.eca.electrum.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
+    try WalletApp.ecx.electrum.catcher ! WalletEventsCatcher.Remove(chainListener) catch none
     try WalletApp.btc.fiatRates.listeners -= fiatListener catch none
-    try WalletApp.eca.fiatRates.listeners -= fiatListener catch none
+    try WalletApp.ecx.fiatRates.listeners -= fiatListener catch none
     viewUpdateSub.foreach(_.unsubscribe)
     cardsResetSub.foreach(_.unsubscribe)
     super.onDestroy
@@ -531,10 +530,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
   override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
-    case pcu: PlainCoinUri if pcu.addressGood(WalletApp.btc.electrum) => bringAddressSelector(WalletApp.btc, pcu, plainTitle(WalletApp.btc), txToSendProxyNoop).run
-    case pcu: PlainCoinUri if pcu.addressGood(WalletApp.eca.electrum) => bringAddressSelector(WalletApp.eca, pcu, plainTitle(WalletApp.eca), txToSendProxyNoop).run
+    case cu: PlainCoinUri if cu.addressGood(WalletApp.btc.electrum) => bringAddressSelector(WalletApp.btc, cu, plainTitle(WalletApp.btc), txToSendProxyNoop).run
+    case cu: PlainCoinUri if cu.addressGood(WalletApp.ecx.electrum) => bringAddressSelector(WalletApp.ecx, cu, plainTitle(WalletApp.ecx), txToSendProxyNoop).run
     case a2a: MultiAddressParser.AddressToAmount if a2a.addressGood(WalletApp.btc.electrum) => bringMultiAddressSelector(WalletApp.btc, a2a)
-    case a2a: MultiAddressParser.AddressToAmount if a2a.addressGood(WalletApp.eca.electrum) => bringMultiAddressSelector(WalletApp.eca, a2a)
+    case a2a: MultiAddressParser.AddressToAmount if a2a.addressGood(WalletApp.ecx.electrum) => bringMultiAddressSelector(WalletApp.ecx, a2a)
     case _ => whenNone.run
   }
 
@@ -545,9 +544,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       case true if WalletApp.isOperational =>
         setContentView(R.layout.activity_main)
         WalletApp.btc.electrum.catcher ! chainListener
-        WalletApp.eca.electrum.catcher ! chainListener
+        WalletApp.ecx.electrum.catcher ! chainListener
         WalletApp.btc.fiatRates.listeners += fiatListener
-        WalletApp.eca.fiatRates.listeners += fiatListener
+        WalletApp.ecx.fiatRates.listeners += fiatListener
         WalletApp.linkClient ! taErrorListener
 
         itemsList.addHeaderView(walletCards.view)
@@ -558,6 +557,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         expand setOnClickListener onButtonTap {
           displayFullIxInfoHistory = !displayFullIxInfoHistory
+          expand setRotation { if (displayFullIxInfoHistory) 180F else 0F }
           androidx.transition.TransitionManager.beginDelayedTransition(contentWindow)
           runAnd(loadRecent)(paymentAdapterDataChanged.run)
         }
@@ -570,7 +570,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           loadRecent
 
           WalletApp.btc.checkConfirms(btcInfosToConsider)
-          WalletApp.eca.checkConfirms(ecaInfosToConsider)
+          WalletApp.ecx.checkConfirms(ecxInfosToConsider)
           UITask(walletCards.updateView).run
           paymentAdapterDataChanged.run
         }.asSome
@@ -592,12 +592,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
           case Success(secret) =>
             WalletApp.makeOperational(secret)
-            WalletApp.initWallets
+            WalletApp.btc.initWallets(WalletApp.secret.keys.bitcoinMaster)
+            WalletApp.ecx.initWallets(WalletApp.secret.keys.ecashMaster)
+            WalletApp.initTaCard
             START(state)
         }
 
       case false =>
-        WalletApp.makeAlive
+        WalletApp.btc.makeAlive(WalletApp.app)
+        WalletApp.ecx.makeAlive(WalletApp.app)
         START(state)
     }
 
@@ -676,23 +679,23 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def bringAddressSelector[T <: CoinUri](group: NetworkWalletGroup, pcu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
-    val pubKeyScript = group.electrum.addressToPubKeyScript(pcu.address)
+  def bringAddressSelector[T <: CoinUri](group: NetworkWalletGroup, cu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
+    val pubKeyScript = group.electrum.addressToPubKeyScript(cu.address)
 
-    new BtcWalletSelector(makeTitle(pcu), group) {
+    new WalletSelector(makeTitle(cu), group) {
       def onOk(specs: List[WalletSpec] = Nil): Unit = {
-        val sendView = new BtcSendView(group.fiatRates, specs, pcu.maxAmount)
+        val sendView = new BtcSendView(group.fiatRates, specs, cu.maxAmount)
         val changeTo = ElectrumWallet.orderByImportance(specs).head
 
         def attempt(alert1: AlertDialog): Unit = {
           sendView.setInputEnabled(alert1, isEnabled = false).run
-          val proceed = txToSendProxy(proceedConfirm(group, sendView, pcu.desc, alert1, _: GenerateTxResponse), sendView, alert1)
+          val proceed = txToSendProxy(proceedConfirm(group, sendView, cu.desc.copy(networkId = group.netId), alert1, _: GenerateTxResponse), sendView, alert1)
           runInFutureProcessOnUI(group.electrum.makeTx(specs, changeTo, pubKeyScript, sendView.rm.resultMsat.truncateToSatoshi, Map.empty, feeView.rate), onFail)(proceed)
         }
 
         lazy val alert = {
-          val neutralRes = if (pcu.amount.isDefined) -1 else dialog_max
-          val builder = titleBodyAsViewBuilder(makeTitle(pcu).asColoredView(R.color.cardBitcoinSigning), sendView.body)
+          val neutralRes = if (cu.amount.isDefined) -1 else dialog_max
+          val builder = titleBodyAsViewBuilder(makeTitle(cu).asColoredView(group.bgRes), sendView.body)
           mkCheckFormNeutral(attempt, none, _ => sendView.rm.updateText(sendView.totalCanSend), builder, dialog_ok, dialog_cancel, neutralRes)
         }
 
@@ -717,7 +720,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         sendView.rm.rmc.inputAmount addTextChangedListener onTextChange(feeView.worker.addWork)
         feeView.update(feeOpt = None, showIssue = false)
 
-        pcu.amount.foreach { asked =>
+        cu.amount.foreach { asked =>
           sendView.rm.updateText(value = asked)
           sendView.rm.rmc.inputAmount.setEnabled(false)
           sendView.rm.rmc.fiatInputAmount.setEnabled(false)
@@ -730,7 +733,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val scriptToAmount = a2a.values.firstItems.map(group.electrum.addressToPubKeyScript).zip(a2a.values.secondItems).toMap
     val titleMsg = getString(dialog_send_many).format(group.ticker)
 
-    new BtcWalletSelector(titleMsg, group) {
+    new WalletSelector(titleMsg, group) {
       def onOk(specs: List[WalletSpec] = Nil): Unit = {
         val changeTo = ElectrumWallet.orderByImportance(specs).head
         val sendView = new BtcSendView(group.fiatRates, specs, MAX_MSAT)
@@ -742,8 +745,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
         lazy val alert = {
-          val view = new TitleView(titleMsg).asColoredView(R.color.cardBitcoinSigning)
-          mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body), dialog_ok, dialog_cancel)
+          val view = new TitleView(titleMsg).asColoredView(group.bgRes)
+          mkCheckForm(attempt, none, titleBodyAsViewBuilder(view, sendView.body),
+            dialog_ok, dialog_cancel)
         }
 
         lazy val feeView = new FeeView[GenerateTxResponse](group.fiatRates, FeeratePerByte(1L.sat), sendView.editView.fvc) {
@@ -833,9 +837,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.linkClient ! LinkClient.Request(loginReq, listener.id)
     }
 
-    def onText(inputText: String) = {
+    def onText(inputText: String) =
       updatePosButton(alert, inputText.nonEmpty).run
-    }
 
     WalletApp.linkClient ! listener
     extraInputLayout.setHint(ta_login_pass)
@@ -849,8 +852,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    setVis(allInfos.nonEmpty, walletCards.recentActivity)
-    setVis(allInfos.size > DEFAULT_SHOW_ITEMS, expandContainer)
+    val expandVisible = btcInfosToConsider.size + ecxInfosToConsider.size > DEFAULT_SHOW_ITEMS
+    setVisMany(expandVisible -> expandContainer, allInfos.nonEmpty -> walletCards.recentActivity)
     paymentsAdapter.notifyDataSetChanged
   }
 
@@ -877,14 +880,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   // WALLET CARDS
 
-  abstract class BtcWalletSelector(title: TitleView, group: NetworkWalletGroup) { self =>
+  abstract class WalletSelector(title: TitleView, group: NetworkWalletGroup) { self =>
     val spendable = group.electrum.specs.values.filter(_.spendable).toList
     val usable = group.electrum.specs.values.filter(_.usable).toList
     def onOk(specs: List[WalletSpec] = Nil): Unit
 
-    if (group.electrum.specs.isEmpty) WalletApp.app.quickToast(error_no_wallet)
-    else if (spendable.size == 1) onOk(specs = spendable)
-    else if (usable.size == 1) onOk(specs = usable)
+    if (group.electrum.specs.isEmpty) {
+      WalletApp.app.quickToast(error_no_wallet)
+    } else if (spendable.size == 1) onOk(spendable)
+    else if (usable.size == 1) onOk(usable)
     else {
       val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_white, None)
       val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
@@ -901,7 +905,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
             def onTap: Unit = {
               isSelected = !isSelected
               val totalCanSend = chosenSpecs.map(_.info.lastBalance).sum.toMilliSatoshi
-              val formatted = "<small>∑ </small>" + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
+              val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
               if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
               updatePosButton(alert, isEnabled = chosenSpecs.nonEmpty).run
               updateView
@@ -959,10 +963,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateView: Unit = {
       val spec = group.electrum.specs(xPub)
       val hasMoney = spec.info.lastBalance.toLong > 0L
-      val bgResource = if (isSelected) R.drawable.border_white else R.color.cardBitcoinSigning
+      val bgResource = if (isSelected) group.bgSelectedRes else group.bgRes
       val attachment = if (spec.info.core.attachedMaster.isDefined) R.drawable.attachment_24 else 0
       infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(group.ticker)
-      balanceWallet setText CoinDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", signCardZeroBtc).html
+      balanceWallet setText CoinDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", group.zeroColor).html
       balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(group.fiatRates, spec.info.lastBalance.toMilliSatoshi)
       infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, attachment, 0)
       setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
@@ -1012,56 +1016,34 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       setVisMany(status.totalFunds.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
       taClientEmail.setText(status.email)
 
-      for (balance <- status.totalFunds) {
+      for (total <- status.totalFunds) {
+        val amount = Btc(total.withdrawable).toSatoshi.toMilliSatoshi
         val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
-        val item = new TwoSidedItem(parent, WalletApp.btc.ticker, balance.amountHuman.html)
-        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(balance.icon, 0, 0, 0)
+        val item = new TwoSidedItem(parent, WalletApp.btc.ticker, CoinDenom.parsedTT(amount, cardIn, cardZero).html)
+        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
         taBalancesContainer.addView(parent)
       }
 
       for (loan <- status.activeLoans) {
         val daysLeft = WalletApp.app.plurOrZero(daysLeftRes, loan.daysLeft.toInt)
-        val amounts = s"${loan.amountHuman}<br><small>${loan.interestHuman}</small>"
         val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
-        val details = s"APR ${Denomination.formatRoi format loan.roi}<br><small><tt>$daysLeft</tt></small>"
-        val item = new TwoSidedItem(parent, firstText = details.html, secondText = amounts.html)
-        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(loan.icon, 0, 0, 0)
+        val amount = CoinDenom.parsedTT(Btc(loan.amount).toSatoshi.toMilliSatoshi, cardIn, cardZero)
+        val interest = CoinDenom.directedTT(Btc(loan.interest).toSatoshi.toMilliSatoshi, MilliSatoshi(0L), cardOut, cardIn, cardZero, isIncoming = true)
+        val item = new TwoSidedItem(parent, s"APR ${Denomination.formatRoi format loan.roi}<br><small><tt>$daysLeft</tt></small>".html, s"$amount<br><small>$interest</small>".html)
+        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
         taLoansContainer.addView(parent)
       }
 
       if (status.pendingDeposits.nonEmpty) {
         taInfo setText getString(ta_pending_deposit)
-        setVis(isVisible = true, taInfo)
+        setVis(isVisible = true, view = taInfo)
       } else if (status.pendingWithdraws.nonEmpty) {
         val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
         taInfo setText getString(status.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
-        setVis(isVisible = true, taInfo)
+        setVis(isVisible = true, view = taInfo)
       }
 
-      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, status.pendingWithdraws.isEmpty) match {
-        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_white)(requestWithdraw).asSome
-        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_white)(cancelScheduledWithdraw).asSome
-        case _ => None
-      }
-
-      def requestWithdraw: Unit = {
-        val doRequestWithdraw: Int => Unit = pos =>
-          WalletApp.btc.electrum.specs.values.find(btcSpec => btcSpec.data.keys.ewt.secrets.nonEmpty && btcSpec.info.core.attachedMaster.isEmpty) match {
-            case Some(spec) if pos == 1 => callWithdraw(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), PartialInterestNative))
-            case Some(spec) => callWithdraw(LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), FullBalance))
-            case None => WalletApp.app.quickToast(error_no_wallet)
-          }
-
-        val listOptions = List(ta_withdraw_full, ta_withdraw_interest).map(getString)
-        val list = getLayoutInflater.inflate(R.layout.frag_selector_list, null).asInstanceOf[ListView]
-        list setAdapter new ArrayAdapter(me, android.R.layout.simple_expandable_list_item_1, listOptions.toArray)
-        new sheets.ChoiceBottomSheet(list, doRequestWithdraw).show(getSupportFragmentManager, "unused-tag")
-      }
-
-      def cancelScheduledWithdraw: Unit =
-        callWithdraw(LinkClient.CancelWithdraw)
-
-      def callWithdraw(request: LinkClient.RequestArguments): Unit = {
+      lazy val callWithdraw: LinkClient.RequestArguments => Unit = { request =>
         val withdrawListener = new LinkClient.Listener("withdraw-request") { self =>
           override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
             onDisconnected
@@ -1077,6 +1059,26 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         WalletApp.linkClient ! withdrawListener
       }
 
+      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, status.pendingWithdraws.isEmpty) match {
+        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_white)(requestWithdraw).asSome
+        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_white)(callWithdraw apply LinkClient.CancelWithdraw).asSome
+        case _ => None
+      }
+
+      def requestWithdraw: Unit = {
+        val doRequestWithdraw: Int => Unit = pos =>
+          WalletApp.btc.electrum.specs.values.find(btcSpec => btcSpec.data.keys.ewt.secrets.nonEmpty && btcSpec.info.core.attachedMaster.isEmpty) match {
+            case Some(spec) if pos == 1 => callWithdraw apply LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), PartialInterestNative)
+            case Some(spec) => callWithdraw apply LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), FullBalance)
+            case None => WalletApp.app.quickToast(error_no_wallet)
+          }
+
+        val listOptions = List(ta_withdraw_full, ta_withdraw_interest).map(getString)
+        val list = getLayoutInflater.inflate(R.layout.frag_selector_list, null).asInstanceOf[ListView]
+        list setAdapter new ArrayAdapter(me, android.R.layout.simple_expandable_list_item_1, listOptions.toArray)
+        new sheets.ChoiceBottomSheet(list, doRequestWithdraw).show(getSupportFragmentManager, "unused-tag")
+      }
+
       lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_white) {
         WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
         updateViewEnabled(getLoanAdButton, isEnabled = false).run
@@ -1085,8 +1087,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       lazy val loanAdListener = new LinkClient.Listener("get-loan-ad") {
         override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
-          val showForm = bringAddressSelector(WalletApp.btc, _: LinkClient.LoanAd, loanTitle, txSendProxyTa)
-          args.collectFirst { case data: LinkClient.LoanAd => showForm(data).run }
+          args.collectFirst { case data: LinkClient.LoanAd => bringAddressSelector(WalletApp.btc, data, loanTitle, txSendProxyTa).run }
           onDisconnected
         }
 
@@ -1118,14 +1119,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
     val appName = s"${me getString app_name} <font color=$cardZero>v3.3-8</font>"
-    val btc = 100000000000L.msat
+    val coin = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)
     nameAndVer.setText(appName.html)
 
-    def showBtcWalletCard = {
-      val nativeSpec = WalletApp.createBtcWallet(WalletApp.secret)
-      WalletApp.postInitBtcWallet(spec = nativeSpec)
+    def showWalletCard(group: NetworkWalletGroup, master: ExtendedPrivateKey) = {
+      val nativeSpec = group.createWallet(ord = 0L, master)
+      group.postInitWallet(nativeSpec)
     }
 
     def showTaCard = {
@@ -1134,9 +1135,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.initTaCard
     }
 
-    def attachBtcWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
+    def attachWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
       val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-      WalletApp.attachBtcWallet(attachedKeys)
+      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster)
+      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster)
     }
 
     def makeCards = {
@@ -1152,15 +1154,17 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
       }
 
-      val btcCards =
-        for (xPub <- ElectrumWallet.specs.keys) yield new CoinWalletCard(xPub) {
-          override def onTap: Unit = goToWithValue(ClassNames.qrCoinActivityClass, xPub)
-          override def hide: Unit = WalletApp.removeBtcWallet(key = xPub)
-        }
+      val coinCards = for {
+        group <- List(WalletApp.btc, WalletApp.ecx)
+        xPub <- group.electrum.specs.keys.toList
+        dest = classOf[QRCoinActivity]
+      } yield new CoinWalletCard(xPub, group) {
+        override def onTap: Unit = goToWithValue(dest, group -> xPub)
+        override def hide: Unit = group.removeWallet(key = xPub)
+      }
 
-      val wallets = btcCards.toList
-      if (WalletApp.getShowTaCard) wallets :+ taClientCard
-      else wallets
+      if (!WalletApp.getShowTaCard) coinCards
+      else coinCards :+ taClientCard
     }
 
     def resetCards: Unit = {
@@ -1170,8 +1174,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def updateView: Unit = {
-      val change = WalletApp.fiatRates.info.pctDifference(code = WalletApp.fiatCode).getOrElse(default = new String)
-      val unitRate = WalletApp.msatInFiatHuman(WalletApp.fiatRates.info.rates, WalletApp.fiatCode, btc, Denomination.formatFiatShort)
+      val change = WalletApp.btc.fiatRates.info.pctDifference(WalletApp.fiatCode).getOrElse(new String)
+      val unitRate = WalletApp.msatInFiatHuman(WalletApp.btc.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
       fiatUnitPriceAndChange.setText(s"BTC &middot; $unitRate $change".html)
       manager.cardViews.foreach(_.updateView)
 
@@ -1180,11 +1184,20 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       for (view <- walletCards.manager.cardViews) setVis(isSettingsOn, view.cardButtons)
 
       if (isSettingsOn) {
-        val title = getString(settings_show).format(me getString bitcoin_wallet)
-        if (ElectrumWallet.specs.values.count(_.info.core.attachedMaster.isEmpty) < 1) addFlowChip(settingsButtons, title, R.drawable.border_white)(showBtcWalletCard)
+        val msg = getString(settings_show)
+        val hasNativeBtc = WalletApp.btc.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
+        if (!hasNativeBtc) addFlowChip(settingsButtons, msg.format(WalletApp.btc.ticker), R.drawable.border_white) {
+          showWalletCard(WalletApp.btc, WalletApp.secret.keys.bitcoinMaster)
+        }
+
+        val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
+        if (!hasNativeEcx) addFlowChip(settingsButtons, msg.format(WalletApp.ecx.ticker), R.drawable.border_white) {
+          showWalletCard(WalletApp.ecx, WalletApp.secret.keys.ecashMaster)
+        }
+
         if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_white)(showTaCard)
         addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_white)(viewRecoveryCode)
-        addFlowChip(settingsButtons, getString(settings_attach_wallet), R.drawable.border_white)(attachBtcWallet)
+        addFlowChip(settingsButtons, getString(settings_attach_wallet), R.drawable.border_white)(attachWallet)
       }
     }
   }

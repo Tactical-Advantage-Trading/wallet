@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <stroke android:width="1dp" android:color="@android:color/white"/>
+            <corners android:radius="@dimen/corner_radius"/>
+            <solid android:color="@color/signCardEcash"/>
+        </shape>
+    </item>
+</layer-list>

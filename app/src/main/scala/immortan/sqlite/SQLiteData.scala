@@ -1,17 +1,16 @@
 package immortan.sqlite
 
-import java.lang.{Integer => JInt}
-
 import fr.acinq.bitcoin.{BlockHeader, ByteVector32}
+import immortan.MasterKeys.walletSecretCodec
+import immortan.Tools._
 import immortan.WalletSecret
-import immortan.Tools.Bytes
 import immortan.sqlite.SQLiteData._
 import immortan.utils.ImplicitJsonFormats._
 import immortan.utils.{FeeRatesInfo, FiatRatesInfo}
-import immortan.MasterKeys.walletSecretCodec
 import scodec.bits.ByteVector
 import spray.json._
 
+import java.lang.{Integer => JInt}
 import scala.util.Try
 
 object SQLiteData {
@@ -57,7 +56,7 @@ class SQLiteData(val db: DBInterface) {
     val addHeaderSqlPQ = db.makePreparedQuery(ElectrumHeadersTable.addHeaderSql)
 
     db txWrap {
-      for (Tuple2(header, idx) <- headers.zipWithIndex) {
+      for (header \ idx <- headers.zipWithIndex) {
         val serialized: Array[Byte] = BlockHeader.write(header).toArray
         db.change(addHeaderSqlPQ, atHeight + idx: JInt, header.hash.toHex, serialized)
       }
@@ -69,14 +68,6 @@ class SQLiteData(val db: DBInterface) {
   def getHeader(height: Int): Option[BlockHeader] =
     db.select(ElectrumHeadersTable.selectByHeightSql, height.toString).headTry { rc =>
       BlockHeader.read(rc bytes ElectrumHeadersTable.header)
-    }.toOption
-
-  // Only used in testing currently
-  def getHeader(blockHash: ByteVector32): Option[HeightAndHeader] =
-    db.select(ElectrumHeadersTable.selectByBlockHashSql, blockHash.toHex).headTry { rc =>
-      val header = BlockHeader.read(rc bytes ElectrumHeadersTable.header)
-      val height = rc int ElectrumHeadersTable.height
-      (height, header)
     }.toOption
 
   def getHeaders(startHeight: Int, maxCount: Int): Seq[BlockHeader] =

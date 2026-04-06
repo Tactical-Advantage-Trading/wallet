@@ -8,7 +8,6 @@ import fr.acinq.bitcoin.MnemonicCode
 import immortan.Tools._
 import immortan.{MasterKeys, WalletSecret}
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.Colors.cardZero
 import trading.tacticaladvantage.R.string._
 
 trait MnemonicActivity { me: BaseActivity =>
@@ -65,17 +64,15 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
     val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
-
-    WalletApp.makeOperational(secret)
-    WalletApp.btc.createWallet(ord = 0L)
-    WalletApp.eca.createWallet(ord = 0L)
+    WalletApp.btc.createWallet(ord = 0L, secret.keys.bitcoinMaster)
+    WalletApp.ecx.createWallet(ord = 0L, secret.keys.ecashMaster)
     WalletApp.btc.extDataBag.putSecret(secret)
-    exitTo(ClassNames.mainActivityClass)
+    me exitTo classOf[MainActivity]
   }
 
   override def START(s: Bundle): Unit = {
     setContentView(R.layout.activity_setup)
-    fancyAppName.setText(s"-= ${me getString app_name} =-")
+    fancyAppName.setText(me getString app_name)
     devInfo.setText(getString(dev_info).html)
   }
 
@@ -85,7 +82,6 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     proceedWithMnemonics(mnemonic)
   }
 
-  def showMnemonicPopup(view: View): Unit = {
+  def showMnemonicPopup(view: View): Unit =
     showMnemonicInput(action_recovery_phrase_title)(proceedWithMnemonics)
-  }
 }

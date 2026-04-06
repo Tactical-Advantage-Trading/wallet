@@ -6,11 +6,10 @@ import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
 import immortan.Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
 import immortan.sqlite.{DbStreams, SQLiteData}
 import immortan.utils.ImplicitJsonFormats._
-import immortan.utils.{CoinDenom, Rx}
+import immortan.utils.Rx
 import immortan.{CanBeShutDown, CoinDescription, StateMachine}
 import spray.json._
 import trading.tacticaladvantage.LinkClient._
-import trading.tacticaladvantage.R.drawable._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.WsListener._
 import trading.tacticaladvantage.utils.{CoinUri, WsListener}
@@ -122,10 +121,7 @@ object LinkClient {
 
   // Response types
 
-  case class TotalFunds(balance: BigDecimal, withdrawable: BigDecimal) {
-    lazy val amountHuman = toHumanSum(withdrawable)
-    lazy val icon = ic_logo_bitcoin_24
-  }
+  case class TotalFunds(balance: BigDecimal, withdrawable: BigDecimal)
 
   case class Deposit(txid: String, address: String, amount: BigDecimal, created: Long, state: DepositState)
 
@@ -135,10 +131,8 @@ object LinkClient {
 
   case class ActiveLoan(id: Long, userId: Long, start: Long, end: Long, roi: BigDecimal, amount: BigDecimal) {
     lazy val daysLeft = Math.max(0L, (end - System.currentTimeMillis) / 86400000L)
-    lazy val interestHuman = toHumanInSum(amount * roi / inverseSpan)
     lazy val inverseSpan = 365L * 86400000L / (end - start)
-    lazy val amountHuman = toHumanSum(amount)
-    lazy val icon = ic_logo_bitcoin_24
+    lazy val interest = amount * roi / inverseSpan
   }
 
   implicit val depositFormat: JsonFormat[Deposit] =
@@ -163,7 +157,7 @@ object LinkClient {
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
 
   case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
-    val desc: CoinDescription = CoinDescription(List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome, WalletApp.ID_BTC, taRoi = roi.asSome)
+    val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome, networkId = -1, taRoi = roi.asSome)
     val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
     val amount: Option[MilliSatoshi] = None
     val tag = "LoanAd"
@@ -220,14 +214,6 @@ object LinkClient {
   }
 
   case class CmdRemove(listener: Listener)
-
-  def toHumanSum(amount: BigDecimal): String =
-    CoinDenom.parsedTT(Btc(amount).toSatoshi.toMilliSatoshi,
-      Colors.cardIn, Colors.cardZero)
-
-  def toHumanInSum(amount: BigDecimal): String =
-    CoinDenom.directedTT(Btc(amount).toSatoshi.toMilliSatoshi, MilliSatoshi(0L),
-      Colors.cardOut, Colors.cardIn, Colors.cardZero, isIncoming = true)
 }
 
 class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with CanBeShutDown { me =>

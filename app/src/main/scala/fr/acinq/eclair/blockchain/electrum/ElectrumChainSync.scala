@@ -94,12 +94,10 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
         case Success(blockchain1) if difficultyOk =>
           val (blockchain2, chunks) = Blockchain.optimize(blockchain1)
           electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
-          log.info(s"Got new chain tip ${header.blockId} at $height")
           context.system.eventStream publish blockchain2
           stay using blockchain2
 
         case _ =>
-          log.error("Electrum peer sent bad headers")
           stay replying PoisonPill
       }
 
@@ -113,7 +111,6 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
           stay using blockchain1
 
         case _ =>
-          log.error("Electrum peer sent bad headers")
           stay replying PoisonPill
       }
 

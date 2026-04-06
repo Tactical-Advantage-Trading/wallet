@@ -31,7 +31,6 @@ import immortan.Tools._
 import immortan.utils._
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.Colors._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.utils.InputParser
 
@@ -44,7 +43,6 @@ import scala.util.{Failure, Success}
 object BaseActivity {
   implicit class StringOps(source: String) {
     def html: Spanned = android.text.Html.fromHtml(source)
-    def humanFour: String = "<tt>" + source.grouped(4).mkString(s"\u0020") + "</tt>"
 
     def short: String = {
       val len = source.length
@@ -57,19 +55,6 @@ object BaseActivity {
   }
 }
 
-object ClassNames {
-  val qrCoinActivityClass: Class[QRCoinActivity] = classOf[QRCoinActivity]
-  val mainActivityClass: Class[MainActivity] = classOf[MainActivity]
-}
-
-object Colors {
-  val cardIn: String = "#" + WalletApp.app.getResources.getString(R.color.colorAccent).substring(3)
-  val cardOut: String = "#" + WalletApp.app.getResources.getString(R.color.cardOutText).substring(3)
-  val cardZero: String = "#" + WalletApp.app.getResources.getString(R.color.cardZeroText).substring(3)
-  val signCardZeroBtc: String = "#" + WalletApp.app.getResources.getString(R.color.signCardBTCZeroText).substring(3)
-  val signCardZeroEca: String = "#" + WalletApp.app.getResources.getString(R.color.signCardBTCZeroText).substring(3)
-}
-
 trait ExternalDataChecker  {
   def checkExternalData(onNothing: Runnable): Unit
   val noneRunnable: Runnable = new Runnable {
@@ -79,6 +64,9 @@ trait ExternalDataChecker  {
 
 trait BaseActivity extends AppCompatActivity { me =>
   lazy val qrSize: Int = getResources.getDimensionPixelSize(R.dimen.qr_size)
+  lazy val cardIn: String = "#" + WalletApp.app.getResources.getString(R.color.colorAccent).substring(3)
+  lazy val cardOut: String = "#" + WalletApp.app.getResources.getString(R.color.cardOutText).substring(3)
+  lazy val cardZero: String = "#" + WalletApp.app.getResources.getString(R.color.cardZeroText).substring(3)
   val nothingUsefulTask: Runnable = UITask(WalletApp.app quickToast error_nothing_useful)
   val timer: java.util.Timer = new java.util.Timer
 
@@ -488,8 +476,10 @@ trait BaseCheckActivity extends BaseActivity { me =>
     if (WalletApp.isAlive && WalletApp.isOperational) PROCEED(state) else {
       // The way Android works is we can get some objects nullified when restoring from background
       // when that happens we make sure to free all remaining resources and start from scratch
-      WalletApp.freePossiblyUsedRuntimeResouces
-      exitTo(ClassNames.mainActivityClass)
+      try WalletApp.btc.freePossiblyUsedRuntimeResouces catch none
+      try WalletApp.ecx.freePossiblyUsedRuntimeResouces catch none
+      try WalletApp.secret = null catch none
+      me exitTo classOf[MainActivity]
     }
   }
 }

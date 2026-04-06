@@ -23,6 +23,7 @@ import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite._
 import trading.tacticaladvantage.utils.WsListener
 
+import java.io.InputStream
 import java.net.InetSocketAddress
 import java.text.{DecimalFormat, SimpleDateFormat}
 import java.util.{Date, Locale}
@@ -30,29 +31,30 @@ import scala.collection.mutable
 import scala.util.Try
 
 
-class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
+class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
+                         val bgRes: Int, val bgSelectedRes: Int, val zeroColor: String,
+                         genesis: Block) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
   var walletBag: SQLiteWallet = _
   var extDataBag: SQLiteData = _
   var txDataBag: SQLiteTx = _
-
-  var master: ExtendedPrivateKey = _
-  var fiatRates: FiatRates = _
-  var feeRates: FeeRates = _
   var electrum: Electrum = _
 
-  def isAlive: Boolean = null != txDataBag && null != walletBag && null != extDataBag
-  def isOperational: Boolean = null != master && null != electrum && null != fiatRates && null != feeRates
+  var fiatRates: FiatRates = _
+  var feeRates: FeeRates = _
+
+  def isAlive: Boolean = null != txDataBag && null != walletBag && null != extDataBag && null != electrum
+  def isOperational: Boolean = null != fiatRates && null != feeRates
 
   def freePossiblyUsedRuntimeResouces: Unit = {
     try fiatRates.becomeShutDown catch none
     try feeRates.becomeShutDown catch none
     try electrum.becomeShutDown catch none
-    // non-alive and non-operational
+    // Non-alive and non-operational
     txDataBag = null
-    master = null
+    fiatRates = null
   }
 
   def makeAlive(app: WalletApp): Unit = {
@@ -63,12 +65,12 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
       extDataBag = new SQLiteData(interface)
       txDataBag = new SQLiteTx(interface)
     }
+
+    val params = WalletParameters(extDataBag, walletBag, txDataBag)
+    electrum = new Electrum(params, genesis.hash, ticker)
   }
 
-  def makeOperational(app: WalletApp, key: ExtendedPrivateKey, servers: String, checkpoints: String, strict: Boolean): Unit = {
-    electrum = new Electrum(WalletParameters(extDataBag, walletBag, txDataBag), genesis.hash)
-    master = key
-
+  def makeOperational(servers: InputStream, checkpoints: InputStream, strict: Boolean): Unit = {
     extDataBag.db txWrap {
       feeRates = new FeeRates(extDataBag)
       fiatRates = new FiatRates(extDataBag)
@@ -84,8 +86,8 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
         extDataBag.putFiatRatesInfo(info)
     }
 
-    electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], app.getAssets open servers), "pool")
-    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, app.getAssets open checkpoints, strict), "sync")
+    electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
+    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpoints, strict), "sync")
     electrum.catcher = electrum.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
     electrum.catcher ! new WalletEventsListener {
@@ -108,44 +110,27 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
     }
   }
 
-  def createWallet(ord: Long): WalletSpec = {
+  def createWallet(ord: Long, master: ExtendedPrivateKey): WalletSpec = {
     val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, master, electrum.chainHash, ord)
     val spec = electrum.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), ticker)
     walletBag.addWallet(spec.info, electrum.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     spec
   }
 
-  def attachWallet(master1: ExtendedPrivateKey): Unit = {
-    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = master1.asSome)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, master1, electrum.chainHash, 0L)
+  def attachWallet(xPriv: ExtendedPrivateKey): Unit = {
+    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = xPriv.asSome)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, xPriv, electrum.chainHash, 0L)
+    if (electrum.specs contains ewt.xPub) return
+
     val spec = electrum.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = ticker)
     walletBag.addWallet(spec.info, electrum.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     postInitWallet(spec)
   }
 
-  def initWallet(info: CompleteWalletInfo, ord: Long): Unit = {
-    val ext = info.core.attachedMaster.getOrElse(WalletApp.secret.keys.bitcoinMaster)
-    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, ext, electrum.chainHash, ord)
-    val spec = electrum.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
-    electrum.specs.update(ewt.xPub, spec)
-    spec.walletRef ! info.initData
-  }
-
-  def postInitWallet(spec: WalletSpec): Unit = {
-    electrum.specs.update(spec.data.keys.ewt.xPub, spec)
-    spec.walletRef ! electrum.params.emptyPersistentDataBytes
-    electrum.sync ! ElectrumWallet.ChainFor(spec.walletRef)
-  }
-
-  def removeWallet(key: ExtendedPublicKey): Unit = {
-    electrum.specs.remove(key).foreach(_.walletRef ! PoisonPill)
-    walletBag.remove(key.publicKey)
-  }
-
-  def initWallets = {
-    val (native, attached) = walletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-    for (walletInfo \ ord <- native.zipWithIndex) initWallet(walletInfo, ord)
-    for (walletInfo <- attached) initWallet(walletInfo, ord = 0L)
+  def initWallets(master: ExtendedPrivateKey) = {
+    val attached \ native = walletBag.listWallets.partition(_.core.attachedMaster.isDefined)
+    for (walletInfo \ order <- native.zipWithIndex) initWallet(walletInfo, ord = order, master)
+    for (walletInfo <- attached) initWallet(walletInfo, ord = 0L, walletInfo.core.attachedMaster.get)
 
     connectionProvider doWhenReady {
       electrum.pool ! ElectrumClientPool.InitConnect
@@ -163,6 +148,24 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
     }
   }
 
+  def initWallet(info: CompleteWalletInfo, ord: Long, xPriv: ExtendedPrivateKey): Unit = {
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, xPriv, electrum.chainHash, ord)
+    val spec = electrum.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
+    electrum.specs.update(ewt.xPub, spec)
+    spec.walletRef ! info.initData
+  }
+
+  def postInitWallet(spec: WalletSpec): Unit = {
+    electrum.specs.update(spec.data.keys.ewt.xPub, spec)
+    spec.walletRef ! electrum.params.emptyPersistentDataBytes
+    electrum.sync ! ElectrumWallet.ChainFor(spec.walletRef)
+  }
+
+  def removeWallet(key: ExtendedPublicKey): Unit = {
+    electrum.specs.remove(key).foreach(_.walletRef ! PoisonPill)
+    walletBag.remove(key.publicKey)
+  }
+
   def checkConfirms(infos: Iterable[CoinDetails] = Nil) = for {
     coinInfo <- infos if !coinInfo.isDoubleSpent && !coinInfo.isConfirmed
     relatedSpec <- coinInfo.extPubs.flatMap(electrum.specs.get).headOption
@@ -173,12 +176,18 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, genesis: Block) {
 
 object WalletApp {
   final val ID_BTC = 1
-  final val ID_ECA = 2
+  final val ID_ECX = 2
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
 
-  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, "BTC", Block.LivenetGenesisBlock)
-  val eca = new NetworkWalletGroup(WalletApp.ID_ECA, "ECA", Block.TestnetGenesisBlock)
+  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:",
+    R.color.signCardBitcoin, R.drawable.border_btc_selected, zeroColor = "#FBB945",
+    Block.LivenetGenesisBlock)
+
+  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:",
+    R.color.signCardEcash, R.drawable.border_ecx_selected, zeroColor = "#F9615B",
+    Block.TestnetGenesisBlock)
+
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]
 
@@ -190,23 +199,12 @@ object WalletApp {
   def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
   def setShowTaCard(show: Boolean) = app.prefs.edit.putBoolean(SHOW_TA_CARD, show).commit
 
-  def isAlive: Boolean = null != app && null != btc && null != eca && btc.isAlive && eca.isAlive
-  def isOperational: Boolean = null != secret && null != linkClient && btc.isOperational && eca.isOperational
+  def isAlive: Boolean = null != app && null != btc && null != ecx && btc.isAlive && ecx.isAlive
+  def isOperational: Boolean = null != secret && null != linkClient && btc.isOperational && ecx.isOperational
 
-  def freePossiblyUsedRuntimeResouces = {
-    try btc.freePossiblyUsedRuntimeResouces catch none
-    try eca.freePossiblyUsedRuntimeResouces catch none
-    secret = null
-  }
-
-  def makeAlive = {
-    btc.makeAlive(app)
-    eca.makeAlive(app)
-  }
-
-  def makeOperational(sec: WalletSecret) = {
-    btc.makeOperational(app, sec.keys.bitcoinMaster, "btc_servers.json", "btc_checkpoints.json", strict = true)
-    eca.makeOperational(app, sec.keys.ecashMaster, "eca_servers.json", "eca_checkpoints.json", strict = false)
+  def makeOperational(sec: WalletSecret): Unit = {
+    btc.makeOperational(app.getAssets.open("btc_servers.json"), app.getAssets.open("btc_checkpoints.json"), strict = true)
+    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = false)
     secret = sec
 
     linkClient = new LinkClient(btc.extDataBag)
@@ -228,12 +226,6 @@ object WalletApp {
     // This is a single place where we should bypass sequential threading
     for (status <- linkClient.loadUserStatus) linkClient.data = status
     linkClient ! WsListener.CmdConnect
-  }
-
-  def initWallets = {
-    btc.initWallets
-    eca.initWallets
-    initTaCard
   }
 
   // Fiat conversion

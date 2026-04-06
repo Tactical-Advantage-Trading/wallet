@@ -40,7 +40,7 @@
         <!-- Settings -->
 
         <LinearLayout
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="5dp"
             android:id="@+id/settingsContainer"
             style="@style/XMarginFillingView"
             android:orientation="vertical"

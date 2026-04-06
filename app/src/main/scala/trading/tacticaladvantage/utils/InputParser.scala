@@ -3,11 +3,9 @@ package trading.tacticaladvantage.utils
 import fr.acinq.bitcoin.{BtcAmount, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.Electrum
-import immortan.{CoinDescription, ItemDescription}
+import immortan.CoinDescription
 import immortan.Tools._
 import immortan.utils.Denomination
-import trading.tacticaladvantage.WalletApp
-import trading.tacticaladvantage.utils.InputParser._
 import trading.tacticaladvantage.utils.uri.Uri
 
 import scala.util.parsing.combinator.RegexParsers
@@ -25,10 +23,12 @@ object InputParser {
     case _ => value = null // Erase recorded value
   }
 
-  def removePrefix(raw: String): String = raw.split(':').toList match {
-    case _ :: content => content.mkString.replace("//", "")
-    case Nil => raw
-  }
+  def removePrefix(raw: String): String =
+    raw.split(':').toList match {
+      case noPrefixData :: Nil => noPrefixData
+      case _ :: data => data.mkString.replace("//", "")
+      case Nil => raw
+    }
 
   def parse(raw: String): Any = {
     val withoutSlashes = removePrefix(raw take 2880).trim
@@ -56,7 +56,7 @@ case class PlainCoinUri(uri: Try[Uri], address: String) extends CoinUri {
   def addressGood(electrum: Electrum): Boolean = Try(electrum addressToPubKeyScript address).isSuccess
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
-  val desc: CoinDescription = CoinDescription(List(address), label, WalletApp.ID_BTC)
+  val desc: CoinDescription = CoinDescription(addresses = List(address), label, networkId = -1)
   val maxAmount: MilliSatoshi = MAX_MSAT
 }
 
