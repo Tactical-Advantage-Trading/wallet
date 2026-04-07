@@ -395,7 +395,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           persistAndNotify(data1)
 
         case (Some(data), GetTransactionResponse(tx), RUNNING) =>
-          val clearedExcludedOutPoints: List[OutPoint] = data.excludedOutPoints diff tx.txIn.map(_.outPoint)
+          val clearedExcludedOutPoints = data.excludedOutPoints diff tx.txIn.map(_.outPoint)
           // Even though we have excluded some utxos in this wallet user may still spend them from other wallet, so clear excluded outpoints here
           val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests - tx.txid, excludedOutPoints = clearedExcludedOutPoints)
 

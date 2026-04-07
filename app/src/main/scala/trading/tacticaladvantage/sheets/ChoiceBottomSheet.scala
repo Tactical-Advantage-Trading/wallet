@@ -11,7 +11,7 @@ class ChoiceBottomSheet(list: ListView, onChoice: Int => Unit) extends BottomShe
   override def onCreateView(inflater: LayoutInflater, container: ViewGroup, state: Bundle): View = list
 
   override def onViewCreated(view: View, state: Bundle): Unit = {
-    view.setBackgroundResource(R.color.chip_default_text_color)
+    view setBackgroundResource R.color.chip_default_text_color
     list setOnItemClickListener new OnListItemClickListener {
       def onItemClicked(itemPosition: Int): Unit = {
         onChoice(itemPosition)

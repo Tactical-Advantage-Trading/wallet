@@ -32,8 +32,8 @@ import scala.util.Try
 
 
 class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
-                         val bgRes: Int, val bgSelectedRes: Int, val zeroColor: String,
-                         genesis: Block) {
+                         val coinName: String, val bgRes: Int, val bgSelectedRes: Int,
+                         val qrBgRes: Int, val zeroColor: String, genesis: Block) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
@@ -117,8 +117,8 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     spec
   }
 
-  def attachWallet(xPriv: ExtendedPrivateKey): Unit = {
-    val core = SigningWallet(ElectrumWallet.BIP84, attachedMaster = xPriv.asSome)
+  def attachWallet(xPriv: ExtendedPrivateKey, kind: String): Unit = {
+    val core = SigningWallet(walletType = kind, attachedMaster = xPriv.asSome)
     val ewt = ElectrumWalletType.makeSigningType(core.walletType, xPriv, electrum.chainHash, 0L)
     if (electrum.specs contains ewt.xPub) return
 
@@ -181,12 +181,12 @@ object WalletApp {
   final val SHOW_TA_CARD = "showTaCard"
 
   val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:",
-    R.color.signCardBitcoin, R.drawable.border_btc_selected, zeroColor = "#FBB945",
-    Block.LivenetGenesisBlock)
+    coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected,
+    R.drawable.qrbg_btc, zeroColor = "#FBB945", Block.LivenetGenesisBlock)
 
   val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:",
-    R.color.signCardEcash, R.drawable.border_ecx_selected, zeroColor = "#F9615B",
-    Block.TestnetGenesisBlock)
+    coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected,
+    R.drawable.qrbg_ecx, zeroColor = "#FA625C", Block.TestnetGenesisBlock)
 
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]

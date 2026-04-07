@@ -65,8 +65,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   // PAYMENT LIST
 
   def loadRecent: Unit = {
-    btcInfosToConsider = WalletApp.btc.txDataBag.listRecentTxs(5).map(SQLiteTx.reify)
-    ecxInfosToConsider = WalletApp.ecx.txDataBag.listRecentTxs(5).map(SQLiteTx.reify)
+    btcInfosToConsider = WalletApp.btc.txDataBag.listRecentTxs(10).map(SQLiteTx.reify)
+    ecxInfosToConsider = WalletApp.ecx.txDataBag.listRecentTxs(10).map(SQLiteTx.reify)
     var dbInfos: Iterable[ItemDetails] = btcInfosToConsider ++ ecxInfosToConsider
 
     if (!displayFullIxInfoHistory) {
@@ -436,8 +436,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       currentDetails match {
-        case info: CoinDetails if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.6F)
-        case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.6F)
+        case info: CoinDetails if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.5F)
+        case info: CoinDetails if info.description.cpfpBy.isDefined => itemView.setAlpha(0.5F)
+        case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.5F)
         case _ => itemView.setAlpha(1F)
       }
 
@@ -451,9 +452,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       currentDetails match {
-        case info: CoinDetails if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
+//        case info: CoinDetails if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
         case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
-        case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
+//        case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
         case info: CoinDetails => amount.setText(CoinDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
       }
     }
@@ -963,13 +964,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateView: Unit = {
       val spec = group.electrum.specs(xPub)
       val hasMoney = spec.info.lastBalance.toLong > 0L
+      val attached = spec.info.core.attachedMaster.isDefined
       val bgResource = if (isSelected) group.bgSelectedRes else group.bgRes
-      val attachment = if (spec.info.core.attachedMaster.isDefined) R.drawable.attachment_24 else 0
-      infoWalletLabel setText spec.info.label.asSome.filter(_.trim.nonEmpty).getOrElse(group.ticker)
-      balanceWallet setText CoinDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, "#FFFFFF", group.zeroColor).html
+      val label = if (attached) s"<i>${spec.info.core.walletType}</i>" else s"<font color=${group.zeroColor}>${group.coinName}</font>"
+      balanceWallet setText CoinDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, mainColor = "#FFFFFF", group.zeroColor).html
       balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(group.fiatRates, spec.info.lastBalance.toMilliSatoshi)
-      infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, attachment, 0)
+      infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, if (attached) R.drawable.attachment_24 else 0, 0)
       setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
+      infoWalletLabel setText s"${group.ticker} $label ".html
       infoContainer setBackgroundResource bgResource
     }
   }
@@ -1137,8 +1139,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     def attachWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
       val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster)
-      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster)
+      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP84)
+      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP44)
+      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP32)
+      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP84)
+      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP44)
+      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP32)
     }
 
     def makeCards = {

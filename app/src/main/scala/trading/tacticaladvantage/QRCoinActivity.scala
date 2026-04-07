@@ -32,6 +32,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
 
     override def onCreateViewHolder(parent: ViewGroup, viewType: Int): QRViewHolder = {
       val qrCodeContainer = getLayoutInflater.inflate(R.layout.frag_qr, parent, false)
+      qrCodeContainer setBackgroundResource group.qrBgRes
       new QRViewHolder(qrCodeContainer)
     }
 
