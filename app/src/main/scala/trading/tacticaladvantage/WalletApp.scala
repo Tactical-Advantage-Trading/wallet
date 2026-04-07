@@ -222,6 +222,12 @@ object WalletApp {
     }
   }
 
+  def initWallets = {
+    btc.initWallets(secret.keys.bitcoinMaster)
+    ecx.initWallets(secret.keys.bitcoinMaster)
+    initTaCard
+  }
+
   def initTaCard = if (getShowTaCard) {
     // This is a single place where we should bypass sequential threading
     for (status <- linkClient.loadUserStatus) linkClient.data = status

@@ -113,9 +113,7 @@
     <string name="error_camera_declined">Camera permission is required to scan</string>
 
     <!-- Transaction Types & States -->
-    <string name="description_rbf_cancel">RBF canceling</string>
     <string name="description_rbf_boost">RBF boosting</string>
-    <string name="description_cpfp">CPFP boosting</string>
 
     <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>address</b>&#160;%1$s]]></string>

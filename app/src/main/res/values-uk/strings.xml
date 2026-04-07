@@ -113,9 +113,7 @@
     <string name="error_camera_declined">Дозвіл на камеру необхідний для сканування</string>
 
     <!-- Transaction Types & States -->
-    <string name="description_rbf_cancel">RBF скасування</string>
     <string name="description_rbf_boost">RBF прискорення</string>
-    <string name="description_cpfp">CPFP прискорення</string>
 
     <!-- Transaction / Payment Popups -->
     <string name="popup_to_address"><![CDATA[<b>адреса</b>&#160;%1$s]]></string>

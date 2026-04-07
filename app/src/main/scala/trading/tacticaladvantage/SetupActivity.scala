@@ -65,7 +65,7 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
     val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
     WalletApp.btc.createWallet(ord = 0L, secret.keys.bitcoinMaster)
-    WalletApp.ecx.createWallet(ord = 0L, secret.keys.ecashMaster)
+    WalletApp.ecx.createWallet(ord = 0L, secret.keys.bitcoinMaster)
     WalletApp.btc.extDataBag.putSecret(secret)
     me exitTo classOf[MainActivity]
   }

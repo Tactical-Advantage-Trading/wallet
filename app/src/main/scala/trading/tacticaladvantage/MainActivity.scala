@@ -11,7 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.RecyclerView
-import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
+import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
@@ -137,7 +137,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val cmd = LinkClient.CmdRemove(listener)
       WalletApp.linkClient ! cmd
     }
-
 
     val intent = LinkClient.DepositIntent(response.tx.txid.toHex)
     WalletApp.linkClient ! LinkClient.Request(intent, listener.id)
@@ -452,9 +451,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       currentDetails match {
-//        case info: CoinDetails if info.description.cpfpOf.isDefined => amount.setText(description_cpfp)
         case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_BOOST) => amount.setText(description_rbf_boost)
-//        case info: CoinDetails if info.description.rbf.exists(_.mode == CoinDescription.RBF_CANCEL) => amount.setText(description_rbf_cancel)
         case info: CoinDetails => amount.setText(CoinDenom.directedTT(info.receivedSat.toMilliSatoshi, info.sentSat.toMilliSatoshi, cardOut, cardIn, cardZero, info.isIncoming).html)
       }
     }
@@ -593,9 +590,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
           case Success(secret) =>
             WalletApp.makeOperational(secret)
-            WalletApp.btc.initWallets(WalletApp.secret.keys.bitcoinMaster)
-            WalletApp.ecx.initWallets(WalletApp.secret.keys.ecashMaster)
-            WalletApp.initTaCard
+            WalletApp.initWallets
             START(state)
         }
 
@@ -1126,11 +1121,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     devInfo.setText(getString(dev_info).html)
     nameAndVer.setText(appName.html)
 
-    def showWalletCard(group: NetworkWalletGroup, master: ExtendedPrivateKey) = {
-      val nativeSpec = group.createWallet(ord = 0L, master)
-      group.postInitWallet(nativeSpec)
-    }
-
     def showTaCard = {
       WalletApp.setShowTaCard(show = true)
       DbStreams.next(DbStreams.walletStream)
@@ -1142,9 +1132,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP84)
       WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP44)
       WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP32)
-      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP84)
-      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP44)
-      WalletApp.ecx.attachWallet(attachedKeys.ecashMaster, ElectrumWallet.BIP32)
+      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP84)
+      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP44)
+      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP32)
     }
 
     def makeCards = {
@@ -1193,12 +1183,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val msg = getString(settings_show)
         val hasNativeBtc = WalletApp.btc.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
         if (!hasNativeBtc) addFlowChip(settingsButtons, msg.format(WalletApp.btc.ticker), R.drawable.border_white) {
-          showWalletCard(WalletApp.btc, WalletApp.secret.keys.bitcoinMaster)
+          WalletApp.btc postInitWallet WalletApp.btc.createWallet(ord = 0L, WalletApp.secret.keys.bitcoinMaster)
         }
 
         val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
         if (!hasNativeEcx) addFlowChip(settingsButtons, msg.format(WalletApp.ecx.ticker), R.drawable.border_white) {
-          showWalletCard(WalletApp.ecx, WalletApp.secret.keys.ecashMaster)
+          WalletApp.ecx postInitWallet WalletApp.ecx.createWallet(ord = 0L, WalletApp.secret.keys.bitcoinMaster)
         }
 
         if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_white)(showTaCard)
