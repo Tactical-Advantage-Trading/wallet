@@ -301,7 +301,7 @@ trait BaseActivity extends AppCompatActivity { me =>
     val hintDenom = clickableTextField(container findViewById R.id.hintDenom)
   }
 
-  class RateManager(val rmc: RateManagerContent, rates: Fiat2Coin, fiatCode: String) {
+  class RateManager(val rmc: RateManagerContent, group: NetworkWalletGroup, fiatCode: String) {
     def bigDecimalFrom(input: CurrencyEditText): BigDecimal = BigDecimal(input.getNumericValueBigDecimal)
     def resultMsat: MilliSatoshi = (bigDecimalFrom(rmc.inputAmount) * CoinDenom.factor).toLong.msat
 
@@ -311,12 +311,11 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
 
     def updatedFiatFromBtc: String =
-      WalletApp.msatInFiat(rates, fiatCode)(resultMsat)
-        .filter(0.001D <= _).map(_.toString)
-        .getOrElse("0.00")
+      WalletApp.msatInFiat(group.fiatRates.info.rates, fiatCode)(resultMsat)
+        .filter(0.001D <= _).map(_.toString).getOrElse("0.00")
 
     def updatedBtcFromFiat: String =
-      WalletApp.currentRate(rates, fiatCode)
+      WalletApp.currentRate(group.fiatRates.info.rates, fiatCode)
         .map(perBtc => bigDecimalFrom(rmc.fiatInputAmount) / perBtc)
         .filter(0.000000001D <= _).map(Denomination.btcBigDecimal2MSat)
         .map(CoinDenom.fromMsat).map(_.toString)
@@ -340,7 +339,7 @@ trait BaseActivity extends AppCompatActivity { me =>
       if (rmc.inputAmount.hasFocus) updateFiatInput
     }
 
-    rmc.inputAmountHint setText CoinDenom.sign.toUpperCase
+    rmc.inputAmountHint setText group.ticker
     rmc.fiatInputAmountHint setText fiatCode.toUpperCase
     rmc.fiatInputAmount setLocale Denomination.locale
     rmc.inputAmount setLocale Denomination.locale
@@ -451,10 +450,10 @@ trait BaseActivity extends AppCompatActivity { me =>
     }
   }
 
-  class BtcSendView(fr: FiatRates, specs: Seq[WalletSpec], hardMax: MilliSatoshi) extends SendView {
+  class BtcSendView(group: NetworkWalletGroup, specs: Seq[WalletSpec], hardMax: MilliSatoshi) extends SendView {
     val totalCanSend = specs.map(_.info.lastBalance).sum.toMilliSatoshi.min(hardMax)
-    val rm = new RateManager(editView.rmc, fr.info.rates, WalletApp.fiatCode)
-    val canSendFiat = WalletApp.currentMsatInFiatHuman(fr, totalCanSend)
+    val canSendFiat = WalletApp.currentMsatInFiatHuman(group.fiatRates, totalCanSend)
+    val rm = new RateManager(editView.rmc, group, WalletApp.fiatCode)
     val canSend = CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
 
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html

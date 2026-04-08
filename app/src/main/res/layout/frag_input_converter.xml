@@ -29,7 +29,7 @@
         android:layout_width="fill_parent"
         android:id="@+id/hintFiatDenom"/>
 
-    <!-- Bitcoin and hint -->
+    <!-- Coin and hint -->
 
     <FrameLayout style="@style/FillingView">
         <com.cottacush.android.currencyedittext.CurrencyEditText

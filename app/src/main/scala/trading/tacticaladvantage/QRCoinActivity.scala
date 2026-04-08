@@ -63,7 +63,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
     val canReceiveHuman = CoinDenom.parsedTT(MAX_MSAT, cardIn, cardZero)
     val canReceiveFiatHuman = WalletApp.currentMsatInFiatHuman(group.fiatRates, MAX_MSAT)
     val body = getLayoutInflater.inflate(R.layout.frag_input_converter, null).asInstanceOf[LinearLayout]
-    lazy val rm = new RateManager(new RateManagerContent(body), group.fiatRates.info.rates, WalletApp.fiatCode)
+    lazy val rm = new RateManager(new RateManagerContent(body), group, WalletApp.fiatCode)
     val title = getString(dialog_receive_address).asColoredView(group.bgRes)
 
     mkCheckForm(proceed, none, titleBodyAsViewBuilder(title, rm.rmc.container), dialog_ok, dialog_cancel)

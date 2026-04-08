@@ -44,14 +44,12 @@ trait Denomination {
 
   val fmt: DecimalFormat
   val factor: Long
-  val sign: String
 }
 
 object CoinDenom extends Denomination { me =>
   val fmt: DecimalFormat = new DecimalFormat("##0.00000000")
   fmt.setDecimalFormatSymbols(Denomination.symbols)
   val factor = 100000000000L
-  val sign = "btc"
 
   def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
     if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"

@@ -176,7 +176,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val fromOutPoints = for (idx <- info.tx.txOut.indices) yield OutPoint(info.tx.hash, idx)
       val receivedMsat = info.receivedSat.toMilliSatoshi
 
-      val sendView = new BtcSendView(currentGroup.fiatRates, specs, MAX_MSAT)
+      val sendView = new BtcSendView(currentGroup, specs, MAX_MSAT)
       val blockTarget = currentGroup.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = currentGroup.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView = new FeeView[GenerateTxResponse](currentGroup.fiatRates, FeeratePerByte(target), sendView.cpfpView.fvc) {
@@ -240,7 +240,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val currentFee = CoinDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val changeTo = ElectrumWallet.orderByImportance(candidates = specs).head
 
-      val sendView = new BtcSendView(currentGroup.fiatRates, specs, MAX_MSAT)
+      val sendView = new BtcSendView(currentGroup, specs, MAX_MSAT)
       val blockTarget = currentGroup.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = currentGroup.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
       lazy val feeView = new FeeView[RBFResponse](currentGroup.fiatRates, FeeratePerByte(target), sendView.rbfView.fvc) {
@@ -315,7 +315,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
       val ourPubKeyScript = currentGroup.electrum.addressToPubKeyScript(address)
 
-      val sendView = new BtcSendView(currentGroup.fiatRates, specs, MAX_MSAT)
+      val sendView = new BtcSendView(currentGroup, specs, MAX_MSAT)
       val currentFee = CoinDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
       val blockTarget = currentGroup.feeRates.info.onChainFeeConf.feeTargets.fundingBlockTarget
       val target = currentGroup.feeRates.info.onChainFeeConf.feeEstimator.getFeeratePerKw(blockTarget)
@@ -421,24 +421,20 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       currentDetails = details
       if (openListItems contains currentDetails.identity) expand else collapse
       meta setText WalletApp.when(currentDetails.date, WalletApp.app.dateFormat)
+      val isEphemeral = WalletApp.pendingInfos.contains(currentDetails.identity)
+      itemView.setAlpha { if (isEphemeral) 0.5F else 1F }
 
       currentDetails match {
         case info: CoinDetails =>
           // Ephemeral tx has no connected wallet while it's being broadcasted
           // User may remove a wallet while related transactions are getting confirmed
           val hasNoWallets = info.extPubs.flatMap(currentGroup.electrum.specs.get).isEmpty
+          val isCanceled = info.isDoubleSpent || info.description.cpfpBy.isDefined
 
-          if (info.isConfirmed) statusIcon.setImageResource(R.drawable.done_24)
-          else if (info.isDoubleSpent) statusIcon.setImageResource(R.drawable.block_24)
+          if (isCanceled) statusIcon.setImageResource(R.drawable.block_24)
+          else if (info.isConfirmed) statusIcon.setImageResource(R.drawable.done_24)
           else if (hasNoWallets) statusIcon.setImageResource(R.drawable.question_24)
           else statusIcon.setImageResource(R.drawable.hourglass_empty_24)
-      }
-
-      currentDetails match {
-        case info: CoinDetails if WalletApp.pendingInfos.contains(info.identity) => itemView.setAlpha(0.5F)
-        case info: CoinDetails if info.description.cpfpBy.isDefined => itemView.setAlpha(0.5F)
-        case _ if currentDetails.isDoubleSpent => itemView.setAlpha(0.5F)
-        case _ => itemView.setAlpha(1F)
       }
 
       currentDetails match {
@@ -680,7 +676,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     new WalletSelector(makeTitle(cu), group) {
       def onOk(specs: List[WalletSpec] = Nil): Unit = {
-        val sendView = new BtcSendView(group.fiatRates, specs, cu.maxAmount)
+        val sendView = new BtcSendView(group, specs, cu.maxAmount)
         val changeTo = ElectrumWallet.orderByImportance(specs).head
 
         def attempt(alert1: AlertDialog): Unit = {
@@ -732,7 +728,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     new WalletSelector(titleMsg, group) {
       def onOk(specs: List[WalletSpec] = Nil): Unit = {
         val changeTo = ElectrumWallet.orderByImportance(specs).head
-        val sendView = new BtcSendView(group.fiatRates, specs, MAX_MSAT)
+        val sendView = new BtcSendView(group, specs, MAX_MSAT)
 
         def attempt(alert1: AlertDialog): Unit = {
           val desc = CoinDescription(a2a.values.firstItems.toList, None, group.netId)
