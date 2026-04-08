@@ -1,8 +1,9 @@
 package immortan
 
-import java.net.{InetSocketAddress, Socket}
+import okhttp3.{OkHttpClient, Request, ResponseBody}
+
+import java.net.Socket
 import java.util.concurrent.TimeUnit
-import okhttp3.{MediaType, OkHttpClient, Request, RequestBody, ResponseBody}
 
 
 trait ConnectionProvider {
