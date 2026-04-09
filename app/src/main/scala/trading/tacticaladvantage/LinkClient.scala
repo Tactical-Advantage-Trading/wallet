@@ -16,8 +16,9 @@ import java.util.Date
 import scala.util.Try
 
 object LinkClient {
-  val USER_UPDATE: String = "user-update"
+  val ALL_IDS: String = "all-ids"
   val GENERAL_ERROR: String = "general-error"
+  val USER_UPDATE: String = "user-update"
   val VERSION: Char = '1'
 
   // Failure codes
@@ -255,8 +256,8 @@ class LinkClient(extDataBag: SQLiteData) extends StateMachine[TaLinkState] with 
       become(data, CONNECTED)
 
     case (req: Request, CONNECTED) => ws.sendText(s"$VERSION${req.toJson.compactPrint}")
-    case (req: Request, DISCONNECTED) => listeners.filter(_.id == req.id).foreach(_.onDisconnected)
-    case (Response(arguments, id), CONNECTED) => listeners.filter(_.id == id).foreach(_ onResponse arguments)
+    case (req: Request, DISCONNECTED) => listeners.filter(lst => lst.id == req.id || lst.id == ALL_IDS).foreach(_.onDisconnected)
+    case (Response(arguments, id), CONNECTED) => listeners.filter(lst => lst.id == id || lst.id == ALL_IDS).foreach(_ onResponse arguments)
     case _ =>
   }
 

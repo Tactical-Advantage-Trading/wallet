@@ -467,7 +467,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       DbStreams.next(DbStreams.txStream)
   }
 
-  private val taErrorListener = new LinkClient.Listener(LinkClient.GENERAL_ERROR) {
+  private val taErrorListener = new LinkClient.Listener(LinkClient.ALL_IDS) {
     override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = args.foreach {
       case LinkClient.Failure(LinkClient.ACCOUNT_BANNED) => extendedWarn(msgRes = ta_account_disabled).run
       case fail: LinkClient.Failure => UITask(WalletApp.app quickToast fail.failureCode.toString).run
@@ -973,8 +973,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateView: Unit =
       WalletApp.linkClient.data match {
         case status: LinkClient.UserStatus =>
-          infoWalletNotice setText status.email
           imageTip.setImageResource(R.drawable.info_24)
+          earnAccount.updateStatus(status, infoWalletNotice)(_ setText status.email)
           balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, status.minLoanDaysLeft)
           balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
           setVisMany(parent.isEarnAccountExpanded -> earnAccount.wrap, !parent.isEarnAccountExpanded -> infoContainer)
@@ -1002,10 +1002,21 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
     val taInfo: TextView = wrap.findViewById(R.id.taInfo).asInstanceOf[TextView]
 
+    def updateStatus(status: LinkClient.UserStatus, view: TextView)(fun: TextView => Unit): Unit =
+      if (status.pendingDeposits.nonEmpty) {
+        view setText getString(ta_pending_deposit)
+        setVis(isVisible = true, view = view)
+      } else if (status.pendingWithdraws.nonEmpty) {
+        val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
+        view setText getString(status.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
+        setVis(isVisible = true, view = view)
+      } else fun(view)
+
     def updateView(status: LinkClient.UserStatus): Unit = {
       List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
       setVisMany(status.totalFunds.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
       taClientEmail.setText(status.email)
+      updateStatus(status, taInfo)(none)
 
       for (total <- status.totalFunds) {
         val amount = Btc(total.withdrawable).toSatoshi.toMilliSatoshi
@@ -1023,15 +1034,6 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val item = new TwoSidedItem(parent, s"APR ${Denomination.formatRoi format loan.roi}<br><small><tt>$daysLeft</tt></small>".html, s"$amount<br><small>$interest</small>".html)
         item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
         taLoansContainer.addView(parent)
-      }
-
-      if (status.pendingDeposits.nonEmpty) {
-        taInfo setText getString(ta_pending_deposit)
-        setVis(isVisible = true, view = taInfo)
-      } else if (status.pendingWithdraws.nonEmpty) {
-        val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
-        taInfo setText getString(status.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
-        setVis(isVisible = true, view = taInfo)
       }
 
       lazy val callWithdraw: LinkClient.RequestArguments => Unit = { request =>
