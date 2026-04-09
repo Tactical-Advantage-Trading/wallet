@@ -1,4 +1,4 @@
-package immortan
+package trading.tacticaladvantage
 
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 

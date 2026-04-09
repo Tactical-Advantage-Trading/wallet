@@ -1,4 +1,4 @@
-package immortan.utils
+package trading.tacticaladvantage.utils
 
 import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet.{ExtendedPrivateKey, ExtendedPublicKey}
@@ -6,12 +6,12 @@ import fr.acinq.bitcoin.{ByteVector32, Satoshi}
 import fr.acinq.eclair.MilliSatoshi
 import fr.acinq.eclair.blockchain.fee._
 import fr.acinq.eclair.wire.CommonCodecs._
-import immortan._
-import Tools.{Fiat2Coin, StringList}
-import immortan.sqlite.SigningWallet
-import immortan.utils.FiatRates.CoinGeckoItemMap
 import scodec.bits.BitVector
 import spray.json._
+import trading.tacticaladvantage.Tools.{Fiat2Coin, StringList}
+import trading.tacticaladvantage._
+import trading.tacticaladvantage.sqlite.SigningWallet
+import trading.tacticaladvantage.utils.FiatRates.CoinGeckoItemMap
 
 import scala.util.Try
 

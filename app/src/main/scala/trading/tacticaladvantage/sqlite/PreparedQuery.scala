@@ -1,9 +1,9 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
+
+import trading.tacticaladvantage.Tools.Bytes
 
 import java.lang.{Double => JDouble, Integer => JInt, Long => JLong}
 import java.sql.PreparedStatement
-
-import immortan.Tools.Bytes
 
 
 trait PreparedQuery {

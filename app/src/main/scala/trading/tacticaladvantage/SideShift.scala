@@ -1,10 +1,7 @@
 package trading.tacticaladvantage
 
-import immortan.ConnectionProvider
-import immortan.utils.ImplicitJsonFormats._
 import spray.json._
-
-import scala.util.Try
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 
 object SideShift {
   case class QuoteResponse(id: String, createdAt: String, depositCoin: String, settleCoin: String,
@@ -27,12 +24,12 @@ object SideShift {
 
   val baseUrl = s"https://tactical-advantage.trading:8080/shift"
 
-  def quote(cp: ConnectionProvider, depositCoin: String, settleCoin: String, depositAmount: String): Try[QuoteResponse] =
+  def quote(cp: ConnectionProvider, depositCoin: String, settleCoin: String, depositAmount: String): scala.util.Try[QuoteResponse] =
     tryTo[QuoteResponse](cp.get(s"$baseUrl/quote?depositcoin=$depositCoin&settlecoin=$settleCoin&depositamount=$depositAmount").string)
 
-  def fixed(cp: ConnectionProvider, settleAddress: String, refundAddress: String, quoteId: String): Try[ShiftResponse] =
+  def fixed(cp: ConnectionProvider, settleAddress: String, refundAddress: String, quoteId: String): scala.util.Try[ShiftResponse] =
     tryTo[ShiftResponse](cp.get(s"$baseUrl/fixed?settleaddress=$settleAddress&refundaddress=$refundAddress&quoteid=$quoteId").string)
 
-  def status(cp: ConnectionProvider, shiftId: String): Try[ShiftResponse] =
+  def status(cp: ConnectionProvider, shiftId: String): scala.util.Try[ShiftResponse] =
     tryTo[ShiftResponse](cp.get(s"$baseUrl/status?shiftid=$shiftId").string)
 }

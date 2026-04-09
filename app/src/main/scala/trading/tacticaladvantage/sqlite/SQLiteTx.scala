@@ -1,13 +1,14 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
 
-import java.lang.{Long => JLong}
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
 import fr.acinq.eclair.MilliSatoshi
-import immortan.Tools.Fiat2Coin
-import immortan.utils.ImplicitJsonFormats._
-import immortan.{CoinDescription, CoinDetails}
+import trading.tacticaladvantage.Tools.Fiat2Coin
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import spray.json._
+import trading.tacticaladvantage.{CoinDescription, CoinDetails}
+
+import java.lang.{Long => JLong}
 
 object SQLiteTx {
   def reify(rc: RichCursor): CoinDetails =

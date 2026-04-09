@@ -1,12 +1,11 @@
-package immortan.utils
+package trading.tacticaladvantage.utils
 
 import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.fee._
-import immortan.sqlite.SQLiteData
-import immortan.utils.FeeRates._
-import immortan.utils.ImplicitJsonFormats._
-import immortan.{CanBeShutDown, ConnectionProvider}
-
+import trading.tacticaladvantage.sqlite.SQLiteData
+import trading.tacticaladvantage.utils.FeeRates._
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
+import trading.tacticaladvantage.{CanBeShutDown, ConnectionProvider}
 
 object FeeRates {
   val minPerKw: FeeratePerKw = FeeratePerKw(1000L.sat)

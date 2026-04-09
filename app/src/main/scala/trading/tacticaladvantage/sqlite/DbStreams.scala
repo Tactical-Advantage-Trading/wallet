@@ -1,7 +1,8 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
+
+import rx.lang.scala.Subject
 
 import java.util.concurrent.atomic.AtomicLong
-import rx.lang.scala.Subject
 
 object DbStreams {
   final val updateCounter = new AtomicLong(0)

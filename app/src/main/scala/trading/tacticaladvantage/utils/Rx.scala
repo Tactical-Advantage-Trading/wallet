@@ -1,7 +1,8 @@
-package immortan.utils
+package trading.tacticaladvantage.utils
 
-import rx.lang.scala.{Observable, Subscription}
 import rx.lang.scala.schedulers.IOScheduler
+import rx.lang.scala.{Observable, Subscription}
+
 import scala.concurrent.duration._
 
 object Rx {

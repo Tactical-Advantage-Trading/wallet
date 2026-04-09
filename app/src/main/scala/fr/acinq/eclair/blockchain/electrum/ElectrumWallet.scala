@@ -1,6 +1,6 @@
 package fr.acinq.eclair.blockchain.electrum
 
-import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
 import fr.acinq.bitcoin.DeterministicWallet._
@@ -11,10 +11,10 @@ import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
 import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
 import fr.acinq.eclair.blockchain.fee.FeeratePerKw
 import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
-import immortan.CanBeShutDown
-import immortan.Tools._
-import immortan.sqlite._
 import scodec.bits.ByteVector
+import trading.tacticaladvantage.CanBeShutDown
+import trading.tacticaladvantage.Tools._
+import trading.tacticaladvantage.sqlite._
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.annotation.tailrec

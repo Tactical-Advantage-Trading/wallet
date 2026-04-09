@@ -19,6 +19,7 @@
 
     <string name="action_recovery_phrase_title">Фраза відновлення гаманця</string>
     <string name="action_recovery_phrase_hint">Введіть слова відновлення</string>
+    <string name="swap_label"><![CDATA[Обмін %1$s &#x2192; %2$s]]></string>
 
     <!-- Earn Account -->
     <string name="ta_earn_label">Earn акаунт</string>

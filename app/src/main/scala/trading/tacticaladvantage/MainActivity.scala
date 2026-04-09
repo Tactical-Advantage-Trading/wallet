@@ -17,11 +17,8 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
-import immortan.Tools._
-import immortan._
-import immortan.sqlite.{DbStreams, SQLiteTx}
-import immortan.utils.ImplicitJsonFormats._
-import immortan.utils._
+import Tools._
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
 import spray.json._
@@ -29,6 +26,7 @@ import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.LinkClient.{FullBalance, PartialInterestNative}
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.sqlite.{DbStreams, SQLiteTx}
 import trading.tacticaladvantage.utils._
 
 import java.util.TimerTask
@@ -401,7 +399,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           val canCPFP = info.isIncoming && !info.isDoubleSpent && !info.isConfirmed && info.description.rbf.isEmpty && info.description.canBeCPFPd
           val fee = CoinDenom.parsed(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
-          for (btcLabel <- info.description.label) addFlowChip(extraInfo, btcLabel, R.drawable.border_white, None)
+          for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_white, None)
           addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray)(me browse s"https://mempool.space/tx/${info.identity}")
           if (!info.isIncoming || isRbfCancel || info.description.cpfpOf.isDefined) addFlowChip(extraInfo, getString(popup_fee).format(fee), R.drawable.border_gray)(none)
 

@@ -1,5 +1,4 @@
-package immortan.sqlite
-
+package trading.tacticaladvantage.sqlite
 
 trait DBInterface {
   def txWrap[T](run: => T): T

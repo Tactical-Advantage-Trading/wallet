@@ -1,5 +1,4 @@
-package immortan.sqlite
-
+package trading.tacticaladvantage.sqlite
 
 trait Table {
   def createStatements: Seq[String]

@@ -3,16 +3,14 @@ package trading.tacticaladvantage
 import com.neovisionaries.ws.client._
 import fr.acinq.bitcoin.Btc
 import fr.acinq.eclair.{MilliSatoshi, ToMilliSatoshiConversion}
-import immortan.Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
-import immortan.sqlite.{DbStreams, SQLiteData}
-import immortan.utils.ImplicitJsonFormats._
-import immortan.utils.Rx
-import immortan.{CanBeShutDown, CoinDescription, StateMachine}
+import Tools.{Any2Some, maxOptionByValue, minOptionByValue, none}
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import spray.json._
 import trading.tacticaladvantage.LinkClient._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.sqlite.{DbStreams, SQLiteData}
 import trading.tacticaladvantage.utils.WsListener._
-import trading.tacticaladvantage.utils.{CoinUri, WsListener}
+import trading.tacticaladvantage.utils.{CoinUri, Rx, WsListener}
 
 import java.util.Date
 import scala.util.Try
@@ -157,7 +155,7 @@ object LinkClient {
   case class History(deposits: List[Deposit], withdraws: List[Withdraw], loans: List[ActiveLoan] = Nil) extends ResponseArguments { val tag = "History" }
 
   case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
-    val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).trim.asSome, networkId = -1, taRoi = roi.asSome)
+    val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).asSome, networkId = -1, taRoi = roi.asSome)
     val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
     val amount: Option[MilliSatoshi] = None
     val tag = "LoanAd"

@@ -1,5 +1,4 @@
-package immortan.utils
-
+package trading.tacticaladvantage.utils
 
 object Statistics {
   def meanBy[T](items: Seq[T] = Nil)(extractor: T => Long): Double = {

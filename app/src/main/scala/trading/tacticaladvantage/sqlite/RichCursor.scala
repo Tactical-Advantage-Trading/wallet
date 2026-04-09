@@ -1,10 +1,9 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
 
-import java.sql.ResultSet
-
-import immortan.Tools.Bytes
+import trading.tacticaladvantage.Tools.Bytes
 import scodec.bits.ByteVector
 
+import java.sql.ResultSet
 import scala.util.Try
 
 

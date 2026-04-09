@@ -1,12 +1,12 @@
-package immortan
+package trading.tacticaladvantage
 
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPrivateKey
-import Tools.{Bytes, StringList}
-import scodec.bits.ByteVector
 import fr.acinq.eclair.wire.CommonCodecs._
 import scodec.Codec
+import scodec.bits.ByteVector
 import scodec.codecs._
+import trading.tacticaladvantage.Tools.{Bytes, StringList}
 
 
 object MasterKeys {

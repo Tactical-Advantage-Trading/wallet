@@ -1,14 +1,14 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
 
-import fr.acinq.bitcoin.{BlockHeader, ByteVector32}
-import immortan.MasterKeys.walletSecretCodec
-import immortan.Tools._
-import immortan.WalletSecret
-import immortan.sqlite.SQLiteData._
-import immortan.utils.ImplicitJsonFormats._
-import immortan.utils.{FeeRatesInfo, FiatRatesInfo}
+import fr.acinq.bitcoin.BlockHeader
 import scodec.bits.ByteVector
 import spray.json._
+import trading.tacticaladvantage.MasterKeys.walletSecretCodec
+import trading.tacticaladvantage.Tools._
+import trading.tacticaladvantage.WalletSecret
+import trading.tacticaladvantage.sqlite.SQLiteData._
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
+import trading.tacticaladvantage.utils.{FeeRatesInfo, FiatRatesInfo}
 
 import java.lang.{Integer => JInt}
 import scala.util.Try
@@ -22,6 +22,8 @@ object SQLiteData {
 }
 
 class SQLiteData(val db: DBInterface) {
+
+
   def delete(label: String): Unit = db.change(DataTable.killSql, label)
 
   def tryGet(keyValueLabel: String): Try[ByteVector] =

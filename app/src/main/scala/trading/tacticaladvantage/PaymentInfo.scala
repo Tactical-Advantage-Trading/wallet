@@ -1,9 +1,10 @@
-package immortan
+package trading.tacticaladvantage
 
 import fr.acinq.bitcoin.{ByteVector32, Satoshi, Transaction}
-import Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
-import immortan.utils.ImplicitJsonFormats._
 import fr.acinq.eclair._
+import trading.tacticaladvantage.Tools.{Any2Some, ExtPubKeys, SEPARATOR, StringList}
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
+
 import java.util.Date
 
 

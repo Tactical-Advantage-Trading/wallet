@@ -1,13 +1,13 @@
-package immortan.utils
-
-import java.net.InetSocketAddress
+package trading.tacticaladvantage.utils
 
 import akka.actor.Actor
 import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.eclair.blockchain.electrum.ElectrumChainSync
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
-import immortan.Tools.none
+import trading.tacticaladvantage.Tools.none
+
+import java.net.InetSocketAddress
 
 
 object WalletEventsCatcher {

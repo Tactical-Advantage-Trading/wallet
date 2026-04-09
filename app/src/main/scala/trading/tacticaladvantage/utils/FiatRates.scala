@@ -1,9 +1,8 @@
-package immortan.utils
+package trading.tacticaladvantage.utils
 
-import immortan.sqlite.SQLiteData
-import immortan.utils.ImplicitJsonFormats._
-import immortan.{CanBeShutDown, ConnectionProvider, Tools}
-
+import trading.tacticaladvantage.sqlite.SQLiteData
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
+import trading.tacticaladvantage.{CanBeShutDown, ConnectionProvider, Tools}
 
 object FiatRates {
   type BlockchainInfoItemMap = Map[String, BlockchainInfoItem]

@@ -4,7 +4,7 @@ import java.lang.Thread.UncaughtExceptionHandler
 
 import android.app.Activity
 import android.content.Intent
-import immortan.Tools.ThrowableOps
+import Tools.ThrowableOps
 
 
 object UncaughtHandler {

@@ -3,9 +3,8 @@ package trading.tacticaladvantage.utils
 import fr.acinq.bitcoin.{BtcAmount, Satoshi, SatoshiLong}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.Electrum
-import immortan.CoinDescription
-import immortan.Tools._
-import immortan.utils.Denomination
+import trading.tacticaladvantage.Tools._
+import trading.tacticaladvantage.CoinDescription
 import trading.tacticaladvantage.utils.uri.Uri
 
 import scala.util.parsing.combinator.RegexParsers

@@ -1,4 +1,4 @@
-package immortan
+package trading.tacticaladvantage
 
 import okhttp3.{OkHttpClient, Request, ResponseBody}
 

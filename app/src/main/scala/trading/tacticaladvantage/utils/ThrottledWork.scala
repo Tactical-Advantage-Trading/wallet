@@ -1,6 +1,6 @@
-package immortan.utils
+package trading.tacticaladvantage.utils
 
-import immortan.Tools.{Any2Some, none}
+import trading.tacticaladvantage.Tools.{Any2Some, none}
 import rx.lang.scala.Subscription
 
 

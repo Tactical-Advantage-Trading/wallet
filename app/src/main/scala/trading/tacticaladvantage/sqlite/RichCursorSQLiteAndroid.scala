@@ -1,8 +1,7 @@
 package trading.tacticaladvantage.sqlite
 
 import android.database.Cursor
-import immortan.Tools.{Bytes, runAnd}
-import immortan.sqlite.RichCursor
+import trading.tacticaladvantage.Tools.{Bytes, runAnd}
 
 import scala.util.Try
 

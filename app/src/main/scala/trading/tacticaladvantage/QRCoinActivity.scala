@@ -9,11 +9,10 @@ import com.azoft.carousellayoutmanager._
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
-import immortan.Tools._
-import immortan.utils.{CoinDenom, Denomination}
+import Tools._
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.{InputParser, PlainCoinUri}
+import trading.tacticaladvantage.utils.{CoinDenom, Denomination, InputParser, PlainCoinUri}
 
 import scala.util.Success
 

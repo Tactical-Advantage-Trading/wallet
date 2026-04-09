@@ -1,11 +1,11 @@
-package immortan.sqlite
+package trading.tacticaladvantage.sqlite
 
 import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPrivateKey
 import fr.acinq.bitcoin.Satoshi
 import fr.acinq.eclair.blockchain.electrum.PersistentData
 import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
-import immortan.utils.ImplicitJsonFormats._
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import scodec.bits.ByteVector
 import spray.json._
 

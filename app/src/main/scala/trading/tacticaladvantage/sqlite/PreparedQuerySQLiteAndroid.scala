@@ -3,8 +3,7 @@ package trading.tacticaladvantage.sqlite
 import java.lang.{Double => JDouble, Integer => JInt, Long => JLong}
 
 import android.database.sqlite.SQLiteStatement
-import immortan.Tools.Bytes
-import immortan.sqlite.{PreparedQuery, RichCursor}
+import trading.tacticaladvantage.Tools.Bytes
 
 
 case class PreparedQuerySQLiteAndroid(prepared: SQLiteStatement) extends PreparedQuery { me =>

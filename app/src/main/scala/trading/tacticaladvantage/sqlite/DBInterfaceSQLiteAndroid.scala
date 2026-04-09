@@ -2,7 +2,6 @@ package trading.tacticaladvantage.sqlite
 
 import android.content.Context
 import android.database.sqlite.{SQLiteDatabase, SQLiteOpenHelper}
-import immortan.sqlite.{TxTable, WalletTable, DBInterface, DataTable, ElectrumHeadersTable, PreparedQuery, RichCursor}
 
 class DBInterfaceSQLiteAndroid(context: Context, name: String) extends SQLiteOpenHelper(context, name, null, 3) with DBInterface {
   val base: SQLiteDatabase = getWritableDatabase

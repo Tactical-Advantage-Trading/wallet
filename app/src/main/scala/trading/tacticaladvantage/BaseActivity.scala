@@ -27,12 +27,11 @@ import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
-import immortan.Tools._
-import immortan.utils._
+import Tools._
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
-import trading.tacticaladvantage.utils.InputParser
+import trading.tacticaladvantage.utils.{CoinDenom, Denomination, FiatRates, InputParser, ThrottledWork}
 
 import java.io.{File, FileOutputStream}
 import scala.concurrent.ExecutionContext.Implicits.global

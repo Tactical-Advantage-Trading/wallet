@@ -5,8 +5,7 @@ import android.view.View
 import android.widget._
 import androidx.appcompat.app.AlertDialog
 import fr.acinq.bitcoin.MnemonicCode
-import immortan.Tools._
-import immortan.{MasterKeys, WalletSecret}
+import Tools._
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
 
