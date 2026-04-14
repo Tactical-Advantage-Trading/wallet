@@ -65,7 +65,6 @@ class RemotePeerActivity extends ChanErrorHandlerActivity with ExternalDataCheck
     DataLossProtect -> findViewById(R.id.OptionDataLossProtect).asInstanceOf[TextView],
     StaticRemoteKey -> findViewById(R.id.StaticRemoteKey).asInstanceOf[TextView],
     HostedChannels -> findViewById(R.id.HostedChannels).asInstanceOf[TextView],
-    ChainSwap -> findViewById(R.id.ChainSwap).asInstanceOf[TextView],
     Wumbo -> findViewById(R.id.Wumbo).asInstanceOf[TextView]
   )
 
