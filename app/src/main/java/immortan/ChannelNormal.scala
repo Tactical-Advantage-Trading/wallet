@@ -47,12 +47,14 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
 
       case (null, init: INPUT_INIT_FUNDER, -1) =>
         val ChannelKeys(_, _, fundingKey, revocationKey, _, delayedPaymentKey, htlcKey) = init.localParams.keys
-        val emptyUpfrontShutdown: TlvStream[OpenChannelTlv] = TlvStream(ChannelTlv UpfrontShutdownScript ByteVector.empty)
+        val tlvRecords = Seq[OpenChannelTlv](ChannelTlv.UpfrontShutdownScript(ByteVector.empty)) ++
+          init.channelFeatures.channelType_opt.map(ChannelTlv.ChannelTypeTlv).toSeq
+        val openTlvStream: TlvStream[OpenChannelTlv] = TlvStream(tlvRecords: _*)
 
         val open = OpenChannel(LNParams.chainHash, init.temporaryChannelId, init.fundingAmount, init.pushAmount, init.localParams.dustLimit, init.localParams.maxHtlcValueInFlightMsat,
           init.localParams.channelReserve, init.localParams.htlcMinimum, init.initialFeeratePerKw, init.localParams.toSelfDelay, init.localParams.maxAcceptedHtlcs, fundingKey.publicKey,
           revocationBasepoint = revocationKey.publicKey, paymentBasepoint = init.localParams.walletStaticPaymentBasepoint, delayedPaymentBasepoint = delayedPaymentKey.publicKey,
-          htlcBasepoint = htlcKey.publicKey, init.localParams.keys.commitmentPoint(index = 0L), init.channelFlags, emptyUpfrontShutdown)
+          htlcBasepoint = htlcKey.publicKey, init.localParams.keys.commitmentPoint(index = 0L), init.channelFlags, openTlvStream)
 
         val data1 = DATA_WAIT_FOR_ACCEPT_CHANNEL(init, open)
         BECOME(data1, WAIT_FOR_ACCEPT)
@@ -156,7 +158,12 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
 
       case (wait: DATA_WAIT_FOR_FUNDING_CONFIRMED, event: WatchEventConfirmed, SLEEPING | WAIT_FUNDING_DONE) =>
         if (Try(wait checkSpend event.txConfirmedAt.tx).isFailure) StoreBecomeSend(DATA_CLOSING(wait.commitments, System.currentTimeMillis), CLOSING) else {
-          val fundingLocked = FundingLocked(nextPerCommitmentPoint = wait.commitments.localParams.keys.commitmentPoint(1L), channelId = wait.channelId)
+          // Derive a stable alias from channelId first 8 bytes (option_scid_alias: we MUST include alias TLV)
+          val ourAlias = wait.channelId.bytes.take(8).toArray.foldLeft(0L)((acc, b) => (acc << 8) | (b & 0xff))
+          val aliasTlv = TlvStream[FundingLockedTlv](FundingLockedTlv.ShortChannelIdAlias(ourAlias))
+          val channelId = wait.channelId;
+          val nextPerCommitmentPoint = wait.commitments.localParams.keys.commitmentPoint(1L);
+          val fundingLocked = FundingLocked(channelId, nextPerCommitmentPoint, aliasTlv)
           val shortChannelId = ShortChannelId(event.txConfirmedAt.blockHeight, event.txIndex, wait.commitments.commitInput.outPoint.index.toInt)
           StoreBecomeSend(DATA_WAIT_FOR_FUNDING_LOCKED(wait.commitments, shortChannelId, fundingLocked), state, fundingLocked)
           wait.deferred.foreach(process)
@@ -169,7 +176,9 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
 
 
       case (wait: DATA_WAIT_FOR_FUNDING_LOCKED, locked: FundingLocked, WAIT_FUNDING_DONE) =>
-        val commits1 = wait.commitments.copy(remoteNextCommitInfo = locked.nextPerCommitmentPoint.asRight)
+        val aliasParams = locked.alias.map(RemoteAlias.apply).toList
+        val commits1 = wait.commitments.copy(remoteNextCommitInfo = locked.nextPerCommitmentPoint.asRight,
+          extParams = wait.commitments.extParams ++ aliasParams)
         StoreBecomeSend(DATA_NORMAL(commits1, wait.shortChannelId), OPEN)
 
       // MAIN LOOP
@@ -205,8 +214,18 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
         StoreBecomeSend(some withNewCommits some.commitments.copy(remoteInfo = remoteInfo.safeAlias), state)
 
 
-      case (norm: DATA_NORMAL, update: ChannelUpdate, OPEN | SLEEPING) if update.shortChannelId == norm.shortChannelId && norm.commitments.updateOpt.forall(_.core != update.core) =>
+      case (norm: DATA_NORMAL, update: ChannelUpdate, OPEN | SLEEPING) if norm.commitments.updateOpt.forall(_.core != update.core) =>
+        // Accept channel_update regardless of shortChannelId: modern peers (e.g. Eclair) use synthetic alias SCIDs
+        // (option_scid_alias) in their updates. The update arrives over the authenticated peer connection so we trust
+        // it is for this channel. Using the alias SCID in routing hints lets the peer forward incoming HTLCs correctly.
         StoreBecomeSend(norm withNewCommits norm.commitments.copy(updateOpt = update.asSome), state)
+
+
+      case (norm: DATA_NORMAL, locked: FundingLocked, OPEN | SLEEPING) if locked.alias.isDefined && norm.commitments.remoteAlias.isEmpty =>
+        // Peer sent channel_ready with alias TLV (option_scid_alias). Store it so routing hints use the alias SCID,
+        // which is what the peer's ChannelRelayer accepts for incoming HTLC forwarding.
+        val commits1 = norm.commitments.copy(extParams = norm.commitments.extParams :+ RemoteAlias(locked.alias.get))
+        StoreBecomeSend(norm withNewCommits commits1, state)
 
 
       // It is assumed that LNParams.feeRates.info is updated at this point
@@ -430,14 +449,14 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
         BECOME(wait, CLOSING)
 
 
-      case (data1: HasNormalCommitments, CMD_SOCKET_ONLINE, SLEEPING) =>
+      case (data1: HasNormalCommitments, CMD_SOCKET_ONLINE, SLEEPING | WAIT_FUNDING_DONE) =>
         val myCurrentPoint = data1.commitments.localParams.keys.commitmentPoint(data1.commitments.localCommit.index)
         val yourLastSecret = data1.commitments.remotePerCommitmentSecrets.lastIndex.flatMap(data1.commitments.remotePerCommitmentSecrets.getHash).getOrElse(ByteVector32.Zeroes)
         val reestablish = ChannelReestablish(data1.channelId, data1.commitments.localCommit.index + 1, data1.commitments.remoteCommit.index, PrivateKey(yourLastSecret), myCurrentPoint)
         SEND(reestablish)
 
 
-      case (wait: DATA_WAIT_FOR_FUNDING_CONFIRMED, _: ChannelReestablish, SLEEPING) =>
+      case (wait: DATA_WAIT_FOR_FUNDING_CONFIRMED, _: ChannelReestablish, SLEEPING | WAIT_FUNDING_DONE) =>
         // We put back the watch (operation is idempotent) because corresponding event may have been already fired while we were in SLEEPING state
         LNParams.chainWallets.watcher ! WatchConfirmed(receiver, wait.commitments.commitInput.outPoint.txid, wait.commitments.commitInput.txOut.publicKeyScript, LNParams.minDepthBlocks, BITCOIN_FUNDING_DEPTHOK)
         // Getting remote ChannelReestablish means our chain wallet is online (since we start connecting channels only after it becomes online), it makes sense to retry a funding broadcast here
@@ -445,7 +464,7 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
         BECOME(wait, WAIT_FUNDING_DONE)
 
 
-      case (wait: DATA_WAIT_FOR_FUNDING_LOCKED, _: ChannelReestablish, SLEEPING) =>
+      case (wait: DATA_WAIT_FOR_FUNDING_LOCKED, _: ChannelReestablish, SLEEPING | WAIT_FUNDING_DONE) =>
         // At this point funding tx already has a desired number of confirmations
         BECOME(wait, WAIT_FUNDING_DONE)
         SEND(wait.lastSent)
@@ -471,9 +490,13 @@ abstract class ChannelNormal(bag: ChannelBag) extends Channel {
             StoreBecomeSend(DATA_WAIT_FOR_REMOTE_PUBLISH_FUTURE_COMMITMENT(norm.commitments, rs), CLOSING)
 
           case rs =>
-            if (rs.nextLocalCommitmentNumber == 1 && norm.commitments.localCommit.index == 0) {
+            // Send FundingLocked with alias TLV if: (a) channel just confirmed (index==0) OR
+            // (b) we don't yet know the remote alias (prompts peer to send back their channel_ready with alias TLV)
+            if (rs.nextLocalCommitmentNumber == 1 && norm.commitments.localCommit.index == 0 || norm.commitments.remoteAlias.isEmpty) {
               val nextPerCommitmentPoint = norm.commitments.localParams.keys.commitmentPoint(index = 1L)
-              sendQueue :+= FundingLocked(norm.commitments.channelId, nextPerCommitmentPoint)
+              val ourAlias = norm.commitments.channelId.bytes.take(8).toArray.foldLeft(0L)((acc, b) => (acc << 8) | (b & 0xff))
+              val aliasTlv = TlvStream[FundingLockedTlv](FundingLockedTlv.ShortChannelIdAlias(ourAlias))
+              sendQueue :+= FundingLocked(norm.commitments.channelId, nextPerCommitmentPoint, aliasTlv)
             }
 
             def resendRevocation: Unit =

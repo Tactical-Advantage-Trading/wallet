@@ -183,7 +183,9 @@ object ChannelCodecs {
 
   val channelLabelCodec = (text withContext "label").as[ChannelLabel]
 
-  val extParamsCodec = discriminated[ExtParams].by(uint16).typecase(1, channelLabelCodec)
+  val extParamsCodec = discriminated[ExtParams].by(uint16)
+    .typecase(1, channelLabelCodec)
+    .typecase(2, (int64 withContext "alias").as[RemoteAlias])
 
   val commitmentsCodec = {
     (byte withContext "channelFlags") ::

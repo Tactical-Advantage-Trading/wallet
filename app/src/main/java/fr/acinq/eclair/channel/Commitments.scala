@@ -65,6 +65,8 @@ case class NormalCommits(channelFlags: Byte, channelId: ByteVector32, channelFea
                          remoteParams: RemoteParams, localCommit: LocalCommit, remoteCommit: RemoteCommit, localChanges: LocalChanges, remoteChanges: RemoteChanges, localNextHtlcId: Long,
                          remoteNextHtlcId: Long, commitInput: InputInfo, extParams: List[ExtParams] = Nil, startedAt: Long = System.currentTimeMillis) extends Commitments { me =>
 
+  lazy val remoteAlias: Option[Long] = extParams.collectFirst { case RemoteAlias(alias) => alias }
+
   lazy val minSendable: MilliSatoshi = remoteParams.htlcMinimum.max(localParams.htlcMinimum)
 
   lazy val maxSendInFlight: MilliSatoshi = remoteParams.maxHtlcValueInFlightMsat.toMilliSatoshi
@@ -348,3 +350,4 @@ object NormalCommits {
 
 sealed trait ExtParams
 case class ChannelLabel(label: String) extends ExtParams
+case class RemoteAlias(alias: Long) extends ExtParams

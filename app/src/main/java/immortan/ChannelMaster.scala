@@ -8,6 +8,7 @@ import fr.acinq.bitcoin.Crypto.{PrivateKey, PublicKey}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.TxConfirmedAt
 import fr.acinq.eclair.channel._
+import fr.acinq.eclair.payment.Bolt11Invoice.ExtraHop
 import fr.acinq.eclair.payment.{IncomingPaymentPacket, Bolt11Invoice}
 import fr.acinq.eclair.transactions.{LocalFulfill, RemoteFulfill, RemoteReject}
 import fr.acinq.eclair.wire._
@@ -275,7 +276,14 @@ class ChannelMaster(val payBag: PaymentBag, val chanBag: ChannelBag, val dataBag
   }
 
   def makePrExt(toReceive: MilliSatoshi, description: PaymentDescription, allowedChans: Seq[ChanAndCommits], hash: ByteVector32, secret: ByteVector32, node_key: PrivateKey): PaymentRequestExt = {
-    val hops = allowedChans.map(_.commits.updateOpt).zip(allowedChans).collect { case Some(usableUpdate) ~ ChanAndCommits(_, commits) => usableUpdate.extraHop(commits.remoteInfo.nodeId) :: Nil }
+    val hops = allowedChans.map(_.commits.updateOpt).zip(allowedChans).collect {
+      case Some(usableUpdate) ~ ChanAndCommits(_, commits: NormalCommits) =>
+        // Prefer the peer's alias SCID (option_scid_alias) so their ChannelRelayer can forward incoming HTLCs
+        val scid = commits.remoteAlias.getOrElse(usableUpdate.shortChannelId)
+        ExtraHop(commits.remoteInfo.nodeId, scid, usableUpdate.feeBaseMsat, usableUpdate.feeProportionalMillionths, usableUpdate.cltvExpiryDelta) :: Nil
+      case Some(usableUpdate) ~ ChanAndCommits(_, commits) =>
+        usableUpdate.extraHop(commits.remoteInfo.nodeId) :: Nil
+    }
     val pr = Bolt11Invoice(LNParams.chainHash, Some(toReceive), hash, secret, node_key, description.invoiceText, LNParams.incomingFinalCltvExpiry, hops.toList)
     PaymentRequestExt.from(pr)
   }

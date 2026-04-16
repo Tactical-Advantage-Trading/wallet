@@ -78,9 +78,9 @@ package object eclair { me =>
    */
   def addressToPublicKeyScript(address: String, chainHash: ByteVector32): Seq[ScriptElt] = {
     Try(Base58Check.decode(address)) match {
-      case Success((Base58.Prefix.PubkeyAddressTestnet, pubKeyHash)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash => Script.pay2pkh(pubKeyHash)
+      case Success((Base58.Prefix.PubkeyAddressTestnet, pubKeyHash)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.Testnet4GenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash => Script.pay2pkh(pubKeyHash)
       case Success((Base58.Prefix.PubkeyAddress, pubKeyHash)) if chainHash == Block.LivenetGenesisBlock.hash => Script.pay2pkh(pubKeyHash)
-      case Success((Base58.Prefix.ScriptAddressTestnet, scriptHash)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash => OP_HASH160 :: OP_PUSHDATA(scriptHash) :: OP_EQUAL :: Nil
+      case Success((Base58.Prefix.ScriptAddressTestnet, scriptHash)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.Testnet4GenesisBlock.hash || chainHash == Block.RegtestGenesisBlock.hash => OP_HASH160 :: OP_PUSHDATA(scriptHash) :: OP_EQUAL :: Nil
       case Success((Base58.Prefix.ScriptAddress, scriptHash)) if chainHash == Block.LivenetGenesisBlock.hash => OP_HASH160 :: OP_PUSHDATA(scriptHash) :: OP_EQUAL :: Nil
       case Success(_) => throw new IllegalArgumentException("base58 address does not match our blockchain")
       case Failure(base58error) =>
@@ -89,10 +89,10 @@ package object eclair { me =>
           case Success((_, 0, bin)) if bin.length != 20 && bin.length != 32 => throw new IllegalArgumentException("hash length in bech32 address must be either 20 or 32 bytes")
           case Success((_, 1, bin)) if bin.length != 32 => throw new IllegalArgumentException("hash length in bech32m address must be 32 bytes")
           case Success(("bc", 1, bin)) if chainHash == Block.LivenetGenesisBlock.hash => OP_1 :: OP_PUSHDATA(bin) :: Nil
-          case Success(("tb", 1, bin)) if chainHash == Block.TestnetGenesisBlock.hash => OP_1 :: OP_PUSHDATA(bin) :: Nil
+          case Success(("tb", 1, bin)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.Testnet4GenesisBlock.hash => OP_1 :: OP_PUSHDATA(bin) :: Nil
           case Success(("bcrt", 1, bin)) if chainHash == Block.RegtestGenesisBlock.hash => OP_1 :: OP_PUSHDATA(bin) :: Nil
           case Success(("bc", 0, bin)) if chainHash == Block.LivenetGenesisBlock.hash => OP_0 :: OP_PUSHDATA(bin) :: Nil
-          case Success(("tb", 0, bin)) if chainHash == Block.TestnetGenesisBlock.hash => OP_0 :: OP_PUSHDATA(bin) :: Nil
+          case Success(("tb", 0, bin)) if chainHash == Block.TestnetGenesisBlock.hash || chainHash == Block.Testnet4GenesisBlock.hash => OP_0 :: OP_PUSHDATA(bin) :: Nil
           case Success(("bcrt", 0, bin)) if chainHash == Block.RegtestGenesisBlock.hash => OP_0 :: OP_PUSHDATA(bin) :: Nil
           case Failure(bech32error) => throw new IllegalArgumentException(s"$address is invalid, bech32error=$bech32error/base58error=$base58error")
           case _ => throw new IllegalArgumentException(s"$address does not match our blockchain, base58error=$base58error")

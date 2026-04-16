@@ -21,6 +21,17 @@ import scala.util.Try
 
 object Helpers {
   def validateParamsFundee(open: OpenChannel, commits: NormalCommits): Unit = {
+    (open.channelType_opt, commits.channelFeatures.channelType_opt) match {
+      case (None, None) => ()
+      case (Some(proposed: SupportedChannelType), Some(local))
+        if proposed == local =>
+        ()
+      case (Some(proposed), _) =>
+        throw InvalidChannelType(open.temporaryChannelId, proposed)
+      case _ =>
+        throw MissingChannelType(open.temporaryChannelId)
+    }
+
     val reserveToFundingRatio = open.channelReserveSatoshis.toLong.toDouble / Math.max(open.fundingSatoshis.toLong, 1L)
     if (reserveToFundingRatio > LNParams.maxReserveToFundingRatio) throw ChannelReserveTooHigh(open.temporaryChannelId, reserveToFundingRatio, LNParams.maxReserveToFundingRatio)
     if (open.maxAcceptedHtlcs < commits.localParams.maxAcceptedHtlcs) throw InvalidMinAcceptedHtlcs(open.temporaryChannelId, open.maxAcceptedHtlcs, commits.localParams.maxAcceptedHtlcs)
@@ -47,6 +58,17 @@ object Helpers {
   }
 
   def validateParamsFunder(open: OpenChannel, accept: AcceptChannel): Unit = {
+    (open.channelType_opt, accept.channelType_opt) match {
+      case (None, None) => ()
+      case (Some(proposed: SupportedChannelType), Some(received))
+        if proposed == received =>
+        ()
+      case (Some(_), Some(received)) =>
+        throw InvalidChannelType(accept.temporaryChannelId, received)
+      case _ =>
+        throw MissingChannelType(accept.temporaryChannelId)
+    }
+
     val reserveToFundingRatio = accept.channelReserveSatoshis.toLong.toDouble / Math.max(open.fundingSatoshis.toLong, 1)
     if (reserveToFundingRatio > LNParams.maxReserveToFundingRatio) throw ChannelReserveTooHigh(open.temporaryChannelId, reserveToFundingRatio, LNParams.maxReserveToFundingRatio)
     if (accept.channelReserveSatoshis < open.dustLimitSatoshis) throw ChannelReserveBelowOurDustLimit(accept.temporaryChannelId, accept.channelReserveSatoshis, open.dustLimitSatoshis)

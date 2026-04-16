@@ -19,7 +19,12 @@ package fr.acinq.eclair.transactions
 import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.Script._
 import fr.acinq.bitcoin._
-import fr.acinq.eclair.transactions.Transactions.{AnchorOutputsCommitmentFormat, CommitmentFormat, DefaultCommitmentFormat}
+import fr.acinq.eclair.transactions.Transactions.{
+  AnchorOutputsCommitmentFormat,
+  CommitmentFormat,
+  DefaultCommitmentFormat,
+  ZeroFeeHtlcTxAnchorOutputsCommitmentFormat
+}
 import fr.acinq.eclair.{CltvExpiry, CltvExpiryDelta}
 import scodec.bits.ByteVector
 
@@ -38,7 +43,7 @@ object Scripts {
 
   private def htlcRemoteSighash(commitmentFormat: CommitmentFormat): Int = commitmentFormat match {
     case DefaultCommitmentFormat => SIGHASH_ALL
-    case AnchorOutputsCommitmentFormat => SIGHASH_SINGLE | SIGHASH_ANYONECANPAY
+    case AnchorOutputsCommitmentFormat | ZeroFeeHtlcTxAnchorOutputsCommitmentFormat => SIGHASH_SINGLE | SIGHASH_ANYONECANPAY
   }
 
   def multiSig2of2(pubkey1: PublicKey, pubkey2: PublicKey): Seq[ScriptElt] =
@@ -186,7 +191,7 @@ object Scripts {
   def htlcOffered(localHtlcPubkey: PublicKey, remoteHtlcPubkey: PublicKey, revocationPubKey: PublicKey, paymentHash: ByteVector, commitmentFormat: CommitmentFormat): Seq[ScriptElt] = {
     val addCsvDelay = commitmentFormat match {
       case DefaultCommitmentFormat => false
-      case AnchorOutputsCommitmentFormat => true
+      case AnchorOutputsCommitmentFormat | ZeroFeeHtlcTxAnchorOutputsCommitmentFormat => true
     }
     // @formatter:off
     // To you with revocation key
@@ -237,7 +242,7 @@ object Scripts {
   def htlcReceived(localHtlcPubkey: PublicKey, remoteHtlcPubkey: PublicKey, revocationPubKey: PublicKey, paymentHash: ByteVector, lockTime: CltvExpiry, commitmentFormat: CommitmentFormat): Seq[ScriptElt] = {
     val addCsvDelay = commitmentFormat match {
       case DefaultCommitmentFormat => false
-      case AnchorOutputsCommitmentFormat => true
+      case AnchorOutputsCommitmentFormat | ZeroFeeHtlcTxAnchorOutputsCommitmentFormat => true
     }
     // @formatter:off
     // To you with revocation key

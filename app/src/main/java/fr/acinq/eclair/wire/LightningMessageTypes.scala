@@ -5,6 +5,7 @@ import fr.acinq.bitcoin.Crypto.{PrivateKey, PublicKey}
 import fr.acinq.bitcoin.{ByteVector32, ByteVector64, Crypto, Protocol, Satoshi}
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.fee.FeeratePerKw
+import fr.acinq.eclair.channel.ChannelType
 import fr.acinq.eclair.payment.Bolt11Invoice.ExtraHop
 import fr.acinq.eclair.router.Announcements
 import immortan.crypto.Tools
@@ -18,11 +19,18 @@ import java.nio.charset.StandardCharsets
 
 
 sealed trait LightningMessage extends Serializable
+
 sealed trait HtlcMessage extends LightningMessage
+
 sealed trait UpdateMessage extends HtlcMessage
 
-sealed trait HasTemporaryChannelId extends LightningMessage { def temporaryChannelId: ByteVector32 }
-sealed trait HasChannelId extends LightningMessage { def channelId: ByteVector32 }
+sealed trait HasTemporaryChannelId extends LightningMessage {
+  def temporaryChannelId: ByteVector32
+}
+
+sealed trait HasChannelId extends LightningMessage {
+  def channelId: ByteVector32
+}
 
 case class Init(features: Features[InitFeature], tlvs: TlvStream[InitTlv] = TlvStream.empty) extends LightningMessage {
   val networks: Seq[ByteVector32] = tlvs.get[InitTlv.Networks].map(_.chainHashes).getOrElse(Nil)
@@ -54,17 +62,42 @@ case class ChannelReestablish(channelId: ByteVector32, nextLocalCommitmentNumber
 case class OpenChannel(chainHash: ByteVector32, temporaryChannelId: ByteVector32, fundingSatoshis: Satoshi, pushMsat: MilliSatoshi, dustLimitSatoshis: Satoshi, maxHtlcValueInFlightMsat: UInt64,
                        channelReserveSatoshis: Satoshi, htlcMinimumMsat: MilliSatoshi, feeratePerKw: FeeratePerKw, toSelfDelay: CltvExpiryDelta, maxAcceptedHtlcs: Int, fundingPubkey: PublicKey,
                        revocationBasepoint: PublicKey, paymentBasepoint: PublicKey, delayedPaymentBasepoint: PublicKey, htlcBasepoint: PublicKey, firstPerCommitmentPoint: PublicKey,
-                       channelFlags: Byte, tlvStream: TlvStream[OpenChannelTlv] = TlvStream.empty) extends HasTemporaryChannelId
+                       channelFlags: Byte, tlvStream: TlvStream[OpenChannelTlv] = TlvStream.empty) extends HasTemporaryChannelId {
+  val channelType_opt: Option[ChannelType] = tlvStream.records.collectFirst {
+    case ChannelTlv.ChannelTypeTlv(channelType) => channelType
+  }
+}
 
-case class AcceptChannel(temporaryChannelId: ByteVector32, dustLimitSatoshis: Satoshi, maxHtlcValueInFlightMsat: UInt64, channelReserveSatoshis: Satoshi, htlcMinimumMsat: MilliSatoshi, minimumDepth: Long,
-                         toSelfDelay: CltvExpiryDelta, maxAcceptedHtlcs: Int, fundingPubkey: PublicKey, revocationBasepoint: PublicKey, paymentBasepoint: PublicKey, delayedPaymentBasepoint: PublicKey,
-                         htlcBasepoint: PublicKey, firstPerCommitmentPoint: PublicKey, tlvStream: TlvStream[AcceptChannelTlv] = TlvStream.empty) extends HasTemporaryChannelId
+case class AcceptChannel(
+                          temporaryChannelId: ByteVector32,
+                          dustLimitSatoshis: Satoshi,
+                          maxHtlcValueInFlightMsat: UInt64,
+                          channelReserveSatoshis: Satoshi,
+                          htlcMinimumMsat: MilliSatoshi,
+                          minimumDepth: Long,
+                          toSelfDelay: CltvExpiryDelta,
+                          maxAcceptedHtlcs: Int,
+                          fundingPubkey: PublicKey,
+                          revocationBasepoint: PublicKey,
+                          paymentBasepoint: PublicKey,
+                          delayedPaymentBasepoint: PublicKey,
+                          htlcBasepoint: PublicKey,
+                          firstPerCommitmentPoint: PublicKey,
+                          tlvStream: TlvStream[AcceptChannelTlv] = TlvStream.empty
+                        ) extends HasTemporaryChannelId {
+  val channelType_opt: Option[ChannelType] = tlvStream.records.collectFirst {
+    case ChannelTlv.ChannelTypeTlv(channelType) => channelType
+  }
+}
 
 case class FundingCreated(temporaryChannelId: ByteVector32, fundingTxid: ByteVector32, fundingOutputIndex: Int, signature: ByteVector64) extends HasTemporaryChannelId
 
 case class FundingSigned(channelId: ByteVector32, signature: ByteVector64) extends HasChannelId
 
-case class FundingLocked(channelId: ByteVector32, nextPerCommitmentPoint: PublicKey) extends HasChannelId
+case class FundingLocked(channelId: ByteVector32, nextPerCommitmentPoint: PublicKey,
+                         tlvStream: TlvStream[FundingLockedTlv] = TlvStream.empty) extends HasChannelId {
+  val alias: Option[Long] = tlvStream.get[FundingLockedTlv.ShortChannelIdAlias].map(_.alias)
+}
 
 case class Shutdown(channelId: ByteVector32, scriptPubKey: ByteVector) extends HasChannelId
 
@@ -123,7 +156,9 @@ case class ChannelAnnouncement(nodeSignature1: ByteVector64, nodeSignature2: Byt
 
 case class Color(r: Byte, g: Byte, b: Byte)
 
-sealed trait NodeAddress { def socketAddress: InetSocketAddress }
+sealed trait NodeAddress {
+  def socketAddress: InetSocketAddress
+}
 
 sealed trait OnionAddress extends NodeAddress
 
@@ -152,26 +187,31 @@ object NodeAddress {
 
 case class IPv4(ipv4: Inet4Address, port: Int) extends NodeAddress {
   override def socketAddress: InetSocketAddress = new InetSocketAddress(ipv4, port)
+
   override def toString: String = s"${ipv4.toString.tail}:$port"
 }
 
 case class IPv6(ipv6: Inet6Address, port: Int) extends NodeAddress {
   override def socketAddress: InetSocketAddress = new InetSocketAddress(ipv6, port)
+
   override def toString: String = s"${ipv6.toString.tail}:$port"
 }
 
 case class Tor2(tor2: String, port: Int) extends OnionAddress {
   override def socketAddress: InetSocketAddress = new InetSocketAddress(tor2 + NodeAddress.onionSuffix, port)
+
   override def toString: String = s"[ONION] $tor2:$port"
 }
 
 case class Tor3(tor3: String, port: Int) extends OnionAddress {
   override def socketAddress: InetSocketAddress = new InetSocketAddress(tor3 + NodeAddress.onionSuffix, port)
+
   override def toString: String = s"[ONION] $tor3:$port"
 }
 
 case class Domain(domain: String, port: Int) extends NodeAddress {
   override def socketAddress: InetSocketAddress = new InetSocketAddress(domain, port)
+
   override def toString: String = s"$domain:$port"
 }
 
@@ -212,6 +252,7 @@ sealed trait EncodingType
 
 object EncodingType {
   case object UNCOMPRESSED extends EncodingType
+
   case object COMPRESSED_ZLIB extends EncodingType
 }
 
@@ -294,17 +335,24 @@ case class AnnouncementSignature(nodeSignature: ByteVector64, wantsReply: Boolea
 
 case class ResizeChannel(newCapacity: Satoshi, clientSig: ByteVector64 = ByteVector64.Zeroes) extends HostedChannelMessage {
   def isRemoteResized(remote: LastCrossSignedState): Boolean = newCapacity.toMilliSatoshi == remote.initHostedChannel.channelCapacityMsat
+
   def sign(priv: PrivateKey): ResizeChannel = ResizeChannel(clientSig = Crypto.sign(Crypto.sha256(sigMaterial), priv), newCapacity = newCapacity)
+
   def verifyClientSig(pubKey: PublicKey): Boolean = Crypto.verifySignature(Crypto.sha256(sigMaterial), clientSig, pubKey)
+
   lazy val sigMaterial: ByteVector = Protocol.writeUInt64(newCapacity.toLong, ByteOrder.LITTLE_ENDIAN)
   lazy val newCapacityMsatU64: UInt64 = UInt64(newCapacity.toMilliSatoshi.toLong)
 }
 
 case class MarginChannel(newCapacity: Satoshi, newRate: MilliSatoshi, clientSig: ByteVector64 = ByteVector64.Zeroes) extends HostedChannelMessage {
   def isRemoteMargined(remote: LastCrossSignedState): Boolean = newCapacity.toMilliSatoshi == remote.initHostedChannel.channelCapacityMsat && newRate == remote.rate
+
   def sign(priv: PrivateKey): MarginChannel = MarginChannel(clientSig = Crypto.sign(Crypto.sha256(sigMaterial), priv), newCapacity = newCapacity, newRate = newRate)
+
   def verifyClientSig(pubKey: PublicKey): Boolean = Crypto.verifySignature(Crypto.sha256(sigMaterial), clientSig, pubKey)
+
   def newLocalBalance(state: LastCrossSignedState): MilliSatoshi = MilliSatoshi((newRate.toLong.toDouble * state.localBalanceMsat.toLong.toDouble / state.rate.toLong.toDouble).round)
+
   lazy val sigMaterial: ByteVector = Protocol.writeUInt64(newCapacity.toLong, ByteOrder.LITTLE_ENDIAN) ++ Protocol.writeUInt64(newRate.toLong, ByteOrder.LITTLE_ENDIAN)
   lazy val newCapacityMsatU64: UInt64 = UInt64(newCapacity.toMilliSatoshi.toLong)
 }
@@ -385,6 +433,7 @@ case class SwapOutTransactionDenied(btcAddress: String, reason: Long) extends Sw
 
 sealed trait HasRelayFee {
   def relayFee(amount: MilliSatoshi): MilliSatoshi
+
   def cltvExpiryDelta: CltvExpiryDelta
 }
 

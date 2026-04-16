@@ -104,10 +104,13 @@ object LNParams {
       (VariableLengthOnion, FeatureSupport.Optional),
       (ShutdownAnySegwit, FeatureSupport.Optional),
       (StaticRemoteKey, FeatureSupport.Optional),
+      (AnchorOutputs, FeatureSupport.Optional),
+      (AnchorOutputsZeroFeeHtlcTx, FeatureSupport.Optional),
+      (ChannelType, FeatureSupport.Optional),
+      (ScidAlias, FeatureSupport.Optional),
       (DataLossProtect, FeatureSupport.Optional),
       (HostedChannels, FeatureSupport.Optional),
       (PaymentSecret, FeatureSupport.Optional),
-      (ChainSwap, FeatureSupport.Optional),
       (Wumbo, FeatureSupport.Optional)
     ), tlvStream)
   }
@@ -219,9 +222,9 @@ class TestNet4SyncParams extends SyncParams {
   val noname0: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"0264fa477e2bb4e8c1eadf20eb4408c28026be7b640be3532b8f292bb719268f84"), NodeAddress.unresolved(9735, host = 86, 104, 228, 145), "Noname0")
   val noname1: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"020d84fb6ad938545c15633b38db9e3d6dc34205295359611ae817fa0c417066f7"), NodeAddress.unresolved(9735, host = 54, 252, 10, 243), "Noname1")
   val noname2: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"02f0bf82f730d2e68453cc612c3e7ca5e021eaa1ead8250a6380c551d1d43bdc1b"), NodeAddress.unresolved(9735, host = 109, 123, 236, 96), "Noname2")
-  override val localNode: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"035912832c3eea544dc1c1bd4569f3f1f4ef58887c4df88fa17a899c84f093e3e6"), NodeAddress.unresolved(56175, host = 10, 0, 2, 2), "localhost")
+  override val localNode: RemoteNodeInfo = RemoteNodeInfo(PublicKey(hex"022b2053758559dbfd4dee6b89067cd17d37ec7e26edb2f7b58baac501add4b72b"), NodeAddress.unresolved(9735, host = 192, 168, 2, 11), "localhost")
   override val syncNodes: Set[RemoteNodeInfo] = Set(atomiq, noname0, noname1, noname2)
-  override val phcSyncNodes: Set[RemoteNodeInfo] = Set(localNode)
+  override val phcSyncNodes: Set[RemoteNodeInfo] = Set.empty
   override val minCapacity: MilliSatoshi = MilliSatoshi(1000000L)
   override val minNormalChansForPHC = 1
   override val maxNodesToSyncFrom = 1

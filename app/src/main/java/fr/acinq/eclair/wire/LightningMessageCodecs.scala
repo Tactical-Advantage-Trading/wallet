@@ -100,7 +100,8 @@ object LightningMessageCodecs {
 
   val fundingLockedCodec = {
     ("channelId" | bytes32) ::
-      ("nextPerCommitmentPoint" | publicKey)
+      ("nextPerCommitmentPoint" | publicKey) ::
+      ("tlvStream" | FundingLockedTlv.fundingLockedTlvCodec)
   }.as[FundingLocked]
 
   val shutdownCodec = {
@@ -459,63 +460,6 @@ object LightningMessageCodecs {
       ("processing" | listOfN(uint16, pendingDepositCodec))
   }.as[SwapInState]
 
-  // SWAP-OUT
-
-  val blockTargetAndFeeCodec = {
-    ("blockTarget" | uint16) ::
-      ("fee" | satoshi)
-  }.as[BlockTargetAndFee]
-
-  val keyedBlockTargetAndFeeCodec = {
-    ("feerates" | listOfN(uint16, blockTargetAndFeeCodec)) ::
-      ("feerateKey" | bytes32)
-  }.as[KeyedBlockTargetAndFee]
-
-  val swapOutFeeratesCodec = {
-    ("feerates" | keyedBlockTargetAndFeeCodec) ::
-      ("providerCanHandle" | satoshi) ::
-      ("minWithdrawable" | satoshi)
-  }.as[SwapOutFeerates]
-
-  val swapOutTransactionRequestCodec = {
-    ("amount" | satoshi) ::
-      ("btcAddress" | text) ::
-      ("blockTarget" | uint16) ::
-      ("feerateKey" | bytes32)
-  }.as[SwapOutTransactionRequest]
-
-  val swapOutTransactionResponseCodec = {
-    ("paymentRequest" | text) ::
-      ("amount" | satoshi) ::
-      ("btcAddress" | text) ::
-      ("fee" | satoshi)
-  }.as[SwapOutTransactionResponse]
-
-  val swapOutTransactionDeniedCodec = {
-    ("btcAddress" | text) ::
-      ("reason" | uint32)
-  }.as[SwapOutTransactionDenied]
-
-  final val SWAP_IN_REQUEST_MESSAGE_TAG = 55037
-
-  final val SWAP_IN_RESPONSE_MESSAGE_TAG = 55035
-
-  final val SWAP_IN_PAYMENT_REQUEST_MESSAGE_TAG = 55033
-
-  final val SWAP_IN_PAYMENT_DENIED_MESSAGE_TAG = 55031
-
-  final val SWAP_IN_STATE_MESSAGE_TAG = 55029
-
-  final val SWAP_OUT_REQUEST_MESSAGE_TAG = 55027
-
-  final val SWAP_OUT_FEERATES_MESSAGE_TAG = 55025
-
-  final val SWAP_OUT_TRANSACTION_REQUEST_MESSAGE_TAG = 55023
-
-  final val SWAP_OUT_TRANSACTION_RESPONSE_MESSAGE_TAG = 55021
-
-  final val SWAP_OUT_TRANSACTION_DENIED_MESSAGE_TAG = 55019
-
   // TRAMPOLINE STATUS
 
   val trampolineOnCodec = {
@@ -600,17 +544,6 @@ object LightningMessageCodecs {
       case HC_REPLY_RATE_TAG => replyCurrentRateCodec
       //case HC_PROPOSE_INVOICE_TAG => proposeInvoiceCodec
 
-      case SWAP_IN_REQUEST_MESSAGE_TAG => provide(SwapInRequest)
-      case SWAP_IN_PAYMENT_REQUEST_MESSAGE_TAG => swapInPaymentRequestCodec
-      case SWAP_IN_PAYMENT_DENIED_MESSAGE_TAG => swapInPaymentDeniedCodec
-      case SWAP_IN_RESPONSE_MESSAGE_TAG => swapInResponseCodec
-      case SWAP_IN_STATE_MESSAGE_TAG => swapInStateCodec
-
-      case SWAP_OUT_REQUEST_MESSAGE_TAG => provide(SwapOutRequest)
-      case SWAP_OUT_TRANSACTION_REQUEST_MESSAGE_TAG => swapOutTransactionRequestCodec
-      case SWAP_OUT_TRANSACTION_RESPONSE_MESSAGE_TAG => swapOutTransactionResponseCodec
-      case SWAP_OUT_TRANSACTION_DENIED_MESSAGE_TAG => swapOutTransactionDeniedCodec
-      case SWAP_OUT_FEERATES_MESSAGE_TAG => swapOutFeeratesCodec
       case _ => throw new RuntimeException
     }
 
@@ -638,17 +571,6 @@ object LightningMessageCodecs {
     case msg: ReplyCurrentRate => UnknownMessage(HC_REPLY_RATE_TAG, replyCurrentRateCodec.encode(msg).require.toByteVector)
     //case msg: ProposeInvoice => UnknownMessage(HC_PROPOSE_INVOICE_TAG, proposeInvoiceCodec.encode(msg).require.toByteVector)
 
-    case SwapInRequest => UnknownMessage(SWAP_IN_REQUEST_MESSAGE_TAG, provide(SwapInRequest).encode(SwapInRequest).require.toByteVector)
-    case msg: SwapInPaymentRequest => UnknownMessage(SWAP_IN_PAYMENT_REQUEST_MESSAGE_TAG, swapInPaymentRequestCodec.encode(msg).require.toByteVector)
-    case msg: SwapInPaymentDenied => UnknownMessage(SWAP_IN_PAYMENT_DENIED_MESSAGE_TAG, swapInPaymentDeniedCodec.encode(msg).require.toByteVector)
-    case msg: SwapInResponse => UnknownMessage(SWAP_IN_RESPONSE_MESSAGE_TAG, swapInResponseCodec.encode(msg).require.toByteVector)
-    case msg: SwapInState => UnknownMessage(SWAP_IN_STATE_MESSAGE_TAG, swapInStateCodec.encode(msg).require.toByteVector)
-
-    case SwapOutRequest => UnknownMessage(SWAP_OUT_REQUEST_MESSAGE_TAG, provide(SwapOutRequest).encode(SwapOutRequest).require.toByteVector)
-    case msg: SwapOutTransactionRequest => UnknownMessage(SWAP_OUT_TRANSACTION_REQUEST_MESSAGE_TAG, swapOutTransactionRequestCodec.encode(msg).require.toByteVector)
-    case msg: SwapOutTransactionResponse => UnknownMessage(SWAP_OUT_TRANSACTION_RESPONSE_MESSAGE_TAG, swapOutTransactionResponseCodec.encode(msg).require.toByteVector)
-    case msg: SwapOutTransactionDenied => UnknownMessage(SWAP_OUT_TRANSACTION_DENIED_MESSAGE_TAG, swapOutTransactionDeniedCodec.encode(msg).require.toByteVector)
-    case msg: SwapOutFeerates => UnknownMessage(SWAP_OUT_FEERATES_MESSAGE_TAG, swapOutFeeratesCodec.encode(msg).require.toByteVector)
     case _ => msg
   }
 

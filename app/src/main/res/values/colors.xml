@@ -45,4 +45,11 @@
     <color name="chip_default_text_color">#DE000000</color>
     <color name="chip_default_icon_background_color">#517FA4</color>
     <color name="chip_material_background">#F0F0F0</color>
+
+    <!-- applock overrides: match app dark theme -->
+    <color name="applock__activity_background">#282B30</color>
+    <color name="applock__item_background">#6EABFA</color>
+    <color name="applock__item_text">#282B30</color>
+    <color name="applock__description_text">#CFDAE6</color>
+    <color name="applock__action_settings">#CFDAE6</color>
 </resources>

@@ -16,7 +16,10 @@
       "WebSearch",
       "WebFetch(domain:mempool.space)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:bips.dev)"
+      "WebFetch(domain:bips.dev)",
+      "Read(//tmp/applock_extract/layout/**)",
+      "Read(//tmp/applock_extract/values/**)",
+      "Bash(find /app/valet/app/src/main/res/values* -type f)"
     ]
   }
 }

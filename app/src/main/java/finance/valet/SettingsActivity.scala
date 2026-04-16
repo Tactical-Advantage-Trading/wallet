@@ -24,7 +24,7 @@ import immortan.crypto.Tools._
 import immortan.utils.{BtcDenomination, SatDenomination}
 import immortan.{ChannelMaster, LNParams}
 
-import scala.util.Success
+import scala.util.{Success, Try}
 
 
 abstract class SettingsHolder(host: BaseActivity) {
@@ -145,7 +145,7 @@ class SettingsActivity extends BaseCheckActivity with HasTypicalChainFee with Ch
         case _ => ()
       }
       val uri = resultData.getData
-      getContentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+      Try(getContentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION))
       saveDirectory(uri.toString).commit
       backupLocation.updateView
       WalletApp.backupSaveWorker.replaceWork(true)
@@ -360,8 +360,13 @@ class SettingsActivity extends BaseCheckActivity with HasTypicalChainFee with Ch
     for (count <- LNParams.logBag.count if count > 0) {
       def exportLog: Unit = me share LNParams.logBag.recent.map(_.asString).mkString("\n\n")
       val errorCount = s"${me getString error_log} <font color=$cardZero>$count</font>"
-      addFlowChip(links.flow, errorCount, R.drawable.border_yellow, _ => exportLog)
-      addFlowChip(links.flow, me getString error_log_clear, R.drawable.border_yellow, _ => LNParams.logBag.clear())
+      val exportChip = addFlowChip(links.flow, errorCount, R.drawable.border_yellow, _ => exportLog)
+      var clearChip: TextView = null
+      clearChip = addFlowChip(links.flow, me getString error_log_clear, R.drawable.border_yellow, _ => {
+        LNParams.logBag.clear()
+        exportChip setVisibility View.GONE
+        clearChip setVisibility View.GONE
+      })
     }
 
     settingsContainer.addView(settingsPageitle.view)
