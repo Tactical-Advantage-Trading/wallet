@@ -211,10 +211,9 @@ object WalletApp {
         case _ => // Not logged in, user can do it manually later
       }
 
-      override def onResponse(arguments: Option[LinkClient.ResponseArguments] = None): Unit = arguments.foreach {
+      override def onResponse(arguments: Option[LinkClient.ResponseArguments] = None): Unit = arguments.collectFirst {
         case LinkClient.Failure(LinkClient.NOT_AUTHORIZED) => linkClient ! LinkClient.LoggedOut
         case status: LinkClient.UserStatus => linkClient ! status
-        case _ =>
       }
     }
   }

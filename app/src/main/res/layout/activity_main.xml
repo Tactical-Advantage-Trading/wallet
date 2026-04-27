@@ -11,7 +11,9 @@
         android:clipToPadding="false"
         android:footerDividersEnabled="false"
         android:headerDividersEnabled="false"
-        style="@style/StandardLinearLayout"/>
+        style="@style/StandardLinearLayout"
+        android:paddingStart="5dp"
+        android:paddingEnd="5dp"/>
 
     <com.ornach.nobobutton.NoboButton
         android:layout_width="130sp"

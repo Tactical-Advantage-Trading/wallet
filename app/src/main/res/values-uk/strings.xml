@@ -37,14 +37,11 @@
     <string name="ta_loan_annual_return">Річна дохідність</string>
     <string name="ta_btc_loan_label">BTC позика в Earn акаунті</string>
 
-    <string name="ta_withdraw_full_when">Наступне повне зняття %1$s</string>
-    <string name="ta_withdraw_interest_when">Наступне зняття відсотків %1$s</string>
-
-    <string name="ta_withdraw_full">Зняти весь баланс</string>
-    <string name="ta_withdraw_interest">Зняти лише відсотки</string>
+    <string name="ta_withdraw_when">Наступне зняття %1$s</string>
     <string name="ta_pending_deposit">Опрацьовуємо депозит</string>
-    <string name="ta_withdraw_off">Скасувати зняття</string>
-    <string name="ta_withdraw_on">Зняти гроші</string>
+    <string name="ta_withdraw_title">Зняти кошти з Earn рахунку</string>
+    <string name="ta_withdraw_options">Виберіть доступні варіанти</string>
+    <string name="ta_withdraw">Зняти гроші</string>
     <string name="ta_support">Підтримка</string>
     <string name="ta_logout">Вийти</string>
     <string name="ta_loan">Позика</string>

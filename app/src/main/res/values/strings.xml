@@ -38,14 +38,11 @@
     <string name="ta_loan_annual_return">Annual return</string>
     <string name="ta_btc_loan_label">Earn account BTC loan</string>
 
-    <string name="ta_withdraw_full_when">Next full withdraw %1$s</string>
-    <string name="ta_withdraw_interest_when">Next interest withdraw %1$s</string>
-
-    <string name="ta_withdraw_full">Withdraw full balance</string>
-    <string name="ta_withdraw_interest">Withdraw interest only</string>
+    <string name="ta_withdraw_when">Next withdraw %1$s</string>
     <string name="ta_pending_deposit">Processing a deposit</string>
-    <string name="ta_withdraw_off">Cancel withdraw</string>
-    <string name="ta_withdraw_on">Withdraw</string>
+    <string name="ta_withdraw_title">Withdraw from Earn account</string>
+    <string name="ta_withdraw_options">Select available options</string>
+    <string name="ta_withdraw">Withdraw</string>
     <string name="ta_support">Support</string>
     <string name="ta_logout">Log out</string>
     <string name="ta_loan">Loan</string>

@@ -1,6 +1,6 @@
 package trading.tacticaladvantage
 
-import android.content.Intent
+import android.content.{DialogInterface, Intent}
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -23,13 +23,13 @@ import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
 import spray.json._
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.LinkClient.{FullBalance, PartialInterestNative}
+import trading.tacticaladvantage.LinkClient.WithdrawSource
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.sqlite.{DbStreams, SQLiteTx}
 import trading.tacticaladvantage.utils._
 
-import java.util.TimerTask
+import java.util.{Date, TimerTask}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
@@ -992,6 +992,24 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
   }
 
+  class ButtonCall[T <: LinkClient.ResponseArguments](id: String, onOk: T => Unit, button: TextView) extends LinkClient.Listener(id) {
+    override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
+      args.collectFirst { case responseArgs: T => onOk apply responseArgs }
+      onDisconnected
+    }
+
+    override def onDisconnected: Unit = {
+      updateViewEnabled(button, isEnabled = true).run
+      WalletApp.linkClient ! LinkClient.CmdRemove(this)
+    }
+
+    def send(args: LinkClient.RequestArguments) = {
+      updateViewEnabled(button, isEnabled = false).run
+      WalletApp.linkClient ! LinkClient.Request(args, id)
+      WalletApp.linkClient ! this
+    }
+  }
+
   class ExpandedEarnAccount {
     val wrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
     val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
@@ -1008,7 +1026,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setVis(isVisible = true, view = view)
       } else if (status.pendingWithdraws.nonEmpty) {
         val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
-        view setText getString(status.pendingWithdraws.head.nextWithdrawRes).format(humanDate)
+        view setText getString(R.string.ta_withdraw_when).format(humanDate)
         setVis(isVisible = true, view = view)
       } else fun(view)
 
@@ -1027,74 +1045,106 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       for (loan <- status.activeLoans) {
+        val apr = Denomination.formatRoi.format(loan.roi)
         val daysLeft = WalletApp.app.plurOrZero(daysLeftRes, loan.daysLeft.toInt)
         val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
         val amount = CoinDenom.parsedTT(Btc(loan.amount).toSatoshi.toMilliSatoshi, cardIn, cardZero)
         val interest = CoinDenom.directedTT(Btc(loan.interest).toSatoshi.toMilliSatoshi, MilliSatoshi(0L), cardOut, cardIn, cardZero, isIncoming = true)
-        val item = new TwoSidedItem(parent, s"APR ${Denomination.formatRoi format loan.roi}<br><small><tt>$daysLeft</tt></small>".html, s"$amount<br><small>$interest</small>".html)
+        val item = new TwoSidedItem(parent, s"APR $apr<br><small><tt>$daysLeft</tt></small>".html, s"$amount<br><small>$interest</small>".html)
         item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
         taLoansContainer.addView(parent)
       }
 
-      lazy val callWithdraw: LinkClient.RequestArguments => Unit = { request =>
-        val withdrawListener = new LinkClient.Listener("withdraw-request") { self =>
-          override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit =
-            onDisconnected
-
-          override def onDisconnected: Unit = {
-            withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = true).run)
-            WalletApp.linkClient ! LinkClient.CmdRemove(self)
-          }
-        }
-
-        withdrawButtonOpt.foreach(updateViewEnabled(_, isEnabled = false).run)
-        WalletApp.linkClient ! LinkClient.Request(request, withdrawListener.id)
-        WalletApp.linkClient ! withdrawListener
-      }
-
-      lazy val withdrawButtonOpt = (status.totalFunds.nonEmpty, status.pendingWithdraws.isEmpty) match {
-        case (true, true) => addFlowChip(taExtended, getString(ta_withdraw_on), R.drawable.border_white)(requestWithdraw).asSome
-        case (true, false) => addFlowChip(taExtended, getString(ta_withdraw_off), R.drawable.border_white)(callWithdraw apply LinkClient.CancelWithdraw).asSome
-        case _ => None
-      }
-
-      def requestWithdraw: Unit = {
-        val doRequestWithdraw: Int => Unit = pos =>
-          WalletApp.btc.electrum.specs.values.find(btcSpec => btcSpec.data.keys.ewt.secrets.nonEmpty && btcSpec.info.core.attachedMaster.isEmpty) match {
-            case Some(spec) if pos == 1 => callWithdraw apply LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), PartialInterestNative)
-            case Some(spec) => callWithdraw apply LinkClient.WithdrawReq(spec.data.keys.ewt.textAddress(spec.data.keys.accountKeys.head), FullBalance)
-            case None => WalletApp.app.quickToast(error_no_wallet)
-          }
-
-        val listOptions = List(ta_withdraw_full, ta_withdraw_interest).map(getString)
-        val list = getLayoutInflater.inflate(R.layout.frag_selector_list, null).asInstanceOf[ListView]
-        list setAdapter new ArrayAdapter(me, android.R.layout.simple_expandable_list_item_1, listOptions.toArray)
-        new sheets.ChoiceBottomSheet(list, doRequestWithdraw).show(getSupportFragmentManager, "unused-tag")
-      }
-
       lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_white) {
-        WalletApp.linkClient ! LinkClient.Request(LinkClient.GetLoanAd, loanAdListener.id)
-        updateViewEnabled(getLoanAdButton, isEnabled = false).run
-        WalletApp.linkClient ! loanAdListener
+        val onOk = bringAddressSelector(WalletApp.btc, _: LinkClient.LoanAd, loanTitle, txSendProxyTa).run
+        new ButtonCall("get-loan-ad", onOk, getLoanAdButton) send LinkClient.GetLoanAd
       }
 
-      lazy val loanAdListener = new LinkClient.Listener("get-loan-ad") {
-        override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
-          args.collectFirst { case data: LinkClient.LoanAd => bringAddressSelector(WalletApp.btc, data, loanTitle, txSendProxyTa).run }
-          onDisconnected
+      def showSelectOptionsForm(data: LinkClient.WithdrawOptions) = UITask {
+        val options = data.options.sortBy(_.stamp)(Ordering[Long].reverse)
+        val list = new ListView(me)
+
+        val labels = options.map { option =>
+          CoinDenom.directedTT(option.msat, option.msat,
+            cardOut, cardIn, cardZero, option.amount > 0).html
+        }.toArray
+
+        val adapter = new ArrayAdapter(me, R.layout.frag_checkbox, R.id.info, labels) {
+          override def isEnabled(position: Int): Boolean = options(position).withdrawable
+          override def areAllItemsEnabled: Boolean = false
+
+          override def getView(position: Int, cv: View, parent: ViewGroup): View = {
+            val view = super.getView(position, cv, parent).asInstanceOf[LinearLayout]
+            val text = view.findViewById(R.id.info).asInstanceOf[CheckedTextView]
+            val flow = view.findViewById(R.id.details).asInstanceOf[FlowLayout]
+            val enabled = isEnabled(position)
+            val option = options(position)
+
+            flow.removeAllViewsInLayout
+            val date = WalletApp.when(new Date(option.stamp), WalletApp.app.dateFormat)
+            addFlowChip(flow, option.ws.kind.label, R.drawable.border_gray)(none)
+            addFlowChip(flow, date, R.drawable.border_gray)(none)
+            view setAlpha { if (enabled) 1.0F else 0.35F }
+            text setChecked list.isItemChecked(position)
+            view setEnabled enabled
+            view
+          }
         }
 
-        override def onDisconnected: Unit = {
-          updateViewEnabled(getLoanAdButton, isEnabled = true).run
-          WalletApp.linkClient ! LinkClient.CmdRemove(this)
+        val title = new TitleView(me getString ta_withdraw_title)
+        val info = addFlowChip(title.flow, getString(ta_withdraw_options), R.drawable.border_white, None)
+        def selectedItems = options.indices.filter(list.isItemChecked).map(options)
+
+        def updateTotal = {
+          val totalCanSend = selectedItems.map(_.msat).sum
+          val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
+          if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
         }
+
+        def send(alert: AlertDialog) = runAnd(alert.dismiss) {
+          requestWithdraw(selectedItems.map(_.ws).toList)
+        }
+
+        list setOnItemClickListener new OnListItemClickListener {
+          def onItemClicked(pos: Int): Unit = {
+            adapter.notifyDataSetChanged
+            updateTotal
+          }
+        }
+
+        val builder = titleBodyAsViewBuilder(title.view, list)
+        mkCheckForm(send, none, builder, dialog_ok, dialog_cancel)
+        list setChoiceMode AbsListView.CHOICE_MODE_MULTIPLE
+        list setAdapter adapter
+
+        for {
+          option \ pos <- options.zipWithIndex
+          checked = data.withdraws.contains(option.ws)
+        } list.setItemChecked(pos, checked)
+        updateTotal
+      }.run
+
+      def requestWithdraw(ws: List[WithdrawSource] = Nil): Unit = WalletApp.btc.electrum.specs.values.find(_.info.core.attachedMaster.isEmpty).map(_.data.keys) match {
+        case Some(keys) => new ButtonCall("schedule-withdraw", none, withdrawButton) send LinkClient.WithdrawReq(keys.ewt.textAddress(keys.accountKeys.head), ws)
+        case None => WalletApp.app.quickToast(error_no_wallet)
+      }
+
+      lazy val withdrawButton: TextView = addFlowChip(taExtended, getString(ta_withdraw), R.drawable.border_white) {
+        new ButtonCall("get-withdraw-options", showSelectOptionsForm, withdrawButton) send LinkClient.GetWithdrawOptions
       }
 
       getLoanAdButton
-      withdrawButtonOpt
+      withdrawButton
 
-      addFlowChip(taExtended, getString(ta_support), R.drawable.border_white)(me browse "mailto:contact@tactical-advantage.trading")
-      addFlowChip(taExtended, getString(ta_logout), R.drawable.border_white)(WalletApp.linkClient ! LinkClient.LoggedOut)
+      addFlowChip(taExtended, getString(ta_support), R.drawable.border_white) {
+        browse("mailto:contact@tactical-advantage.trading")
+      }
+
+      addFlowChip(taExtended, getString(ta_logout), R.drawable.border_white) {
+        // Force-disconnect after logging out to not receive state updates
+        WalletApp.linkClient ! LinkClient.LoggedOut
+        WalletApp.linkClient.ws.disconnect
+      }
     }
   }
 

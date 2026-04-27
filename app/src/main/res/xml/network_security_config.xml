@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- local biconomy node.js -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-    </domain-config>
     <!-- cert pinning -->
     <!-- $ openssl pkcs12 -in keystore.p12 -clcerts -nokeys -out ta_leaf.pem -->
     <!-- $ openssl x509 -in ta_leaf.pem -outform DER -out ta_leaf.cer -->

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout style="@style/FillingView"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:f="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:padding="15dp">
+
+    <CheckedTextView
+        android:checkMark="?android:attr/listChoiceIndicatorMultiple"
+        style="@style/FillingView"
+        android:id="@+id/info"/>
+
+    <org.apmem.tools.layouts.FlowLayout
+        style="@style/FillingView"
+        android:id="@+id/details"
+        f:layout_newLine="true"/>
+
+</LinearLayout>
