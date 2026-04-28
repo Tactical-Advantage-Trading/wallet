@@ -141,7 +141,7 @@ object LinkClient {
 
   sealed trait ResponseArguments
   case class Failure(failureCode: FailureCode) extends ResponseArguments
-  case class WithdrawOptions(options: List[WithdrawOption], withdraws: List[WithdrawSource] = Nil) extends ResponseArguments
+  case class WithdrawOptions(options: List[WithdrawOption], withdraws: List[Withdraw] = Nil) extends ResponseArguments
   case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
     val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).asSome, networkId = -1, taRoi = roi.asSome)
     val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
@@ -169,8 +169,7 @@ object LinkClient {
       "sessionToken", "withdrawDelay")
 
   implicit val withdrawOptionsFormat: JsonFormat[WithdrawOptions] =
-    jsonFormat[List[WithdrawOption], List[WithdrawSource],
-      WithdrawOptions](WithdrawOptions.apply, "options", "withdraws")
+    jsonFormat[List[WithdrawOption], List[Withdraw], WithdrawOptions](WithdrawOptions.apply, "options", "withdraws")
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
     def read(json: JsValue): ResponseArguments = json.asJsObject.fields(TAG) match {

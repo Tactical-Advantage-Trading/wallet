@@ -1060,8 +1060,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         new ButtonCall("get-loan-ad", onOk, getLoanAdButton) send LinkClient.GetLoanAd
       }
 
-      def showSelectOptionsForm(data: LinkClient.WithdrawOptions) = UITask {
+      def showOptionsForm(data: LinkClient.WithdrawOptions) = UITask {
         val options = data.options.sortBy(_.stamp)(Ordering[Long].reverse)
+        val started = data.withdraws.filter(_.started).flatMap(_.ws).toSet
+        val selected = data.withdraws.flatMap(_.ws).toSet
         val list = new ListView(me)
 
         val labels = options.map { option =>
@@ -1070,9 +1072,11 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }.toArray
 
         val adapter = new ArrayAdapter(me, R.layout.frag_checkbox, R.id.info, labels) {
-          override def isEnabled(position: Int): Boolean = options(position).withdrawable
-          override def areAllItemsEnabled: Boolean = false
+          override def isEnabled(position: Int): Boolean = options(position) match { case option =>
+            option.withdrawable && !started.contains(option.ws)
+          }
 
+          override def areAllItemsEnabled: Boolean = false
           override def getView(position: Int, cv: View, parent: ViewGroup): View = {
             val view = super.getView(position, cv, parent).asInstanceOf[LinearLayout]
             val text = view.findViewById(R.id.info).asInstanceOf[CheckedTextView]
@@ -1082,27 +1086,37 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
             flow.removeAllViewsInLayout
             val date = WalletApp.when(new Date(option.stamp), WalletApp.app.dateFormat)
-            addFlowChip(flow, option.ws.kind.label, R.drawable.border_gray)(none)
-            addFlowChip(flow, date, R.drawable.border_gray)(none)
-            view setAlpha { if (enabled) 1.0F else 0.35F }
+            addFlowChip(flow, option.ws.kind.label, R.drawable.border_gray, None)
+            addFlowChip(flow, date, R.drawable.border_gray, None)
+
+            if (enabled) view setAlpha 1.0F else view setAlpha 0.35F
             text setChecked list.isItemChecked(position)
             view setEnabled enabled
             view
           }
         }
 
+        val msg = getString(ta_withdraw_options)
         val title = new TitleView(me getString ta_withdraw_title)
-        val info = addFlowChip(title.flow, getString(ta_withdraw_options), R.drawable.border_white, None)
-        def selectedItems = options.indices.filter(list.isItemChecked).map(options)
+        val info = addFlowChip(title.flow, msg, R.drawable.border_white, None)
+
+        def pending = for {
+          (option, idx) <- options.zipWithIndex
+          if !started.contains(option.ws)
+          if list.isItemChecked(idx)
+          if option.withdrawable
+        } yield option
 
         def updateTotal = {
-          val totalCanSend = selectedItems.map(_.msat).sum
+          val totalCanSend = pending.map(_.msat).sum
           val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
-          if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
+          if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(msg)
         }
 
-        def send(alert: AlertDialog) = runAnd(alert.dismiss) {
-          requestWithdraw(selectedItems.map(_.ws).toList)
+        def send(alert: AlertDialog) = {
+          val sources = pending.map(_.ws)
+          requestWithdraw(sources)
+          alert.dismiss
         }
 
         list setOnItemClickListener new OnListItemClickListener {
@@ -1119,7 +1133,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         for {
           option \ pos <- options.zipWithIndex
-          checked = data.withdraws.contains(option.ws)
+          checked = selected.contains(option.ws)
         } list.setItemChecked(pos, checked)
         updateTotal
       }.run
@@ -1130,7 +1144,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       lazy val withdrawButton: TextView = addFlowChip(taExtended, getString(ta_withdraw), R.drawable.border_white) {
-        new ButtonCall("get-withdraw-options", showSelectOptionsForm, withdrawButton) send LinkClient.GetWithdrawOptions
+        new ButtonCall("get-withdraw-options", showOptionsForm, withdrawButton) send LinkClient.GetWithdrawOptions
       }
 
       getLoanAdButton
