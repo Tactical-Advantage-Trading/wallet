@@ -24,7 +24,7 @@ import java.util
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 
 class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor with Stash {
@@ -103,7 +103,6 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor w
   }
 
   type ActorSet = Set[ActorRef]
-  var addressSubscriptions = Map.empty[String, ActorSet]
   var scriptHashSubscriptions = Map.empty[ByteVector32, ActorSet]
   val headerSubscriptions = collection.mutable.HashSet.empty[ActorRef]
   val statusListeners = collection.mutable.HashSet.empty[ActorRef]
@@ -116,8 +115,7 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor w
   override def unhandled(message: Any): Unit =
     message match {
       case Terminated(deadActor) =>
-        addressSubscriptions = addressSubscriptions.mapValues(subscribers => subscribers - deadActor)
-        scriptHashSubscriptions = scriptHashSubscriptions.mapValues(subscribers => subscribers - deadActor)
+        scriptHashSubscriptions = scriptHashSubscriptions.mapValues(_ - deadActor)
         headerSubscriptions -= deadActor
         statusListeners -= deadActor
 
@@ -198,11 +196,6 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor w
 
     case request: Request =>
       request match {
-        case AddressSubscription(address, actor) =>
-          val sub = addressSubscriptions.getOrElse(address, Set.empty) + actor
-          addressSubscriptions = addressSubscriptions.updated(address, sub)
-          context watch actor
-
         case ScriptHashSubscription(scriptHash, actor) =>
           val sub = scriptHashSubscriptions.getOrElse(scriptHash, Set.empty) + actor
           scriptHashSubscriptions = scriptHashSubscriptions.updated(scriptHash, sub)
@@ -223,11 +216,6 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor w
 
     case Left(response: HeaderSubscriptionResponse) =>
       headerSubscriptions.foreach(_ ! response)
-
-    case Left(response: AddressSubscriptionResponse) =>
-      addressSubscriptions.get(response.address).foreach {
-        listeners => listeners.foreach(_ ! response)
-      }
 
     case Left(response: ScriptHashSubscriptionResponse) =>
       scriptHashSubscriptions.get(response.scriptHash).foreach {
@@ -258,15 +246,11 @@ object ElectrumClient {
   case object Ping extends Request
   case object PingResponse extends Response
 
-  case class GetAddressHistory(address: String) extends Request
   case class TransactionHistoryItem(height: Int, txHash: ByteVector32)
-  case class GetAddressHistoryResponse(address: String, history: Seq[TransactionHistoryItem] = Nil) extends Response
 
   case class GetScriptHashHistory(scriptHash: ByteVector32) extends Request
   case class GetScriptHashHistoryResponse(scriptHash: ByteVector32, history: List[TransactionHistoryItem] = Nil) extends Response
 
-  case class AddressListUnspent(address: String) extends Request
-  case class AddressListUnspentResponse(address: String, unspents: Seq[UnspentItem] = Nil) extends Response
   case class UnspentItem(txHash: ByteVector32, txPos: Int, value: Long, height: Long) {
     lazy val outPoint = OutPoint(txHash.reverse, txPos)
   }
@@ -296,9 +280,6 @@ object ElectrumClient {
       loop(Crypto.hash256(hashOrder) +: hashes.drop(2), pos / 2)
     }
   }
-
-  case class AddressSubscription(address: String, actor: ActorRef) extends Request
-  case class AddressSubscriptionResponse(address: String, status: String) extends Response
 
   case class ScriptHashSubscription(scriptHash: ByteVector32, actor: ActorRef) extends Request
   case class ScriptHashSubscriptionResponse(scriptHash: ByteVector32, status: String) extends Response
@@ -330,8 +311,6 @@ object ElectrumClient {
         Left {
           (responseMethod, params) match {
             case ("blockchain.headers.subscribe", header :: Nil) => HeaderSubscriptionResponse tupled parseBlockHeader(header)
-            case ("blockchain.address.subscribe", JString(address) :: JNull :: Nil) => AddressSubscriptionResponse(address, "")
-            case ("blockchain.address.subscribe", JString(address) :: JString(status) :: Nil) => AddressSubscriptionResponse(address, status)
             case ("blockchain.scripthash.subscribe", JString(scriptHashHex) :: JNull :: Nil) => ScriptHashSubscriptionResponse(ByteVector32.fromValidHex(scriptHashHex), "")
             case ("blockchain.scripthash.subscribe", JString(scriptHashHex) :: JString(status) :: Nil) => ScriptHashSubscriptionResponse(ByteVector32.fromValidHex(scriptHashHex), status)
             case _ => throw new RuntimeException
@@ -401,9 +380,6 @@ object ElectrumClient {
     case GetHeaders(start_height, count, _) => JsonRPCRequest(id = reqId, method = "blockchain.block.headers", params = JInt(start_height) :: JInt(count) :: Nil)
     case ScriptHashListUnspent(scripthash) => JsonRPCRequest(id = reqId, method = "blockchain.scripthash.listunspent", params = JString(scripthash.toHex) :: Nil)
     case GetScriptHashHistory(scripthash) => JsonRPCRequest(id = reqId, method = "blockchain.scripthash.get_history", params = JString(scripthash.toHex) :: Nil)
-    case AddressSubscription(address, _) => JsonRPCRequest(id = reqId, method = "blockchain.address.subscribe", params = JString(address) :: Nil)
-    case AddressListUnspent(address) => JsonRPCRequest(id = reqId, method = "blockchain.address.listunspent", params = JString(address) :: Nil)
-    case GetAddressHistory(address) => JsonRPCRequest(id = reqId, method = "blockchain.address.get_history", params = JString(address) :: Nil)
     case GetTransaction(txid) => JsonRPCRequest(id = reqId, method = "blockchain.transaction.get", params = JString(txid.toString) :: Nil)
     case GetHeader(height) => JsonRPCRequest(id = reqId, method = "blockchain.block.header", params = JInt(height) :: Nil)
     case _: HeaderSubscription => JsonRPCRequest(id = reqId, method = "blockchain.headers.subscribe", params = Nil)
@@ -426,17 +402,6 @@ object ElectrumClient {
           val JString(protocolVersion) = jitems(1)
           ServerVersionResponse(clientName, protocolVersion)
 
-        case GetAddressHistory(address) =>
-          val JArray(jitems) = json.result
-          val items = for (jvalue <- jitems) yield {
-            val JString(txHashRaw) = jvalue \ "tx_hash"
-            val hash = ByteVector32.fromValidHex(txHashRaw)
-            val height = intField(jvalue, "height")
-            TransactionHistoryItem(height, hash)
-          }
-
-          GetAddressHistoryResponse(address, items)
-
         case GetScriptHashHistory(scripthash) =>
           val JArray(jitems) = json.result
           val items = for (jvalue <- jitems) yield {
@@ -447,19 +412,6 @@ object ElectrumClient {
           }
 
           GetScriptHashHistoryResponse(scripthash, items)
-
-        case AddressListUnspent(address) =>
-          val JArray(jitems) = json.result
-          val items = for (jvalue <- jitems) yield {
-            val JString(txHashRaw) = jvalue \ "tx_hash"
-            val hash = ByteVector32.fromValidHex(txHashRaw)
-            val tx_pos = intField(jvalue, "tx_pos")
-            val height = intField(jvalue, "height")
-            val value = longField(jvalue, "value")
-            UnspentItem(hash, tx_pos, value, height)
-          }
-
-          AddressListUnspentResponse(address, items)
 
         case ScriptHashListUnspent(scripthash) =>
           val JArray(jitems) = json.result
@@ -477,11 +429,6 @@ object ElectrumClient {
         case _: GetTransaction =>
           val JString(hex) = json.result
           GetTransactionResponse(Transaction read hex)
-
-        case AddressSubscription(address, _) => json.result match {
-          case JString(status) => AddressSubscriptionResponse(address, status)
-          case _ => AddressSubscriptionResponse(address, "")
-        }
 
         case ScriptHashSubscription(scriptHash, _) => json.result match {
           case JString(status) => ScriptHashSubscriptionResponse(scriptHash, status)
