@@ -163,12 +163,13 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     walletBag.remove(key.publicKey)
   }
 
-  def checkConfirms(infos: Iterable[CoinDetails] = Nil) = for {
-    coinInfo <- infos if !coinInfo.isDoubleSpent && !coinInfo.isConfirmed
-    relatedSpec <- coinInfo.extPubs.flatMap(electrum.specs.get).headOption
-    doubleSpent = electrum.doubleSpent(relatedSpec.data.keys.ewt.xPub, coinInfo.tx)
-    if doubleSpent.depth != coinInfo.depth || doubleSpent.isDoubleSpent != coinInfo.isDoubleSpent
-  } txDataBag.updStatus(coinInfo.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
+  def checkConfirms(infos: Iterable[CoinDetails] = Nil) =
+    for {
+      coinInfo <- infos if !coinInfo.isConfirmed
+      relatedSpec <- coinInfo.extPubs.flatMap(electrum.specs.get).headOption
+      doubleSpent = electrum.doubleSpent(relatedSpec.data.keys.ewt.xPub, coinInfo.tx)
+      if doubleSpent.depth != coinInfo.depth || doubleSpent.isDoubleSpent != coinInfo.isDoubleSpent
+    } txDataBag.updStatus(coinInfo.txid, doubleSpent.depth, doubleSpent.stamp, doubleSpent.isDoubleSpent)
 }
 
 object WalletApp {
