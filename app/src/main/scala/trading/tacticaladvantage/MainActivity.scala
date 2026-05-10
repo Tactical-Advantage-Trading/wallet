@@ -142,6 +142,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   class PaymentLineViewHolder(itemView: View) extends RecyclerView.ViewHolder(itemView) { self =>
+    val stripe: utils.StripeBackground = itemView.findViewById(R.id.stripe).asInstanceOf[utils.StripeBackground]
     val extraInfo: FlowLayout = itemView.findViewById(R.id.extraInfo).asInstanceOf[FlowLayout]
     val statusIcon: ImageView = itemView.findViewById(R.id.statusIcon).asInstanceOf[ImageView]
     val amount: TextView = itemView.findViewById(R.id.amount).asInstanceOf[TextView]
@@ -428,6 +429,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           // User may remove a wallet while related transactions are getting confirmed
           val hasNoWallets = info.extPubs.flatMap(currentGroup.electrum.specs.get).isEmpty
           val isCanceled = info.isDoubleSpent || info.description.cpfpBy.isDefined
+          stripe.setIdle(isCanceled || info.isConfirmed || hasNoWallets)
 
           if (isCanceled) statusIcon.setImageResource(R.drawable.block_24)
           else if (info.isConfirmed) statusIcon.setImageResource(R.drawable.done_24)

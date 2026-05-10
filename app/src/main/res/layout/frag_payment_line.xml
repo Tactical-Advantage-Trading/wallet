@@ -18,6 +18,11 @@
         android:id="@+id/paymentCardContainer"
         style="@style/Card">
 
+        <trading.tacticaladvantage.utils.StripeBackground
+            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:id="@+id/stripe"/>
+
         <LinearLayout
             style="@style/FillingView"
             android:id="@+id/nonLinkContainer"
