@@ -135,10 +135,27 @@ class ElectrumClient(serverAddress: InetSocketAddress, ssl: SSL) extends Actor w
     super.postStop
   }
 
-  def send(ctx: ChannelHandlerContext, request: Request): String = reqId.toString match { case requestId =>
-    if (ctx.channel.isWritable) ctx.channel writeAndFlush makeRequest(request, requestId) else self ! Close
-    reqId = reqId + 1
-    requestId
+  def send(ctx: ChannelHandlerContext, request: Request): String = {
+    val rpcRequest = request match {
+      case GetTransactionIdFromPosition(height, txPos) => JsonRPCRequest(reqId.toString, method = "blockchain.transaction.id_from_pos", params = JInt(height) :: JInt(txPos) :: JBool(true) :: Nil)
+      case ServerVersion(clientName, protocolVersion) => JsonRPCRequest(reqId.toString, method = "server.version", params = JString(clientName) :: JString(protocolVersion) :: Nil)
+      case ScriptHashSubscription(scriptHash, _) => JsonRPCRequest(reqId.toString, method = "blockchain.scripthash.subscribe", params = JString(scriptHash.toString) :: Nil)
+      case GetMerkle(txid, height) => JsonRPCRequest(reqId.toString, method = "blockchain.transaction.get_merkle", params = JString(txid.toString) :: JInt(height) :: Nil)
+      case BroadcastTransaction(tx) => JsonRPCRequest(reqId.toString, method = "blockchain.transaction.broadcast", params = JString(Transaction.write(tx).toHex) :: Nil)
+      case GetHeaders(start_height, count, _) => JsonRPCRequest(reqId.toString, method = "blockchain.block.headers", params = JInt(start_height) :: JInt(count) :: Nil)
+      case ScriptHashListUnspent(scripthash) => JsonRPCRequest(reqId.toString, method = "blockchain.scripthash.listunspent", params = JString(scripthash.toHex) :: Nil)
+      case GetScriptHashHistory(scripthash) => JsonRPCRequest(reqId.toString, method = "blockchain.scripthash.get_history", params = JString(scripthash.toHex) :: Nil)
+      case GetTransaction(txid) => JsonRPCRequest(reqId.toString, method = "blockchain.transaction.get", params = JString(txid.toString) :: Nil)
+      case GetHeader(height) => JsonRPCRequest(reqId.toString, method = "blockchain.block.header", params = JInt(height) :: Nil)
+      case _: HeaderSubscription => JsonRPCRequest(reqId.toString, method = "blockchain.headers.subscribe", params = Nil)
+      case Ping => JsonRPCRequest(reqId.toString, method = "server.ping", params = Nil)
+    }
+
+    if (ctx.channel.isWritable) {
+      ctx.channel.writeAndFlush(rpcRequest)
+      reqId = reqId + 1
+    } else self ! Close
+    rpcRequest.id
   }
 
   def receive: Receive = {
@@ -232,7 +249,8 @@ object ElectrumClient {
   val PROTOCOL_VERSION = "1.4"
   val workerGroup = new NioEventLoopGroup
 
-  def computeScriptHash(publicKeyScript: ByteVector): ByteVector32 = Crypto.sha256(publicKeyScript).reverse
+  def computeScriptHash(publicKeyScript: ByteVector): ByteVector32 =
+    Crypto.sha256(publicKeyScript).reverse
 
   case class AddStatusListener(actor: ActorRef)
   case class RemoveStatusListener(actor: ActorRef)
@@ -260,6 +278,11 @@ object ElectrumClient {
 
   case class BroadcastTransaction(tx: Transaction) extends Request
   case class BroadcastTransactionResponse(tx: Transaction, error: Option[Error] = None) extends Response
+
+  case class GetTransactionIdFromPosition(height: Int, txPos: Int) extends Request
+  case class GetTransactionIdFromPositionResponse(height: Int, txPos: Int, txid: ByteVector32, merkle: List[ByteVector32] = Nil) extends Response {
+    lazy val root: ByteVector32 = GetMerkleResponse(txid, merkle, height, txPos).root
+  }
 
   case class GetTransaction(txid: ByteVector32) extends Request
   case class GetTransactionResponse(tx: Transaction) extends Response
@@ -372,20 +395,6 @@ object ElectrumClient {
     (height, hdr)
   }
 
-  def makeRequest(request: Request, reqId: String): JsonRPCRequest = request match {
-    case ServerVersion(clientName, protocolVersion) => JsonRPCRequest(id = reqId, method = "server.version", params = JString(clientName) :: JString(protocolVersion) :: Nil)
-    case ScriptHashSubscription(scriptHash, _) => JsonRPCRequest(id = reqId, method = "blockchain.scripthash.subscribe", params = JString(scriptHash.toString) :: Nil)
-    case GetMerkle(txid, height) => JsonRPCRequest(id = reqId, method = "blockchain.transaction.get_merkle", params = JString(txid.toString) :: JInt(height) :: Nil)
-    case BroadcastTransaction(tx) => JsonRPCRequest(id = reqId, method = "blockchain.transaction.broadcast", params = JString(Transaction.write(tx).toHex) :: Nil)
-    case GetHeaders(start_height, count, _) => JsonRPCRequest(id = reqId, method = "blockchain.block.headers", params = JInt(start_height) :: JInt(count) :: Nil)
-    case ScriptHashListUnspent(scripthash) => JsonRPCRequest(id = reqId, method = "blockchain.scripthash.listunspent", params = JString(scripthash.toHex) :: Nil)
-    case GetScriptHashHistory(scripthash) => JsonRPCRequest(id = reqId, method = "blockchain.scripthash.get_history", params = JString(scripthash.toHex) :: Nil)
-    case GetTransaction(txid) => JsonRPCRequest(id = reqId, method = "blockchain.transaction.get", params = JString(txid.toString) :: Nil)
-    case GetHeader(height) => JsonRPCRequest(id = reqId, method = "blockchain.block.header", params = JInt(height) :: Nil)
-    case _: HeaderSubscription => JsonRPCRequest(id = reqId, method = "blockchain.headers.subscribe", params = Nil)
-    case Ping => JsonRPCRequest(id = reqId, method = "server.ping", params = Nil)
-  }
-
   def parseJsonResponse(request: Request, json: JsonRPCResponse): Response = {
     json.error match {
       case err @ Some(error) => (request: @unchecked) match {
@@ -460,6 +469,13 @@ object ElectrumClient {
           val blockHeight = intField(json.result, "block_height")
           val leaves = hashes collect { case JString(stringValue) => stringValue }
           GetMerkleResponse(txid, leaves.map(ByteVector32.fromValidHex), blockHeight, pos.toInt)
+
+        case GetTransactionIdFromPosition(height, txPos) =>
+          val JString(txid) = json.result \ "tx_hash"
+          val JArray(hashes) = json.result \ "merkle"
+
+          val merkle = hashes.collect { case JString(hash) => ByteVector32 fromValidHex hash }
+          GetTransactionIdFromPositionResponse(height, txPos, ByteVector32 fromValidHex txid, merkle)
       }
     }
   }

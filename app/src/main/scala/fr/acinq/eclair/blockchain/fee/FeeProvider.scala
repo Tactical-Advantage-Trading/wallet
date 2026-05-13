@@ -4,12 +4,9 @@ import fr.acinq.bitcoin.{Satoshi, SatoshiLong}
 import scala.concurrent.Future
 
 
-trait FeeProvider {
-  def getFeerates: Future[FeeratesPerKB]
-}
-
 object FeeratePerByte {
-  def apply(feeratePerKw: FeeratePerKw): FeeratePerByte = FeeratePerByte(FeeratePerKB(feeratePerKw).feerate / 1000)
+  def apply(feeratePerKw: FeeratePerKw): FeeratePerByte =
+    FeeratePerByte(FeeratePerKB(feeratePerKw).feerate / 1000)
 }
 
 case class FeeratePerByte(feerate: Satoshi)
@@ -38,14 +35,16 @@ case class FeeratePerKw(feerate: Satoshi) extends Ordered[FeeratePerKw] {
 }
 
 object FeeratePerKw {
-  val MinimumRelayFeeRate = 1000
   val MinimumFeeratePerKw: FeeratePerKw = FeeratePerKw(253.sat)
   def apply(feeratePerKB: FeeratePerKB): FeeratePerKw = MinimumFeeratePerKw max FeeratePerKw(feeratePerKB.feerate / 4)
   def apply(feeratePerByte: FeeratePerByte): FeeratePerKw = FeeratePerKw(FeeratePerKB(feeratePerByte))
 }
 
-case class FeeratesPerKB(mempoolMinFee: FeeratePerKB, block_1: FeeratePerKB, blocks_2: FeeratePerKB, blocks_6: FeeratePerKB, blocks_12: FeeratePerKB, blocks_36: FeeratePerKB, blocks_72: FeeratePerKB, blocks_144: FeeratePerKB, blocks_1008: FeeratePerKB) {
-  require(mempoolMinFee.feerate > 0.sat && block_1.feerate > 0.sat && blocks_2.feerate > 0.sat && blocks_6.feerate > 0.sat && blocks_12.feerate > 0.sat && blocks_36.feerate > 0.sat && blocks_72.feerate > 0.sat && blocks_144.feerate > 0.sat && blocks_1008.feerate > 0.sat, "all feerates must be strictly greater than 0")
+case class FeeratesPerKB(mempoolMinFee: FeeratePerKB, block_1: FeeratePerKB, blocks_2: FeeratePerKB, blocks_6: FeeratePerKB, blocks_12: FeeratePerKB,
+                         blocks_36: FeeratePerKB, blocks_72: FeeratePerKB, blocks_144: FeeratePerKB, blocks_1008: FeeratePerKB) {
+  require(mempoolMinFee.feerate > 0.sat && block_1.feerate > 0.sat && blocks_2.feerate > 0.sat && blocks_6.feerate > 0.sat &&
+    blocks_12.feerate > 0.sat && blocks_36.feerate > 0.sat && blocks_72.feerate > 0.sat && blocks_144.feerate > 0.sat &&
+    blocks_1008.feerate > 0.sat, "all feerates must be strictly greater than 0")
 
   def feePerBlock(target: Int): FeeratePerKB = target match {
     case 1 => block_1
@@ -59,8 +58,11 @@ case class FeeratesPerKB(mempoolMinFee: FeeratePerKB, block_1: FeeratePerKB, blo
   }
 }
 
-case class FeeratesPerKw(mempoolMinFee: FeeratePerKw, block_1: FeeratePerKw, blocks_2: FeeratePerKw, blocks_6: FeeratePerKw, blocks_12: FeeratePerKw, blocks_36: FeeratePerKw, blocks_72: FeeratePerKw, blocks_144: FeeratePerKw, blocks_1008: FeeratePerKw) {
-  require(mempoolMinFee.feerate > 0.sat && block_1.feerate > 0.sat && blocks_2.feerate > 0.sat && blocks_6.feerate > 0.sat && blocks_12.feerate > 0.sat && blocks_36.feerate > 0.sat && blocks_72.feerate > 0.sat && blocks_144.feerate > 0.sat && blocks_1008.feerate > 0.sat, "all feerates must be strictly greater than 0")
+case class FeeratesPerKw(mempoolMinFee: FeeratePerKw, block_1: FeeratePerKw, blocks_2: FeeratePerKw, blocks_6: FeeratePerKw, blocks_12: FeeratePerKw,
+                         blocks_36: FeeratePerKw, blocks_72: FeeratePerKw, blocks_144: FeeratePerKw, blocks_1008: FeeratePerKw) {
+  require(mempoolMinFee.feerate > 0.sat && block_1.feerate > 0.sat && blocks_2.feerate > 0.sat && blocks_6.feerate > 0.sat &&
+    blocks_12.feerate > 0.sat && blocks_36.feerate > 0.sat && blocks_72.feerate > 0.sat && blocks_144.feerate > 0.sat &&
+    blocks_1008.feerate > 0.sat, "all feerates must be strictly greater than 0")
 
   def feePerBlock(target: Int): FeeratePerKw = target match {
     case 1 => block_1

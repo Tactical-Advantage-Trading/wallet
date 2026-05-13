@@ -1,6 +1,6 @@
 package trading.tacticaladvantage
 
-import android.content.{DialogInterface, Intent}
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -17,8 +17,6 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
 import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
-import Tools._
-import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
 import spray.json._
@@ -26,7 +24,9 @@ import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.LinkClient.WithdrawSource
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
+import trading.tacticaladvantage.Tools._
 import trading.tacticaladvantage.sqlite.{DbStreams, SQLiteTx}
+import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import trading.tacticaladvantage.utils._
 
 import java.util.{Date, TimerTask}
