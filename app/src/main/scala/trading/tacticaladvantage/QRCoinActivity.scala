@@ -95,13 +95,14 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
 
   def showQRCode: Unit = {
     val title = getString(dialog_receive_address) + "<br>" + spec.info.label
-    val keys = spec.data.firstUnusedAccountKeys.toList.sortBy(_.path.lastChildNumber)
     val layoutManager = new CarouselLayoutManager(CarouselLayoutManager.HORIZONTAL, false)
     layoutManager.setPostLayoutListener(new CarouselZoomPostLayoutListener)
-    layoutManager.setMaxVisibleItems(ElectrumWallet.MAX_RECEIVE_ADDRESSES)
+    layoutManager.setMaxVisibleItems(ElectrumWallet.MAX_UNUSED_ADDRESSES)
 
-    // Allow MAX_RECEIVE_ADDRESSES - 16 (first 4 addresses) to be seen to not make it crowded
-    addresses = keys.dropRight(16).map(spec.data.keys.ewt.textAddress).map(PlainCoinUri.fromRaw)
+    val show = (0 until 4).toList
+    val unused = spec.data.firstUnusedAccountKeys.toList.sortBy(_.path.lastChildNumber)
+    val unusedOrRand = spec.data.unusedOrRand(unused, spec.data.keys.accountKeys, _: Int)
+    addresses = show.map(unusedOrRand).map(spec.data.keys.ewt.textAddress).map(PlainCoinUri.fromRaw)
 
     chainQrCaption.setText(title.html)
     chainQrCodes.addOnScrollListener(new CenterScrollListener)

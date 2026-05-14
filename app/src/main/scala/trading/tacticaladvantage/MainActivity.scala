@@ -32,6 +32,7 @@ import trading.tacticaladvantage.utils._
 import java.util.{Date, TimerTask}
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
 object MainActivity {
@@ -163,16 +164,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
     // CPFP / RBF
 
+    private def randAccountKeyAddress(specs: Seq[WalletSpec] = Nil) = {
+      val spec = ElectrumWallet.orderByImportance(candidates = specs).head
+      val accountAddress = spec.data.keys.ewt.textAddress(spec.data randKey spec.data.keys.accountKeys)
+      (currentGroup.electrum.addressToPubKeyScript(accountAddress), accountAddress)
+    }
+
     def boostCPFP(info: CoinDetails): Unit = info.extPubs.flatMap(currentGroup.electrum.specs.get) match {
       case Nil => WalletApp.app.quickToast(error_no_wallet) case wallets => doBoostCPFP(wallets, info)
     }
 
     def doBoostCPFP(specs: Seq[WalletSpec], info: CoinDetails): Unit = {
-      val changeSpec = ElectrumWallet.orderByImportance(candidates = specs).head
-      val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
-      val ourPubKeyScript = currentGroup.electrum.addressToPubKeyScript(address)
-
-      val fromOutPoints = for (idx <- info.tx.txOut.indices) yield OutPoint(info.tx.hash, idx)
+      val (ourPubKeyScript, accountAddress) = randAccountKeyAddress(specs)
+      val fromOuts = for (idx <- info.tx.txOut.indices) yield OutPoint(info.tx.hash, idx)
       val receivedMsat = info.receivedSat.toMilliSatoshi
 
       val sendView = new BtcSendView(currentGroup, specs, MAX_MSAT)
@@ -182,7 +186,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         rate = target
 
         worker = new ThrottledWork[String, GenerateTxResponse] {
-          override def work(reason: String): GenerateTxResponse = currentGroup.electrum.makeCPFP(specs, fromOutPoints.toSet, ourPubKeyScript, rate)
+          override def work(reason: String): GenerateTxResponse = currentGroup.electrum.makeCPFP(specs, fromOuts.toSet, ourPubKeyScript, rate)
           override def process(reason: String, response: GenerateTxResponse): Unit = update(response.fee.toMilliSatoshi.asSome, showIssue = false)
           override def error(exc: Throwable): Unit = update(feeOpt = None, showIssue = true)
         }
@@ -207,8 +211,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val parentDescWithOrder = info.description.withNewOrderCond(cpfpBumpOrder.copy(order = Long.MinValue).asSome)
         currentGroup.txDataBag.updDescription(parentDescWithOrder, info.txid)
 
-        runInFutureProcessOnUI(currentGroup.electrum.makeCPFP(specs, fromOutPoints.toSet, ourPubKeyScript, feeView.rate), onFail) { response =>
-          val desc = CoinDescription(address :: Nil, label = None, currentGroup.netId, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
+        runInFutureProcessOnUI(currentGroup.electrum.makeCPFP(specs, fromOuts.toSet, ourPubKeyScript, feeView.rate), onFail) { response =>
+          val desc = CoinDescription(accountAddress :: Nil, label = None, currentGroup.netId, cpfpBumpOrder.asSome, cpfpBy = None, cpfpOf = info.txid.asSome)
           alert.dismiss
 
           runFutureProcessOnUI(broadcast(currentGroup, desc, response.tx, response.transferred, sent = Satoshi(0L), response.fee, incoming = 1), onFail) {
@@ -310,9 +314,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def doCancelRBF(specs: Seq[WalletSpec], info: CoinDetails): Unit = {
-      val changeSpec = ElectrumWallet.orderByImportance(candidates = specs).head
-      val address = changeSpec.data.keys.ewt.textAddress(changeSpec.data.changePubKey)
-      val ourPubKeyScript = currentGroup.electrum.addressToPubKeyScript(address)
+      val (ourPubKeyScript, accountAddress) = randAccountKeyAddress(specs)
 
       val sendView = new BtcSendView(currentGroup, specs, MAX_MSAT)
       val currentFee = CoinDenom.parsedTT(info.feeSat.toMilliSatoshi, cardIn, cardZero)
@@ -357,7 +359,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val rbfBumpOrder = SemanticOrder(ofOriginalTxid, -System.currentTimeMillis)
 
         runInFutureProcessOnUI(currentGroup.electrum.rbfReroute(specs, info.tx, feeView.rate, ourPubKeyScript).result.right.get, onFail) { response =>
-          val desc = CoinDescription(addresses = Nil, label = None, currentGroup.netId, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
+          val desc = CoinDescription(accountAddress :: Nil, label = None, currentGroup.netId, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
           alert.dismiss
 
           runFutureProcessOnUI(broadcast(currentGroup, desc, response.tx, info.sentSat - response.fee, sent = 0L.sat, response.fee, incoming = 1), onFail) {
@@ -994,7 +996,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
   }
 
-  class ButtonCall[T <: LinkClient.ResponseArguments](id: String, onOk: T => Unit, button: TextView) extends LinkClient.Listener(id) {
+  class ButtonCall[T <: LinkClient.ResponseArguments : ClassTag](id: String, onOk: T => Unit, button: TextView) extends LinkClient.Listener(id) {
     override def onResponse(args: Option[LinkClient.ResponseArguments] = None): Unit = {
       args.collectFirst { case responseArgs: T => onOk apply responseArgs }
       onDisconnected

@@ -22,11 +22,10 @@ object CheckPoint {
         CheckPoint(hash, nextBits)
     }.toVector
 
-    headerDb.getTip.map { case (height, _) =>
-      val newCheckpoints = for {
-        height1 <- checkpoints.size * RETARGETING_PERIOD - 1 + RETARGETING_PERIOD to height - RETARGETING_PERIOD by RETARGETING_PERIOD
-      } yield CheckPoint(headerDb.getHeader(height1).get.hash, headerDb.getHeader(height1 + 1).get.bits)
-      checkpoints ++ newCheckpoints
-    } getOrElse checkpoints
+    val newCheckpoints = for {
+      (height, _) <- headerDb.getTip.toVector
+      height1 <- (checkpoints.size * RETARGETING_PERIOD - 1 + RETARGETING_PERIOD) to (height - RETARGETING_PERIOD) by RETARGETING_PERIOD
+    } yield CheckPoint(headerDb.getHeader(height1).get.hash, headerDb.getHeader(height1 + 1).get.bits)
+    checkpoints ++ newCheckpoints
   }
 }
