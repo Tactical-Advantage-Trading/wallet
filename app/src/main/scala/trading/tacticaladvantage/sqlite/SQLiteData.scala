@@ -81,7 +81,6 @@ class SQLiteData(val db: DBInterface) {
   def getTip: Option[HeightAndHeader] =
     db.select(ElectrumHeadersTable.selectTipSql).headTry { rc =>
       val header = BlockHeader.read(rc bytes ElectrumHeadersTable.header)
-      val height = rc int ElectrumHeadersTable.height
-      (height, header)
+      (rc int ElectrumHeadersTable.height, header)
     }.toOption
 }
