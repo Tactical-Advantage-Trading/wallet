@@ -32,6 +32,31 @@ object Blockchain {
   def fromCheckpoints(enforceSameBits: Boolean, checkpoints: Vector[CheckPoint] = Vector.empty): Blockchain =
     Blockchain(enforceSameBits, checkpoints, Map.empty, Vector.empty)
 
+  @tailrec
+  private def ancestorAt(index: BlockIndex, height: Int): Option[BlockIndex] =
+    if (index.height == height) Some(index)
+    else if (index.height < height) None
+    else index.parent match {
+      case Some(parent) =>
+        ancestorAt(parent, height)
+      case None => None
+    }
+
+  private def checkpointNextBits(blockchain: Blockchain, height: Int): Option[Long] = {
+    val cpindex = (height / RETARGETING_PERIOD) - 1
+    if (cpindex >= 0 && cpindex < blockchain.checkpoints.length)
+      Some(blockchain.checkpoints(cpindex).nextBits) else None
+  }
+
+  private def expectedBits(blockchain: Blockchain, height: Int, parent: BlockIndex): Option[Long] =
+    if (!blockchain.enforceSameBits) None
+    else if (height % RETARGETING_PERIOD != 0) Some(parent.header.bits)
+    else checkpointNextBits(blockchain, height).orElse {
+      ancestorAt(parent, height - RETARGETING_PERIOD).map { previous =>
+        BlockHeader.calculateNextWorkRequired(parent.header, previous.header.time)
+      }
+    }
+
   def validateHeadersChunk(blockchain: Blockchain, height: Int, headers: Seq[BlockHeader] = Nil): Unit = {
     if (headers.isEmpty) return
 
@@ -53,6 +78,11 @@ object Blockchain {
       val checkpoint = blockchain.checkpoints(cpindex)
       require(headers.head.hashPreviousBlock == checkpoint.hash)
       if (blockchain.enforceSameBits) require(headers.head.bits == checkpoint.nextBits)
+    } else if (blockchain.enforceSameBits) {
+      val parent = blockchain.headersMap.getOrElse(headers.head.hashPreviousBlock, throw new IllegalArgumentException)
+      val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
+      require(headers.head.bits == expected)
+      require(parent.height == height - 1)
     }
 
     if (cpindex < blockchain.checkpoints.length - 1) {
@@ -112,8 +142,10 @@ object Blockchain {
 
     blockchain.headersMap.get(header.hashPreviousBlock) match {
       case Some(parent) if parent.height == height - 1 =>
-        if (height % RETARGETING_PERIOD != 0 && blockchain.enforceSameBits)
-          require(header.bits == parent.header.bits)
+        if (blockchain.enforceSameBits) {
+          val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
+          require(header.bits == expected)
+        }
 
         val cumulative = chainWork(header.bits) + parent.chainwork
         val blockIndex = BlockIndex(header, height, Some(parent), cumulative)

@@ -8,6 +8,8 @@ import fr.acinq.bitcoin.Protocol._
 import scodec.bits._
 
 object BlockHeader extends BtcSerializer[BlockHeader] {
+  val PowLimit = new BigInteger(1, hex"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".toArray)
+
   override def read(input: InputStream, protocolVersion: Long): BlockHeader = {
     val version = uint32(input)
     val hashPreviousBlock = hash(input)
@@ -61,9 +63,9 @@ object BlockHeader extends BtcSerializer[BlockHeader] {
     * @return true if the input block header validates its expected proof of work
     */
   def checkProofOfWork(header: BlockHeader): Boolean = {
-    val (target, _, _) = decodeCompact(header.bits)
-    val hash = new BigInteger(1, header.blockId.toArray)
-    hash.compareTo(target) <= 0
+    val (target, negative, overflow) = decodeCompact(header.bits)
+    val validTarget = target != BigInteger.ZERO && !negative && !overflow && target.compareTo(PowLimit) <= 0
+    validTarget && new BigInteger(1, header.blockId.toArray).compareTo(target) <= 0
   }
 
   def calculateNextWorkRequired(lastHeader: BlockHeader, lastRetargetTime: Long): Long = {
@@ -76,8 +78,7 @@ object BlockHeader extends BtcSerializer[BlockHeader] {
     target = target.multiply(BigInteger.valueOf(actualTimespan))
     target = target.divide(BigInteger.valueOf(targetTimespan))
 
-    val powLimit = new BigInteger(1, hex"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".toArray)
-    target = target.min(powLimit)
+    target = target.min(PowLimit)
     encodeCompact(target)
   }
 }
@@ -119,8 +120,6 @@ object Block extends BtcSerializer[Block] {
     input.tx.foreach(Transaction.validate)
   }
 
-  def blockProof(block: Block): Double = BlockHeader.blockProof(block.header)
-
   // genesis blocks
   val LivenetGenesisBlock = {
     val script = OP_PUSHDATA(writeUInt32(486604799L)) :: OP_PUSHDATA(hex"04") :: OP_PUSHDATA(ByteVector("The Times 03/Jan/2009 Chancellor on brink of second bailout for banks".getBytes("UTF-8"))) :: Nil
@@ -146,4 +145,3 @@ case class Block(header: BlockHeader, tx: Seq[Transaction] = Nil) extends BtcSer
   override def serializer: BtcSerializer[Block] = Block
   lazy val hash = header.hash
 }
-
