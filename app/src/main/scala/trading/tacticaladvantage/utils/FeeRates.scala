@@ -2,6 +2,7 @@ package trading.tacticaladvantage.utils
 
 import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.fee._
+import rx.lang.scala.Subscription
 import trading.tacticaladvantage.sqlite.SQLiteData
 import trading.tacticaladvantage.utils.FeeRates._
 import trading.tacticaladvantage.utils.ImplicitJsonFormats._
@@ -39,14 +40,9 @@ object FeeRates {
     )
 }
 
-class FeeRates(bag: SQLiteData) extends CanBeShutDown {
-  override def becomeShutDown: Unit = listeners = Set.empty
-
-  def reloadData(provider: ConnectionProvider): FeeratesPerKB = fr.acinq.eclair.secureRandom nextInt 3 match {
-    case 0 => new EsploraFeeProvider("https://blockstream.info/api/fee-estimates").provide(provider)
-    case 1 => new EsploraFeeProvider("https://mempool.space/api/fee-estimates").provide(provider)
-    case _ => BitgoFeeProvider.provide(provider)
-  }
+abstract class FeeRates(bag: SQLiteData, label: String) extends CanBeShutDown {
+  override def becomeShutDown: Unit = updater.foreach(_.unsubscribe)
+  def reloadData(provider: ConnectionProvider): FeeratesPerKB
 
   def updateInfo(newPerKB: FeeratesPerKB): Unit = {
     val history1 = (newPerKB :: info.history).diff(defaultFeerates :: Nil).take(2)
@@ -54,10 +50,39 @@ class FeeRates(bag: SQLiteData) extends CanBeShutDown {
     for (lst <- listeners) lst.onFeeRates(info)
   }
 
-  var listeners: Set[FeeRatesListener] = Set.empty
-  var info: FeeRatesInfo = bag.tryGetFeeRatesInfo getOrElse {
+  var listeners: Set[FeeRatesListener] = Set {
+    new FeeRatesListener {
+      def onFeeRates(info: FeeRatesInfo): Unit =
+        bag.putFeeRatesInfo(info, label)
+    }
+  }
+
+  var updater: Option[Subscription] = None
+  var info: FeeRatesInfo = bag.tryGetFeeRatesInfo(label) getOrElse {
     FeeRatesInfo(FeeratesPerKw(defaultFeerates), history = Nil, stamp = 0L)
   }
+}
+
+class BtcFeeRates(bag: SQLiteData) extends FeeRates(bag, SQLiteData.LABEL_BTC_FEE_RATES) {
+  def reloadData(provider: ConnectionProvider) = fr.acinq.eclair.secureRandom nextInt 3 match {
+    case 0 => new EsploraFeeProvider("https://blockstream.info/api/fee-estimates").provide(provider)
+    case 1 => new EsploraFeeProvider("https://mempool.space/api/fee-estimates").provide(provider)
+    case _ => BitgoFeeProvider.provide(provider)
+  }
+}
+
+class EcxFeeRates(bag: SQLiteData) extends FeeRates(bag, SQLiteData.LABEL_ECX_FEE_RATES) {
+  def reloadData(provider: ConnectionProvider) = FeeratesPerKB(
+    mempoolMinFee = FeeratePerKB(1L.sat),
+    block_1 = FeeratePerKB(1L.sat),
+    blocks_2 = FeeratePerKB(1L.sat),
+    blocks_6 = FeeratePerKB(1L.sat),
+    blocks_12 = FeeratePerKB(1L.sat),
+    blocks_36 = FeeratePerKB(1L.sat),
+    blocks_72 = FeeratePerKB(1L.sat),
+    blocks_144 = FeeratePerKB(1L.sat),
+    blocks_1008 = FeeratePerKB(1L.sat)
+  )
 }
 
 case class FeeRatesInfo(smoothed: FeeratesPerKw, history: List[FeeratesPerKB], stamp: Long) {

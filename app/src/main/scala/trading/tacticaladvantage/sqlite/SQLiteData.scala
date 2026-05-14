@@ -14,16 +14,17 @@ import java.lang.{Integer => JInt}
 import scala.util.Try
 
 object SQLiteData {
-  final val LABEL_FORMAT = "label-format"
-  final val LABEL_FEE_RATES = "label-fee-rates"
-  final val LABEL_FIAT_RATES = "label-fiat-rates"
+  final val LABEL_SECRET = "label-secret"
+  final val LABEL_BTC_FEE_RATES = "label-btc-fee-rates"
+  final val LABEL_ECX_FEE_RATES = "label-ecx-fee-rates"
+  final val LABEL_BTC_FIAT_RATES = "label-btc-fiat-rates"
+  final val LABEL_ECX_FIAT_RATES = "label-ecx-fiat-rates"
+
   def byteVecToString(bv: ByteVector): String = new String(bv.toArray, "UTF-8")
   type HeightAndHeader = (Int, BlockHeader)
 }
 
 class SQLiteData(val db: DBInterface) {
-
-
   def delete(label: String): Unit = db.change(DataTable.killSql, label)
 
   def tryGet(keyValueLabel: String): Try[ByteVector] =
@@ -38,19 +39,19 @@ class SQLiteData(val db: DBInterface) {
 
   // StorageFormat
 
-  def putSecret(secret: WalletSecret): Unit = put(LABEL_FORMAT, walletSecretCodec.encode(secret).require.toByteArray)
+  def putSecret(secret: WalletSecret): Unit = put(LABEL_SECRET, walletSecretCodec.encode(secret).require.toByteArray)
 
-  def tryGetSecret: Try[WalletSecret] = tryGet(LABEL_FORMAT).map(raw => walletSecretCodec.decode(raw.toBitVector).require.value)
+  def tryGetSecret: Try[WalletSecret] = tryGet(LABEL_SECRET).map(raw => walletSecretCodec.decode(raw.toBitVector).require.value)
 
   // Fiat rates, fee rates
 
-  def putFiatRatesInfo(data: FiatRatesInfo): Unit = put(LABEL_FIAT_RATES, data.toJson.compactPrint getBytes "UTF-8")
+  def putFiatRatesInfo(data: FiatRatesInfo, label: String): Unit = put(label, data.toJson.compactPrint getBytes "UTF-8")
 
-  def tryGetFiatRatesInfo: Try[FiatRatesInfo] = tryGet(LABEL_FIAT_RATES).map(SQLiteData.byteVecToString) map to[FiatRatesInfo]
+  def tryGetFiatRatesInfo(label: String): Try[FiatRatesInfo] = tryGet(label).map(SQLiteData.byteVecToString) map to[FiatRatesInfo]
 
-  def putFeeRatesInfo(data: FeeRatesInfo): Unit = put(LABEL_FEE_RATES, data.toJson.compactPrint getBytes "UTF-8")
+  def putFeeRatesInfo(data: FeeRatesInfo, label: String): Unit = put(label, data.toJson.compactPrint getBytes "UTF-8")
 
-  def tryGetFeeRatesInfo: Try[FeeRatesInfo] = tryGet(LABEL_FEE_RATES).map(SQLiteData.byteVecToString) map to[FeeRatesInfo]
+  def tryGetFeeRatesInfo(label: String): Try[FeeRatesInfo] = tryGet(label).map(SQLiteData.byteVecToString) map to[FeeRatesInfo]
 
   // HeadersDb
 

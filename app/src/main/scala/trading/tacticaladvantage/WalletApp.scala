@@ -52,6 +52,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     // Non-alive and non-operational
     txDataBag = null
     fiatRates = null
+    feeRates = null
   }
 
   def makeAlive(app: WalletApp): Unit = {
@@ -68,23 +69,8 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
   }
 
   def makeOperational(servers: InputStream, checkpoints: InputStream, strict: Boolean): Unit = {
-    extDataBag.db txWrap {
-      feeRates = new FeeRates(extDataBag)
-      fiatRates = new FiatRates(extDataBag)
-    }
-
-    feeRates.listeners += new FeeRatesListener {
-      def onFeeRates(info: FeeRatesInfo): Unit =
-        extDataBag.putFeeRatesInfo(info)
-    }
-
-    fiatRates.listeners += new FiatRatesListener {
-      def onFiatRates(info: FiatRatesInfo): Unit =
-        extDataBag.putFiatRatesInfo(info)
-    }
-
-    electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
     electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpoints, strict), "sync")
+    electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
     electrum.catcher = electrum.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
     electrum.catcher ! new WalletEventsListener {
@@ -136,12 +122,12 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
       val rateRetry = Rx.retry(Rx.ioQueue.map(_ => feeRates reloadData connectionProvider), Rx.incSec, 3 to 18 by 3)
       val rateRepeat = Rx.repeat(rateRetry, Rx.incHour, feeratePeriodHours to Int.MaxValue by feeratePeriodHours)
       val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
-      feerateObs.foreach(feeRates.updateInfo, none)
+      feeRates.updater = feerateObs.subscribe(feeRates.updateInfo, none).asSome
 
       val fiatPeriodSecs = 60 * 3
       val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates reloadData connectionProvider), Rx.incSec, 3 to 18 by 3)
       val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
-      fiatRepeat.foreach(fiatRates.updateInfo, none)
+      fiatRates.updater = fiatRepeat.subscribe(fiatRates.updateInfo, none).asSome
     }
   }
 
@@ -201,11 +187,22 @@ object WalletApp {
   def isOperational: Boolean = null != secret && null != linkClient && btc.isOperational && ecx.isOperational
 
   def makeOperational(sec: WalletSecret): Unit = {
-    btc.makeOperational(app.getAssets.open("btc_servers.json"), app.getAssets.open("btc_checkpoints.json"), strict = true)
-    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = false)
+    linkClient = new LinkClient(btc.extDataBag)
     secret = sec
 
-    linkClient = new LinkClient(btc.extDataBag)
+    btc.extDataBag.db txWrap {
+      btc.feeRates = new BtcFeeRates(btc.extDataBag)
+      btc.fiatRates = new BtcFiatRates(btc.extDataBag)
+    }
+
+    ecx.extDataBag.db txWrap {
+      ecx.feeRates = new EcxFeeRates(ecx.extDataBag)
+      ecx.fiatRates = new EcxFiatRates(ecx.extDataBag)
+    }
+
+    btc.makeOperational(app.getAssets.open("btc_servers.json"), app.getAssets.open("btc_checkpoints.json"), strict = true)
+    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = false)
+
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {
         case data: LinkClient.UserStatus => linkClient ! LinkClient.Request(LinkClient.GetUserStatus(data.sessionToken), id)
