@@ -70,7 +70,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       blockchain1Try match {
         case Success(blockchain1) =>
           val (blockchain2, chunks) = Blockchain.optimize(blockchain1)
-          electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
+          if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
           context.system.eventStream publish ElectrumChainSync.ChainSyncing(initialLocalTip, blockchain.height, reportedTip)
           electrum.pool ! ElectrumClient.GetHeaders(blockchain2.tip.height + 1, RETARGETING_PERIOD)
           goto(SYNCING) using blockchain2
@@ -93,7 +93,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       blockchain1Try match {
         case Success(blockchain1) if difficultyOk =>
           val (blockchain2, chunks) = Blockchain.optimize(blockchain1)
-          electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
+          if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
           context.system.eventStream publish blockchain2
           stay using blockchain2
 
