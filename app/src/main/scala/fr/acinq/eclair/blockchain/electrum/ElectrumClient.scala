@@ -284,12 +284,13 @@ object ElectrumClient {
     lazy val root: ByteVector32 = GetMerkleResponse(txid, merkle, height, txPos).root
   }
 
+  type SideChainNum2BlockHash = (Int, ByteVector32)
   case class GetTransaction(txid: ByteVector32) extends Request
   case class GetTransactionResponse(tx: Transaction) extends Response {
-    def sidechainBlockHashes: Map[Int, ByteVector32] = tx.txOut.map(_.publicKeyScript).collect {
+    lazy val sidechainBlockHashes: Seq[SideChainNum2BlockHash] = tx.txOut.map(_.publicKeyScript).collect {
       case bv @ ByteVector(0x6a, 0xd1, 0x61, 0x73, 0x68, sidechainNumber, _*) if bv.length == 6 + 32 =>
         sidechainNumber.toInt -> ByteVector32(bv drop 6)
-    }.toMap
+    }
   }
 
   case class GetHeader(height: Int) extends Request

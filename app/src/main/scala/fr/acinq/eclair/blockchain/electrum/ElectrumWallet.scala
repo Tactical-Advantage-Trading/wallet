@@ -296,6 +296,31 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
     }
   }
 
+  def requestMerkleProofs(items: Iterable[ElectrumClient.TransactionHistoryItem], data: ElectrumData): Set[GetHeaders] = {
+    val pendingHeadersRequests1 = collection.mutable.HashSet.empty[GetHeaders]
+    pendingHeadersRequests1 ++= data.pendingHeadersRequests
+
+    for (item <- items if !data.proofs.contains(item.txHash) && item.height > 0) {
+      // We do not have this header because it is older than our checkpoints, so request the entire chunk
+      val request = GetHeaders(item.height / RETARGETING_PERIOD * RETARGETING_PERIOD, RETARGETING_PERIOD)
+      val headerOpt = data.blockchain.getHeader(item.height) orElse electrum.params.headerDb.getHeader(item.height)
+
+      val shouldRequestMerkle = if (headerOpt.nonEmpty) true else {
+        if (pendingHeadersRequests1 contains request) false else {
+          pendingHeadersRequests1.add(request)
+          electrum.sync ! request
+          true
+        }
+      }
+
+      if (shouldRequestMerkle) {
+        electrum.pool ! GetMerkle(item.txHash, item.height)
+      }
+    }
+
+    pendingHeadersRequests1.toSet
+  }
+
   override def receive: Receive = {
     case electrumWalletMessage: Any =>
       (electrum.specs.get(ewt.xPub).map(_.data), electrumWalletMessage, state) match {
@@ -327,15 +352,16 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
 
         case (Some(data), ElectrumClient.ScriptHashSubscriptionResponse(scriptHash, status), RUNNING) if data.status.get(scriptHash).contains(status) =>
           val missing = data.history.getOrElse(scriptHash, Nil).map(item => item.txHash -> item.height).toMap -- data.transactions.keySet -- data.pendingTransactionRequests
+          val pendingHeadersRequests1 = requestMerkleProofs(data.history.getOrElse(scriptHash, Nil), data)
 
-          missing.foreach { case (txId, height) =>
-            electrum.pool ! GetTransaction(txid = txId)
-            electrum.pool ! GetMerkle(txId, height)
+          missing.foreach { case (txId, _) =>
+            electrum.pool ! GetTransaction(txId)
           }
 
-          if (missing.nonEmpty) {
+          if (missing.nonEmpty || pendingHeadersRequests1 != data.pendingHeadersRequests) {
             // Emptiness check is an optimization to not recalculate internal data values on each scriptHashResponse event
-            val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests ++ missing.keySet)
+            val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests ++ missing.keySet,
+              pendingHeadersRequests = pendingHeadersRequests1)
             persistAndNotify(data1)
           }
 
@@ -350,32 +376,17 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           persistAndNotify(data1)
 
         case (Some(data), ElectrumClient.GetScriptHashHistoryResponse(scriptHash, items), RUNNING) =>
-          val pendingHeadersRequests1 = collection.mutable.HashSet.empty[GetHeaders]
-          pendingHeadersRequests1 ++= data.pendingHeadersRequests
+          val pendingHeadersRequests1 = requestMerkleProofs(items, data)
 
-          def process(txid: ByteVector32, height: Int): Unit = {
-            if (data.proofs.contains(txid) || height < 1) return
-            if (data.blockchain.getHeader(height).orElse(electrum.params.headerDb getHeader height).isEmpty) {
-              // we don't have this header because it is older than our checkpoints => request the entire chunk
-              val request = GetHeaders(height / RETARGETING_PERIOD * RETARGETING_PERIOD, RETARGETING_PERIOD)
-              if (pendingHeadersRequests1 contains request) return
-              pendingHeadersRequests1.add(request)
-              electrum.sync ! request
+          val pendingTransactionRequests1 =
+            items.foldLeft(data.pendingTransactionRequests) {
+              case (hashes, item) if !data.isTxKnown(item.txHash) =>
+                electrum.pool ! GetTransaction(item.txHash)
+                hashes + item.txHash
+  
+              case (hashes, _) =>
+                hashes
             }
-
-            electrum.pool ! GetMerkle(txid, height)
-          }
-
-          val pendingTransactionRequests1 = items.foldLeft(data.pendingTransactionRequests) {
-            case (hashes, item) if !data.transactions.contains(item.txHash) && !data.pendingTransactionRequests.contains(item.txHash) =>
-              electrum.pool ! GetTransaction(item.txHash)
-              process(item.txHash, item.height)
-              hashes + item.txHash
-
-            case (hashes, item) =>
-              process(item.txHash, item.height)
-              hashes
-          }
 
           val shadowItems = for {
             existingItems <- data.history.get(scriptHash).toList
@@ -390,7 +401,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           val data1 = data.copy(history = data.history.updated(scriptHash, items),
             pendingHistoryRequests = data.pendingHistoryRequests - scriptHash,
             pendingTransactionRequests = pendingTransactionRequests1,
-            pendingHeadersRequests = pendingHeadersRequests1.toSet,
+            pendingHeadersRequests = pendingHeadersRequests1,
             transactions = data.transactions -- shadowItems,
             pendingTransactions = pendingTransactions1)
           persistAndNotify(data1)
