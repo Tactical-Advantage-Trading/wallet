@@ -6,7 +6,6 @@ case class Satoshi(private val underlying: Long) extends BtcAmount with Ordered[
   // @formatter:off
   def +(other: Satoshi) = Satoshi(underlying + other.underlying)
   def -(other: Satoshi) = Satoshi(underlying - other.underlying)
-  def unary_- = Satoshi(-underlying)
   def *(m: Long) = Satoshi(underlying * m)
   def *(m: Double) = Satoshi((underlying * m).toLong)
   def /(d: Long) = Satoshi(underlying / d)
@@ -32,7 +31,6 @@ case class MilliBtc(private val underlying: BigDecimal) extends BtcAmount with O
   // @formatter:off
   def +(other: MilliBtc) = MilliBtc(underlying + other.underlying)
   def -(other: MilliBtc) = MilliBtc(underlying - other.underlying)
-  def unary_- = MilliBtc(-underlying)
   def *(m: Long) = MilliBtc(underlying * m)
   def *(m: Double) = MilliBtc(underlying * m)
   def /(d: Long) = MilliBtc(underlying / d)
@@ -49,7 +47,6 @@ case class MilliBtc(private val underlying: BigDecimal) extends BtcAmount with O
   }
   def toBtc: Btc = Btc(underlying / 1000)
   def toSatoshi: Satoshi = toBtc.toSatoshi
-  def toBigDecimal = underlying
   def toDouble: Double = underlying.toDouble
   def toLong: Long = underlying.toLong
   override def toString = s"$underlying mBTC"
@@ -62,7 +59,6 @@ case class Btc(private val underlying: BigDecimal) extends BtcAmount with Ordere
   // @formatter:off
   def +(other: Btc) = Btc(underlying + other.underlying)
   def -(other: Btc) = Btc(underlying - other.underlying)
-  def unary_- = Btc(-underlying)
   def *(m: Long) = Btc(underlying * m)
   def *(m: Double) = Btc(underlying * m)
   def /(d: Long) = Btc(underlying / d)
@@ -79,7 +75,6 @@ case class Btc(private val underlying: BigDecimal) extends BtcAmount with Ordere
   }
   def toMilliBtc: MilliBtc = MilliBtc(underlying * 1000)
   def toSatoshi: Satoshi = Satoshi((underlying * BtcAmount.Coin).toLong)
-  def toBigDecimal = underlying
   def toDouble: Double = underlying.toDouble
   def toLong: Long = underlying.toLong
   override def toString = s"$underlying BTC"
@@ -88,6 +83,5 @@ case class Btc(private val underlying: BigDecimal) extends BtcAmount with Ordere
 
 object BtcAmount {
   val Coin = 100000000L
-  val Cent = 1000000L
   val MaxMoney = 21e6 * Coin
 }

@@ -194,8 +194,8 @@ trait BaseActivity extends AppCompatActivity { me =>
     alert
   }
 
-  def mkCheckFormNeutral(ok: AlertDialog => Unit, no: => Unit, neutral: AlertDialog => Unit, bld: AlertDialog.Builder, okRes: Int, noRes: Int, neutralRes: Int): AlertDialog = {
-
+  def mkCheckFormNeutral(ok: AlertDialog => Unit, no: => Unit, neutral: AlertDialog => Unit,
+                         bld: AlertDialog.Builder, okRes: Int, noRes: Int, neutralRes: Int): AlertDialog = {
     if (-1 != neutralRes) bld.setNeutralButton(neutralRes, null)
     val alert = mkCheckForm(ok, no, bld, okRes, noRes)
 
@@ -433,8 +433,11 @@ trait BaseActivity extends AppCompatActivity { me =>
     val views = List(editView, rbfView, cpfpView, confirmView)
     var defaultView: HasHostView = editView
 
-    def switchTo(visibleSection: HasHostView): Unit = for (candidateSection <- views) setVis(isVisible = candidateSection == visibleSection, candidateSection.host)
-    def setButtonsVisible(alert: AlertDialog, on: Boolean): Unit = setVisMany(on -> getPositiveButton(alert), on -> getNegativeButton(alert), on -> getNeutralButton(alert), true -> body)
+    def switchTo(visibleSection: HasHostView): Unit =
+      for (candidateSection <- views) setVis(isVisible = candidateSection == visibleSection, candidateSection.host)
+
+    def setButtonsVisible(alert: AlertDialog, on: Boolean): Unit =
+      setVisMany(on -> getPositiveButton(alert), on -> getNegativeButton(alert), on -> getNeutralButton(alert), true -> body)
 
     def switchToDefault(alert: AlertDialog): Unit = {
       setInputEnabled(alert, isEnabled = true).run

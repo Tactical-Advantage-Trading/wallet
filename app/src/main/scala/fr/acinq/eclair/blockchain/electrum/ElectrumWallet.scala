@@ -27,7 +27,7 @@ import scala.math.min
 import scala.util.Try
 
 
-class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysName: String) extends CanBeShutDown { me =>
+class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysName: String) extends CanBeShutDown {
   def addressToPubKeyScript(address: String): ByteVector = Script write addressToPublicKeyScript(address, chainHash)
   val specs = new ConcurrentHashMap[ExtendedPublicKey, WalletSpec].asScala
   implicit val system: ActorSystem = ActorSystem(sysName)
@@ -211,7 +211,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
 
   def makeSigningWalletParts(core: SigningWallet, ewt: ElectrumWalletType, lastBalance: Satoshi, label: String): WalletSpec = {
     val info = CompleteWalletInfo(core, initData = ByteVector.empty, lastBalance, label, isCoinControlOn = false)
-    val walletRef = system.actorOf(Props(classOf[ElectrumWallet], me, ewt), ewt.xPub.publicKey.toString)
+    val walletRef = system.actorOf(Props(classOf[ElectrumWallet], this, ewt), ewt.xPub.publicKey.toString)
     WalletSpec(info, ElectrumData(keys = MemoizedKeys(ewt), blockchain = null), walletRef)
   }
 }
@@ -304,13 +304,10 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
       // We do not have this header because it is older than our checkpoints, so request the entire chunk
       val request = GetHeaders(item.height / RETARGETING_PERIOD * RETARGETING_PERIOD, RETARGETING_PERIOD)
       val headerOpt = data.blockchain.getHeader(item.height) orElse electrum.params.headerDb.getHeader(item.height)
-
-      val shouldRequestMerkle = if (headerOpt.nonEmpty) true else {
-        if (pendingHeadersRequests1 contains request) false else {
-          pendingHeadersRequests1.add(request)
-          electrum.sync ! request
-          true
-        }
+      val shouldRequestMerkle = if (headerOpt.nonEmpty) true else if (pendingHeadersRequests1 contains request) false else {
+        pendingHeadersRequests1.add(request)
+        electrum.sync ! request
+        true
       }
 
       if (shouldRequestMerkle) {

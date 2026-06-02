@@ -49,8 +49,7 @@ object Blockchain {
   }
 
   private def expectedBits(blockchain: Blockchain, height: Int, parent: BlockIndex): Option[Long] =
-    if (!blockchain.enforceSameBits) None
-    else if (height % RETARGETING_PERIOD != 0) Some(parent.header.bits)
+    if (height % RETARGETING_PERIOD != 0) Some(parent.header.bits)
     else checkpointNextBits(blockchain, height).orElse {
       ancestorAt(parent, height - RETARGETING_PERIOD).map { previous =>
         BlockHeader.calculateNextWorkRequired(parent.header, previous.header.time)
@@ -179,7 +178,8 @@ object Blockchain {
 
   def chainWork(bits: Long): BigInt = {
     val (target, negative, overflow) = decodeCompact(bits)
-    if (target == BigInteger.ZERO || negative || overflow) BigInt(0) else chainWork(target)
+    if (target == BigInteger.ZERO || negative || overflow) BigInt(0)
+    else chainWork(target)
   }
 
   @tailrec

@@ -79,8 +79,6 @@ object ElectrumHeadersTable extends Table {
 
   val selectByHeightSql = s"SELECT * FROM $table WHERE $height = ?"
 
-  val selectByBlockHashSql = s"SELECT * FROM $table WHERE $blockHash = ?"
-
   val selectHeadersSql = s"SELECT * FROM $table WHERE $height >= ? ORDER BY $height LIMIT ?"
 
   val selectTipSql = s"SELECT * FROM $table INNER JOIN (SELECT MAX($height) AS maxHeight FROM $table) t1 ON $height = t1.maxHeight"

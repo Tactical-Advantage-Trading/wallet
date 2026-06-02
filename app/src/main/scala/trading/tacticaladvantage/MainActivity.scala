@@ -280,9 +280,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val sanityCheck = currentGroup.electrum.doubleSpent(specs.head.data.keys.ewt.xPub, info.tx)
         if (sanityCheck.depth > 0 || sanityCheck.isDoubleSpent) return
 
-        val rbfParams = RBFParams(info.txid, CoinDescription.RBF_BOOST)
-        val ofOriginalTxid = info.description.rbf.map(_.ofTxid).getOrElse(info.txid)
-        val rbfBumpOrder = SemanticOrder(ofOriginalTxid.toHex, -System.currentTimeMillis)
+        val rbfParams = RBFParams(info.description.rbf.map(_.ofTxid).getOrElse(info.txid), CoinDescription.RBF_BOOST)
+        val rbfBumpOrder = SemanticOrder(id = rbfParams.ofTxid.toHex, order = -System.currentTimeMillis)
 
         def proceedBroadcastWithoutConfirm(response: GenerateTxResponse): Unit = runAnd(alert1.dismiss) {
           val desc = CoinDescription(Nil, None, currentGroup.netId, rbfBumpOrder.asSome, None, None, rbfParams.asSome, info.description.taRoi)
@@ -354,9 +353,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val sanityCheck = currentGroup.electrum.doubleSpent(specs.head.data.keys.ewt.xPub, info.tx)
         if (sanityCheck.depth > 0 || sanityCheck.isDoubleSpent) return
 
-        val rbfParams = RBFParams(info.txid, CoinDescription.RBF_CANCEL)
-        val ofOriginalTxid = info.description.rbf.map(_.ofTxid).getOrElse(info.txid).toHex
-        val rbfBumpOrder = SemanticOrder(ofOriginalTxid, -System.currentTimeMillis)
+        val rbfParams = RBFParams(info.description.rbf.map(_.ofTxid).getOrElse(info.txid), CoinDescription.RBF_CANCEL)
+        val rbfBumpOrder = SemanticOrder(id = rbfParams.ofTxid.toHex, order = -System.currentTimeMillis)
 
         runInFutureProcessOnUI(currentGroup.electrum.rbfReroute(specs, info.tx, feeView.rate, ourPubKeyScript).result.right.get, onFail) { response =>
           val desc = CoinDescription(accountAddress :: Nil, label = None, currentGroup.netId, rbfBumpOrder.asSome, cpfpBy = None, cpfpOf = None, rbfParams.asSome)
