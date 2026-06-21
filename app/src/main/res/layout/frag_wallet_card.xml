@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:paddingStart="15dp"
     android:paddingEnd="15dp"
-    android:paddingTop="5dp">
+    android:paddingTop="6dp">
 
     <androidx.cardview.widget.CardView
         card_view:cardCornerRadius="@dimen/corner_radius"

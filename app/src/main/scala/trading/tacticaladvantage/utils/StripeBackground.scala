@@ -9,7 +9,7 @@ import android.view.animation.LinearInterpolator
 import trading.tacticaladvantage.R
 
 
-class StripeBackground(context: Context, attrs: AttributeSet, defStyleAttr: Int ) extends View(context, attrs, defStyleAttr) {
+class StripeBackground(context: Context, attrs: AttributeSet, defStyleAttr: Int) extends View(context, attrs, defStyleAttr) {
   def this(context: Context, attrs: AttributeSet) = this(context, attrs, 0)
   def this(context: Context) = this(context, null, 0)
 

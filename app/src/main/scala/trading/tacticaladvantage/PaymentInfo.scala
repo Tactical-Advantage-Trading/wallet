@@ -17,8 +17,8 @@ object SemanticOrder {
   private def orderOrMaxValue(details: ItemDetails) = details.description.semanticOrder.map(_.order).getOrElse(Long.MaxValue)
 
   private def collapseChildren(items: SemanticGroup) = {
-    items.tail.foreach(_.isExpandedItem = false)
-    items.head.isExpandedItem = true
+    items.tail.foreach(_.isSemanticOrderChild = true)
+    items.head.isSemanticOrderChild = false
     items
   }
 
@@ -50,7 +50,7 @@ case class CoinDescription(addresses: StringList, label: Option[String], network
 }
 
 sealed trait ItemDetails {
-  var isExpandedItem: Boolean = true
+  var isSemanticOrderChild: Boolean = false
   // We order items on UI by when they were first seen
   // We hide items depending on when they were updated
   def updatedAt: Long

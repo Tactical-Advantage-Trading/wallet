@@ -142,7 +142,8 @@ object Blockchain {
     blockchain.headersMap.get(header.hashPreviousBlock) match {
       case Some(parent) if parent.height == height - 1 =>
         if (blockchain.enforceSameBits) {
-          val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
+          val expected = expectedBits(blockchain, height, parent)
+            .getOrElse(throw new IllegalArgumentException)
           require(header.bits == expected)
         }
 
@@ -156,7 +157,6 @@ object Blockchain {
           else blockchain.bestchain
 
         blockchain.copy(headersMap = headersMap1, bestchain = bestChain1)
-
       case None if height < blockchain.height - 1000 => blockchain
       case _ => throw new IllegalArgumentException
     }

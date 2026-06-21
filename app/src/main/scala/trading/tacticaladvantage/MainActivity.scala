@@ -103,7 +103,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     override def getView(pos: Int, savedView: View, parent: ViewGroup): View = getItem(pos) match { case item =>
       val view = if (null == savedView) getLayoutInflater.inflate(R.layout.frag_payment_line, null) else savedView
       val holder = if (null == view.getTag) new PaymentLineViewHolder(view) else view.getTag.asInstanceOf[PaymentLineViewHolder]
-      setVis(item.isExpandedItem, holder.spacer)
+      setVis(isVisible = !item.isSemanticOrderChild, holder.spacer)
       holder.updateDetails(item)
       view
     }
