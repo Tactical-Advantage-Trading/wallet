@@ -87,7 +87,7 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
-                        android:minWidth="110dp"
+                        android:minWidth="120dp"
                         android:gravity="center_horizontal"
                         android:layout_centerVertical="true"
                         android:layout_toStartOf="@id/statusIcon"
