@@ -70,11 +70,11 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
 
   def makeOperational(servers: InputStream, checkpoints: InputStream, strict: Boolean): Unit = {
     electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpoints, strict), "sync")
+    electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId), "catcher")
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
-    electrum.catcher = electrum.system.actorOf(Props(new WalletEventsCatcher), "catcher")
 
     electrum.catcher ! new WalletEventsListener {
-      override def onTransactionReceived(event: TransactionReceived): Unit = {
+      override def onTransactionReceived(netId: Int, event: TransactionReceived): Unit = {
         def addTx(received: Satoshi, sent: Satoshi, fee: Satoshi, description: CoinDescription, isIncoming: Long): Unit = txDataBag.db txWrap {
           txDataBag.addTx(event.tx, event.depth, received, sent, fee, event.xPubs, description, isIncoming, fiatRates.info.rates, event.stamp)
           txDataBag.addSearchableTransaction(description.queryText(event.tx.txid), event.tx.txid)
@@ -88,8 +88,8 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
         }
       }
 
-      override def onChainDisconnected: Unit = currentNode = Option.empty[InetSocketAddress]
-      override def onChainMasterSelected(event: InetSocketAddress): Unit = currentNode = event.asSome
+      override def onChainDisconnected(netId: Int): Unit = currentNode = Option.empty[InetSocketAddress]
+      override def onChainMasterSelected(netId: Int, event: InetSocketAddress): Unit = currentNode = event.asSome
     }
   }
 

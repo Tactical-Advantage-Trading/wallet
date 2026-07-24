@@ -68,6 +68,17 @@
                 android:visibility="gone"/>
 
         </RelativeLayout>
+
+        <ProgressBar
+            android:visibility="gone"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:progressTint="@color/colorAccent"
+            android:layout_width="match_parent"
+            android:indeterminate="false"
+            android:layout_height="3dp"
+            android:id="@+id/progress"
+            android:padding="0dp"/>
+
     </androidx.cardview.widget.CardView>
 
     <org.apmem.tools.layouts.FlowLayout

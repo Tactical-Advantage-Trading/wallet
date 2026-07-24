@@ -14,8 +14,8 @@ object WalletEventsCatcher {
   case class Remove(listener: WalletEventsListener)
 }
 
-class WalletEventsCatcher extends Actor {
-  // Not using a set to ensure insertion order
+class WalletEventsCatcher(netId: Int) extends Actor {
+  // Not using a set here to ensure insertion order
   var listeners: List[WalletEventsListener] = Nil
 
   // When both sending and reciving, a single tx may affect many wallets
@@ -33,33 +33,33 @@ class WalletEventsCatcher extends Actor {
 
     case WalletEventsCatcher.Remove(listener) => listeners = listeners diff List(listener)
 
-    case event: WalletReady => for (lst <- listeners) lst.onWalletReady(event)
+    case event: WalletReady => for (lst <- listeners) lst.onWalletReady(netId, event)
 
     case event: TransactionReceived =>
       val event1 = transactionReceived.get(event.tx.txid).map(_ merge event).getOrElse(event)
       transactionReceived = transactionReceived.updated(event.tx.txid, event1)
-      for (lst <- listeners) lst.onTransactionReceived(event1)
+      for (lst <- listeners) lst.onTransactionReceived(netId, event1)
 
-    case event: ElectrumReady => for (lst <- listeners) lst.onChainMasterSelected(event.serverAddress)
+    case event: ElectrumReady => for (lst <- listeners) lst.onChainMasterSelected(netId, event.serverAddress)
 
-    case ElectrumDisconnected => for (lst <- listeners) lst.onChainDisconnected
+    case ElectrumDisconnected => for (lst <- listeners) lst.onChainDisconnected(netId)
 
-    case event: ElectrumChainSync.ChainSyncing => for (lst <- listeners) lst.onChainSyncing(event.initialLocalTip, event.localTip, event.remoteTip)
+    case event: ElectrumChainSync.ChainSyncing => for (lst <- listeners) lst.onChainSyncing(netId, event.initialLocalTip, event.localTip, event.remoteTip)
 
-    case event: ElectrumChainSync.ChainSyncEnded => for (lst <- listeners) lst.onChainSyncEnded(event.localTip)
+    case event: ElectrumChainSync.ChainSyncEnded => for (lst <- listeners) lst.onChainSyncEnded(netId, event.localTip)
   }
 }
 
 class WalletEventsListener {
-  def onWalletReady(event: WalletReady): Unit = none
+  def onWalletReady(netId: Int, event: WalletReady): Unit = none
 
-  def onTransactionReceived(event: TransactionReceived): Unit = none
+  def onTransactionReceived(netId: Int, event: TransactionReceived): Unit = none
 
-  def onChainMasterSelected(event: InetSocketAddress): Unit = none
+  def onChainMasterSelected(netId: Int, event: InetSocketAddress): Unit = none
 
-  def onChainDisconnected: Unit = none
+  def onChainDisconnected(netId: Int): Unit = none
 
-  def onChainSyncing(start: Int, current: Int, max: Int): Unit = none
+  def onChainSyncing(netId: Int, start: Int, current: Int, max: Int): Unit = none
 
-  def onChainSyncEnded(localTip: Int): Unit = none
+  def onChainSyncEnded(netId: Int, localTip: Int): Unit = none
 }

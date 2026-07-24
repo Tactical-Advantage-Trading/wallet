@@ -171,8 +171,10 @@ object Blockchain {
     else addHeadersLoop(blockchain, height, headers)
 
   @tailrec
-  def buildChain(index: BlockIndex, acc: BlockIdxVec = Vector.empty): BlockIdxVec =
-    index.parent match { case Some(parent) => buildChain(parent, index +: acc) case None => index +: acc }
+  def buildChain(index: BlockIndex, acc: BlockIdxVec = Vector.empty): BlockIdxVec = index.parent match {
+    case Some(parent) => buildChain(parent, index +: acc)
+    case None => index +: acc
+  }
 
   def chainWork(target: BigInt): BigInt = BigInt(2).pow(256) / (BigInt(1) + target)
 

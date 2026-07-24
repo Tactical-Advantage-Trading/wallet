@@ -29,6 +29,7 @@ import trading.tacticaladvantage.sqlite.{DbStreams, SQLiteTx}
 import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import trading.tacticaladvantage.utils._
 
+import java.net.InetSocketAddress
 import java.util.{Date, TimerTask}
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -465,7 +466,24 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   private var cardsResetSub = Option.empty[Subscription]
 
   private val chainListener = new WalletEventsListener {
-    override def onWalletReady(event: WalletReady): Unit =
+    private def findAndExecute(netId: Int)(fun: CoinWalletCard => Unit) = walletCards.manager.cardViews.collectFirst {
+      case netCardView: CoinWalletCard if netCardView.group.netId == netId => UITask(fun apply netCardView).run
+    }
+
+    override def onChainMasterSelected(netId: Int, event: InetSocketAddress): Unit = findAndExecute(netId)(_.cardView setAlpha 1F)
+    override def onChainDisconnected(netId: Int): Unit = findAndExecute(netId)(_.cardView setAlpha 0.5F)
+
+    override def onChainSyncing(netId: Int, start: Int, now: Int, maxValue: Int): Unit = findAndExecute(netId) { netCardView =>
+      setVis(netCardView.progress.getVisibility == View.VISIBLE || maxValue - now > 2016 * 4, netCardView.progress)
+      netCardView.progress.setMax(maxValue - start)
+      netCardView.progress.setProgress(now - start)
+    }
+
+    override def onChainSyncEnded(netId: Int, localTip: Int): Unit = findAndExecute(netId) { netCardView =>
+      setVis(isVisible = false, netCardView.progress)
+    }
+
+    override def onWalletReady(netId: Int, event: WalletReady): Unit =
       DbStreams.next(DbStreams.txStream)
   }
 
@@ -928,6 +946,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   abstract class WalletCard {
     val cardWrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_wallet_card, null).asInstanceOf[LinearLayout]
+    val progress: ProgressBar = cardWrap.findViewById(R.id.progress).asInstanceOf[ProgressBar]
     val imageTip: ImageView = cardWrap.findViewById(R.id.imageTip).asInstanceOf[ImageView]
     val cardView: CardView = cardWrap.findViewById(R.id.cardView).asInstanceOf[CardView]
     cardView setOnClickListener onButtonTap(onTap)
@@ -948,7 +967,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def onTap: Unit
   }
 
-  abstract class CoinWalletCard(val xPub: ExtendedPublicKey, group: NetworkWalletGroup) extends WalletCard {
+  abstract class CoinWalletCard(val xPub: ExtendedPublicKey, val group: NetworkWalletGroup) extends WalletCard {
     imageTip setImageResource R.drawable.add_24
     var isSelected: Boolean = false
 
