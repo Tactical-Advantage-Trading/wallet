@@ -609,8 +609,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
       case false =>
-        WalletApp.btc.makeAlive(WalletApp.app)
-        WalletApp.ecx.makeAlive(WalletApp.app)
+        WalletApp.btc.makeAlive(WalletApp.app, lockTime = 0)
+        // nLockTime = 499999999 (LOCKTIME_THRESHOLD - 1) is treated as final on drynet3
+        WalletApp.ecx.makeAlive(WalletApp.app, lockTime = LockTimeThreshold - 1)
         START(state)
     }
 

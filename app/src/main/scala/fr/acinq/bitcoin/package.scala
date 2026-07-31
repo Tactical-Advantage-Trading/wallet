@@ -10,6 +10,7 @@ import fr.acinq.bitcoin.Crypto.PublicKey
 package object bitcoin {
   val MaxScriptElementSize = 520
   val MaxBlockSize = 1000000
+  // if lockTime >= LOCKTIME_THRESHOLD it is a unix timestamp otherwise it is a block height
   val LockTimeThreshold = 500000000L
 
   /**

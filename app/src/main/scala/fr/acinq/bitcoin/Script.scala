@@ -326,8 +326,8 @@ object Script {
     // unless the type of nLockTime being tested is the same as
     // the nLockTime in the transaction.
     if (!(
-      (tx.lockTime < Transaction.LOCKTIME_THRESHOLD && lockTime < Transaction.LOCKTIME_THRESHOLD) ||
-        (tx.lockTime >= Transaction.LOCKTIME_THRESHOLD && lockTime >= Transaction.LOCKTIME_THRESHOLD)
+      (tx.lockTime < LockTimeThreshold && lockTime < LockTimeThreshold) ||
+        (tx.lockTime >= LockTimeThreshold && lockTime >= LockTimeThreshold)
       )) {
       return false
     }

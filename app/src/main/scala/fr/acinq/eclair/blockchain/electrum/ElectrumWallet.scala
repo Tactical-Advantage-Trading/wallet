@@ -84,7 +84,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
 
     val strictTxOuts = for (pubKeyScript \ amount <- strictPubKeyScriptsToAmount) yield TxOut(amount, pubKeyScript)
     val restTxOut = TxOut(amount = usableInUtxos.map(_.item.value.sat).sum - strictTxOuts.map(_.amount).sum - extraOutUtxos.map(_.amount).sum, restPubKeyScript)
-    val tx = Transaction(version = 2, txIn = Nil, txOut = restTxOut :: strictTxOuts.toList ::: extraOutUtxos, lockTime = 0)
+    val tx = Transaction(version = 2, txIn = Nil, txOut = restTxOut :: strictTxOuts.toList ::: extraOutUtxos, lockTime = params.lockTime)
     val tx1 = ElectrumWalletType.dummySignTransaction(usableInUtxos, tx, sequenceFlag)
 
     val fee = weight2fee(weight = tx1.weight(Protocol.PROTOCOL_VERSION), feeratePerKw = feeRatePerKw)
@@ -131,7 +131,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
   // scriptToAmount is empty if we send all, empty then updated to a single item if we send to an address, already non-empty if we batch
   def makeBatchTx(specs: Seq[WalletSpec], changeTo: WalletSpec, scriptToAmount: Map[ByteVector, Satoshi], feeRatePerKw: FeeratePerKw): GenerateTxResponse = {
     val changeScript = changeTo.data.keys.ewt.computePublicKeyScript(changeTo.data.unusedOrRand(changeTo.data.firstUnusedChangeKeys, changeTo.data.keys.changeKeys).publicKey)
-    val tx = Transaction(version = 2, txIn = Nil, txOut = for (script \ amount <- scriptToAmount.toList) yield TxOut(amount, script), lockTime = 0L)
+    val tx = Transaction(version = 2, txIn = Nil, txOut = for (script \ amount <- scriptToAmount.toList) yield TxOut(amount, script), lockTime = params.lockTime)
     val result = completeTransaction(tx, feeRatePerKw, OPT_IN_FULL_RBF, changeScript, specs.flatMap(_.data.utxos), Nil)
     result.copy(pubKeyScriptToAmount = scriptToAmount)
   }
@@ -483,7 +483,7 @@ case class WalletSpec(info: CompleteWalletInfo, data: ElectrumData, walletRef: A
   def spendable: Boolean = info.lastBalance > 0L.sat
 }
 
-case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteWallet, txDb: SQLiteTx, dustLimit: Satoshi = 546L.sat) {
+case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteWallet, txDb: SQLiteTx, lockTime: Long, dustLimit: Satoshi = 546L.sat) {
   val emptyPersistentData: PersistentData = PersistentData(ElectrumWallet.MAX_UNUSED_ADDRESSES, ElectrumWallet.MAX_UNUSED_ADDRESSES)
   val emptyPersistentDataBytes: ByteVector = persistentDataCodec.encode(emptyPersistentData).require.toByteVector
 }

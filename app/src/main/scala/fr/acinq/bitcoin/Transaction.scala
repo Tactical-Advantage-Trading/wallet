@@ -162,8 +162,6 @@ case class ScriptWitness(stack: Seq[ByteVector]) extends BtcSerializable[ScriptW
 
 object Transaction extends BtcSerializer[Transaction] {
   val SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000L
-  // if lockTime >= LOCKTIME_THRESHOLD it is a unix timestamp otherwise it is a block height
-  val LOCKTIME_THRESHOLD = 500000000L
 
   /**
     *
@@ -469,8 +467,8 @@ case class Transaction(version: Long, txIn: Seq[TxIn], txOut: Seq[TxOut], lockTi
     */
   def isFinal(blockHeight: Long, blockTime: Long): Boolean = lockTime match {
     case 0 => true
-    case value if value < LOCKTIME_THRESHOLD && value < blockHeight => true
-    case value if value >= LOCKTIME_THRESHOLD && value < blockTime => true
+    case value if value < LockTimeThreshold && value < blockHeight => true
+    case value if value >= LockTimeThreshold && value < blockTime => true
     case _ if txIn.exists(!_.isFinal) => false
     case _ => true
   }

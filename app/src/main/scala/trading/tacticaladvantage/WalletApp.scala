@@ -55,7 +55,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     feeRates = null
   }
 
-  def makeAlive(app: WalletApp): Unit = {
+  def makeAlive(app: WalletApp, lockTime: Long): Unit = {
     val interface = new DBInterfaceSQLiteAndroid(app, s"$netId.db")
 
     interface txWrap {
@@ -64,7 +64,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
       txDataBag = new SQLiteTx(interface)
     }
 
-    val params = WalletParameters(extDataBag, walletBag, txDataBag)
+    val params = WalletParameters(extDataBag, walletBag, txDataBag, lockTime)
     electrum = new Electrum(params, genesis.hash, ticker)
   }
 
