@@ -68,6 +68,8 @@ class SQLiteData(val db: DBInterface) {
     addHeaderSqlPQ.close
   }
 
+  def cleanUp: Unit = db.change(ElectrumHeadersTable.cleanUpSql)
+
   def getHeader(height: Int): Option[BlockHeader] =
     db.select(ElectrumHeadersTable.selectByHeightSql, height.toString).headTry { rc =>
       BlockHeader.read(rc bytes ElectrumHeadersTable.header)

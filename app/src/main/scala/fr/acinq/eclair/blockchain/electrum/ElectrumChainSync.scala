@@ -12,15 +12,30 @@ import scala.util.{Failure, Success, Try}
 object ElectrumChainSync {
   case class ChainSyncing(initialLocalTip: Int, localTip: Int, remoteTip: Int)
   case class ChainSyncEnded(localTip: Int)
+  case object ChainReorganized
 }
 
 class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean) extends FSM[ElectrumWallet.State, Blockchain] {
+  def freshChain: Blockchain = Blockchain(enforceSameBits = strict, checkpoints = bundled, headersMap = Map.empty)
+  lazy val bundled: Vector[CheckPoint] = CheckPoint.load(stream)
 
   def loadChain: Blockchain = {
-    // In case if anything at all goes wrong we just use an initial blockchain and resync it from checkpoint
-    val blockchain = Blockchain.fromCheckpoints(checkpoints = CheckPoint.load(stream, electrum.params.headerDb), enforceSameBits = strict)
-    val headers = electrum.params.headerDb.getHeaders(startHeight = blockchain.checkpoints.size * RETARGETING_PERIOD, maxCount = Int.MaxValue)
-    Try apply Blockchain.addHeadersChunk(blockchain, blockchain.checkpoints.size * RETARGETING_PERIOD, headers) getOrElse blockchain
+    val checkpoints = CheckPoint.withDbHeaders(bundled, electrum.params.headerDb)
+    val startHeight = checkpoints.size * RETARGETING_PERIOD
+
+    val blockchain = freshChain.copy(checkpoints = checkpoints)
+    val headers = electrum.params.headerDb.getHeaders(startHeight, Int.MaxValue)
+    Try apply Blockchain.addHeadersChunk(blockchain, startHeight, headers) getOrElse blockchain
+  }
+
+  def resetAfterReorg = {
+    electrum.params.headerDb.db.txWrap {
+      electrum.params.headerDb.cleanUp
+      electrum.params.txDb.cleanUp
+    }
+
+    electrum.specs.values.foreach(_.walletRef ! ElectrumChainSync.ChainReorganized)
+    goto(DISCONNECTED) using freshChain replying PoisonPill
   }
 
   electrum.pool ! ElectrumClient.AddStatusListener(self)
@@ -37,7 +52,12 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
   }
 
   when(WAITING_FOR_TIP) {
-    case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if response.height < blockchain.height =>
+    case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain)
+      if blockchain.isReorg(response.height, response.header, electrum.params.headerDb) =>
+      resetAfterReorg
+
+    case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain)
+      if response.height < blockchain.height =>
       goto(DISCONNECTED) replying PoisonPill
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if blockchain.bestchain.isEmpty =>
@@ -59,6 +79,10 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
   }
 
   when(SYNCING) {
+    case Event(ElectrumClient.GetHeadersResponse(start, header0 +: _, _), blockchain)
+      if blockchain.isReorg(start, header0, electrum.params.headerDb) =>
+      resetAfterReorg
+
     case Event(response: ElectrumClient.GetHeadersResponse, blockchain) if response.headers.isEmpty =>
       context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain.height)
       context.system.eventStream publish blockchain
@@ -86,6 +110,10 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
   }
 
   when(RUNNING) {
+    case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), blockchain)
+      if blockchain.isReorg(height, header, electrum.params.headerDb) =>
+      resetAfterReorg
+
     case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), blockchain) if blockchain.tip.header != header =>
       val difficultyOk = Blockchain.getDifficulty(blockchain, height, electrum.params.headerDb).forall(header.bits.==)
       val blockchain1Try = Try apply Blockchain.addHeader(blockchain, height, header)

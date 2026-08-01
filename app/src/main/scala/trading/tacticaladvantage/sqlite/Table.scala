@@ -41,6 +41,9 @@ object TxTable extends Table {
 
   // Updating
 
+  val cleanUpSql = s"DELETE FROM $table"
+  val cleanUpSearchSql = s"DELETE FROM $fts$table"
+
   val updStatusSql = s"UPDATE $table SET $depth = ?, $doubleSpent = ?, $updatedAt = ? WHERE $txid = ?"
 
   val updateDescriptionSql = s"UPDATE $table SET $description = ? WHERE $txid = ?"
@@ -76,6 +79,8 @@ object ElectrumHeadersTable extends Table {
   val (table, height, blockHash, header) = ("headers", "height", "blockhash", "header")
 
   val addHeaderSql = s"INSERT OR IGNORE INTO $table ($height, $blockHash, $header) VALUES (?, ?, ?)"
+
+  val cleanUpSql = s"DELETE FROM $table"
 
   val selectByHeightSql = s"SELECT * FROM $table WHERE $height = ?"
 

@@ -68,10 +68,10 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     electrum = new Electrum(params, genesis.hash, ticker)
   }
 
-  def makeOperational(servers: InputStream, checkpoints: InputStream, strict: Boolean): Unit = {
-    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpoints, strict), "sync")
-    electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId), "catcher")
+  def makeOperational(servers: InputStream, checkpts: InputStream, strict: Boolean): Unit = {
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
+    electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId), "catcher")
+    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, strict), "sync")
 
     electrum.catcher ! new WalletEventsListener {
       override def onTransactionReceived(netId: Int, event: TransactionReceived): Unit = {

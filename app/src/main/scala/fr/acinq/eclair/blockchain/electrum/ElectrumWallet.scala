@@ -328,12 +328,20 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           val firstChangeKeys = for (idx <- 0 until persisted.changeKeysCount) yield derivePublicKey(ewt.changeMaster, idx)
 
           // We start with dummy blockchain, it will be replaced with a real one later
-          val data1 = ElectrumData(Blockchain(enforceSameBits = false, checkpoints = Vector.empty, headersMap = Map.empty, bestchain = Vector.empty),
+          val data1 = ElectrumData(Blockchain(enforceSameBits = false, checkpoints = Vector.empty, headersMap = Map.empty),
             MemoizedKeys(ewt, firstAccountKeys.toVector, firstChangeKeys.toVector), persisted.excludedOutPoints, persisted.status.withDefaultValue(new String),
             persisted.transactions, persisted.overriddenPendingTxids, persisted.history, persisted.proofs, pendingHistoryRequests = Set.empty,
             pendingHeadersRequests = Set.empty, pendingTransactionRequests = Set.empty, pendingTransactions = persisted.pendingTransactions)
-          val spec1 = electrum.specs(ewt.xPub).copy(data = data1)
-          electrum.specs.update(ewt.xPub, spec1)
+          electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
+
+        case (Some(data), ElectrumChainSync.ChainReorganized, _) =>
+          val cleanPersistentData = PersistentData(accountKeysCount = data.keys.accountKeys.size, changeKeysCount = data.keys.changeKeys.size)
+          electrum.params.walletDb.persist(cleanPersistentData, lastBalance = Satoshi(0L), ewt.xPub.publicKey)
+
+          val data1 = data.copy(blockchain = null)
+          electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
+          self ! persistentDataCodec.encode(cleanPersistentData).require.toByteVector
+          state = DISCONNECTED
 
         case (Some(data), blockchain1: Blockchain, DISCONNECTED) =>
           for (scriptHash <- data.keys.accountKeyMap.keys) electrum.pool ! ElectrumClient.ScriptHashSubscription(scriptHash, self)

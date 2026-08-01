@@ -19,7 +19,14 @@ object SQLiteTx {
 }
 
 class SQLiteTx(val db: DBInterface) {
-  def listRecentTxs(limit: Int): RichCursor = db.select(TxTable.selectRecentSql, limit.toString)
+  def listRecentTxs(limit: Int): RichCursor =
+    db.select(TxTable.selectRecentSql, limit.toString)
+
+  def cleanUp: Unit = {
+    db.change(TxTable.cleanUpSql)
+    db.change(TxTable.cleanUpSearchSql)
+    DbStreams.next(DbStreams.txStream)
+  }
 
   def addSearchableTransaction(search: String, txid: ByteVector32): Unit = {
     val newVirtualSqlPQ = db.makePreparedQuery(TxTable.newVirtualSql)

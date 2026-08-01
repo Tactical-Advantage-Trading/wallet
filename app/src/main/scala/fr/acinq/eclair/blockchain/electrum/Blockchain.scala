@@ -7,15 +7,24 @@ import java.math.BigInteger
 import scala.annotation.tailrec
 
 
-case class Blockchain(enforceSameBits: Boolean, checkpoints: Vector[CheckPoint], headersMap: Map[ByteVector32, Blockchain.BlockIndex],
-                      bestchain: Vector[Blockchain.BlockIndex], orphans: Map[ByteVector32, BlockHeader] = Map.empty) {
+case class Blockchain(enforceSameBits: Boolean,
+                      checkpoints: Vector[CheckPoint],
+                      headersMap: Map[ByteVector32, Blockchain.BlockIndex],
+                      bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
 
   def tip = bestchain.last
-  def height = if (bestchain.isEmpty) 0 else bestchain.last.height
+  def height = bestchain.lastOption.map(_.height).getOrElse(0)
 
   def getHeader(height: Int): Option[BlockHeader] = {
     val isOk = bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size
     if (isOk) Some(bestchain(height - bestchain.head.height).header) else None
+  }
+
+  def isReorg(height1: Int, header: BlockHeader, headerDb: SQLiteData): Boolean = {
+    val replacesKnownHistoricalHeader = getHeader(height1).exists(_.hash != header.hash)
+    val doesNotExtendTip = bestchain.nonEmpty && height1 == height + 1 && header.hashPreviousBlock != tip.hash
+    val difficultyChecksOut = Blockchain.getDifficulty(blockchain = this, height1, headerDb).forall(header.bits.==)
+    (replacesKnownHistoricalHeader || doesNotExtendTip) && BlockHeader.checkProofOfWork(header) && difficultyChecksOut
   }
 }
 
@@ -25,12 +34,8 @@ object Blockchain {
   val MAX_REORG = 72
 
   case class BlockIndex(header: BlockHeader, height: Int, parent: Option[BlockIndex], chainwork: BigInt) {
-    lazy val blockId = header.blockId
     lazy val hash = header.hash
   }
-
-  def fromCheckpoints(enforceSameBits: Boolean, checkpoints: Vector[CheckPoint] = Vector.empty): Blockchain =
-    Blockchain(enforceSameBits, checkpoints, Map.empty, Vector.empty)
 
   @tailrec
   private def ancestorAt(index: BlockIndex, height: Int): Option[BlockIndex] =
@@ -137,29 +142,17 @@ object Blockchain {
   }
 
   def addHeader(blockchain: Blockchain, height: Int, header: BlockHeader): Blockchain = {
-    require(BlockHeader.checkProofOfWork(header), s"invalid proof of work for $header")
+    require(blockchain.bestchain.nonEmpty && header.hashPreviousBlock == blockchain.tip.hash)
+    require(BlockHeader checkProofOfWork header)
+    require(height == blockchain.height + 1)
 
-    blockchain.headersMap.get(header.hashPreviousBlock) match {
-      case Some(parent) if parent.height == height - 1 =>
-        if (blockchain.enforceSameBits) {
-          val expected = expectedBits(blockchain, height, parent)
-            .getOrElse(throw new IllegalArgumentException)
-          require(header.bits == expected)
-        }
-
-        val cumulative = chainWork(header.bits) + parent.chainwork
-        val blockIndex = BlockIndex(header, height, Some(parent), cumulative)
-        val headersMap1 = blockchain.headersMap + (blockIndex.hash -> blockIndex)
-
-        val bestChain1 =
-          if (parent == blockchain.bestchain.last) blockchain.bestchain :+ blockIndex
-          else if (blockIndex.chainwork > blockchain.bestchain.last.chainwork) buildChain(blockIndex)
-          else blockchain.bestchain
-
-        blockchain.copy(headersMap = headersMap1, bestchain = bestChain1)
-      case None if height < blockchain.height - 1000 => blockchain
-      case _ => throw new IllegalArgumentException
+    if (blockchain.enforceSameBits) {
+      val expected = expectedBits(blockchain, height, blockchain.tip)
+      require(expected.getOrElse(throw new IllegalArgumentException) == header.bits)
     }
+
+    val blockIndex = BlockIndex(header = header, height = height, parent = Some(blockchain.tip), chainwork = chainWork(header.bits) + blockchain.tip.chainwork)
+    blockchain.copy(headersMap = blockchain.headersMap + (blockIndex.hash -> blockIndex), bestchain = blockchain.bestchain :+ blockIndex)
   }
 
   @tailrec
@@ -170,12 +163,6 @@ object Blockchain {
     if (height % RETARGETING_PERIOD == 0) addHeadersChunk(blockchain, height, headers)
     else addHeadersLoop(blockchain, height, headers)
 
-  @tailrec
-  def buildChain(index: BlockIndex, acc: BlockIdxVec = Vector.empty): BlockIdxVec = index.parent match {
-    case Some(parent) => buildChain(parent, index +: acc)
-    case None => index +: acc
-  }
-
   def chainWork(target: BigInt): BigInt = BigInt(2).pow(256) / (BigInt(1) + target)
 
   def chainWork(bits: Long): BigInt = {
@@ -185,7 +172,7 @@ object Blockchain {
   }
 
   @tailrec
-  def optimize(blockchain: Blockchain, acc: BlockIdxVec = Vector.empty) : (Blockchain, BlockIdxVec) =
+  def optimize(blockchain: Blockchain, acc: BlockIdxVec = Vector.empty): (Blockchain, BlockIdxVec) =
     if (blockchain.bestchain.size >= RETARGETING_PERIOD + MAX_REORG) {
       val saveme = blockchain.bestchain.take(RETARGETING_PERIOD)
       val headersMap1 = blockchain.headersMap -- saveme.map(_.hash)
