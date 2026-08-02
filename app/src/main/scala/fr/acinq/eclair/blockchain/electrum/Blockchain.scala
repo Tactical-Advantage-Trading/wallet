@@ -12,9 +12,7 @@ case class Blockchain(enforceSameBits: Boolean,
                       headersMap: Map[ByteVector32, Blockchain.BlockIndex],
                       bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
 
-  def tip = bestchain.last
-  def height = bestchain.lastOption.map(_.height).getOrElse(0)
-
+  lazy val tip = bestchain.last
   def getHeader(height: Int): Option[BlockHeader] = {
     val isOk = bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size
     if (isOk) Some(bestchain(height - bestchain.head.height).header) else None
@@ -22,7 +20,7 @@ case class Blockchain(enforceSameBits: Boolean,
 
   def isReorg(height1: Int, header: BlockHeader, headerDb: SQLiteData): Boolean = {
     val replacesKnownHistoricalHeader = getHeader(height1).exists(_.hash != header.hash)
-    val doesNotExtendTip = bestchain.nonEmpty && height1 == height + 1 && header.hashPreviousBlock != tip.hash
+    val doesNotExtendTip = bestchain.nonEmpty && height1 == tip.height + 1 && header.hashPreviousBlock != tip.hash
     val difficultyChecksOut = Blockchain.getDifficulty(blockchain = this, height1, headerDb).forall(header.bits.==)
     (replacesKnownHistoricalHeader || doesNotExtendTip) && BlockHeader.checkProofOfWork(header) && difficultyChecksOut
   }
@@ -127,7 +125,7 @@ object Blockchain {
       case _ if height < blockchain.checkpoints.length * RETARGETING_PERIOD =>
         blockchain
 
-      case _ if height == blockchain.height + 1 =>
+      case _ if height == blockchain.tip.height + 1 =>
         require(headers.head.hashPreviousBlock == blockchain.bestchain.last.hash)
         val cumulative = chainWork(headers.head.bits) + blockchain.bestchain.last.chainwork
         val blockIndex = BlockIndex(headers.head, height, None, cumulative)
@@ -144,7 +142,7 @@ object Blockchain {
   def addHeader(blockchain: Blockchain, height: Int, header: BlockHeader): Blockchain = {
     require(blockchain.bestchain.nonEmpty && header.hashPreviousBlock == blockchain.tip.hash)
     require(BlockHeader checkProofOfWork header)
-    require(height == blockchain.height + 1)
+    require(height == blockchain.tip.height + 1)
 
     if (blockchain.enforceSameBits) {
       val expected = expectedBits(blockchain, height, blockchain.tip)

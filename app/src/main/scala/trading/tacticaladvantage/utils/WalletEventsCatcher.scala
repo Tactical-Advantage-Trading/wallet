@@ -2,11 +2,10 @@ package trading.tacticaladvantage.utils
 
 import akka.actor.Actor
 import fr.acinq.bitcoin.ByteVector32
-import fr.acinq.eclair.blockchain.electrum.ElectrumChainSync
+import fr.acinq.eclair.blockchain.electrum.{Blockchain, ElectrumChainSync}
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
 import trading.tacticaladvantage.Tools.none
-
 import java.net.InetSocketAddress
 
 
@@ -61,5 +60,5 @@ class WalletEventsListener {
 
   def onChainSyncing(netId: Int, start: Int, current: Int, max: Int): Unit = none
 
-  def onChainSyncEnded(netId: Int, localTip: Int): Unit = none
+  def onChainSyncEnded(netId: Int, localTip: Blockchain.BlockIndex): Unit = none
 }

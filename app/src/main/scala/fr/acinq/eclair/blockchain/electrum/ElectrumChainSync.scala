@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 object ElectrumChainSync {
   case class ChainSyncing(initialLocalTip: Int, localTip: Int, remoteTip: Int)
-  case class ChainSyncEnded(localTip: Int)
+  case class ChainSyncEnded(localTip: Blockchain.BlockIndex)
   case object ChainReorganized
 }
 
@@ -57,7 +57,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       resetAfterReorg
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain)
-      if response.height < blockchain.height =>
+      if response.height < blockchain.tip.height =>
       goto(DISCONNECTED) replying PoisonPill
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if blockchain.bestchain.isEmpty =>
@@ -67,13 +67,13 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       goto(SYNCING)
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if response.header == blockchain.tip.header =>
-      context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain.height)
+      context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain.tip)
       context.system.eventStream publish blockchain
       goto(RUNNING)
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) =>
       electrum.pool ! ElectrumClient.GetHeaders(blockchain.tip.height + 1, RETARGETING_PERIOD)
-      initialLocalTip = blockchain.height
+      initialLocalTip = blockchain.tip.height
       reportedTip = response.height
       goto(SYNCING)
   }
@@ -84,25 +84,20 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       resetAfterReorg
 
     case Event(response: ElectrumClient.GetHeadersResponse, blockchain) if response.headers.isEmpty =>
-      context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain.height)
+      context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain.tip)
       context.system.eventStream publish blockchain
       goto(RUNNING)
 
-    case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) =>
-      val blockchain1Try = Try apply Blockchain.addHeaders(blockchain, start, headers)
-
-      blockchain1Try match {
-        case Success(blockchain1) =>
-          val (blockchain2, chunks) = Blockchain.optimize(blockchain1)
-          if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
-          context.system.eventStream publish ElectrumChainSync.ChainSyncing(initialLocalTip, blockchain.height, reportedTip)
-          electrum.pool ! ElectrumClient.GetHeaders(blockchain2.tip.height + 1, RETARGETING_PERIOD)
-          goto(SYNCING) using blockchain2
-
-        case Failure(error) =>
-          log.error(s"Electrum peer sent bad headers: $error")
-          goto(DISCONNECTED) replying PoisonPill
-      }
+    case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) => try {
+      val (blockchain1, chunks) = Blockchain optimize Blockchain.addHeaders(blockchain, start, headers)
+      if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
+      context.system.eventStream publish ElectrumChainSync.ChainSyncing(initialLocalTip, blockchain.tip.height, reportedTip)
+      electrum.pool ! ElectrumClient.GetHeaders(blockchain1.tip.height + 1, RETARGETING_PERIOD)
+      goto(SYNCING) using blockchain1
+    } catch {
+      case _: Throwable =>
+        goto(DISCONNECTED) replying PoisonPill
+    }
 
     case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), _) =>
       log.debug(s"Ignoring header $header at $height while syncing")
@@ -114,33 +109,29 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       if blockchain.isReorg(height, header, electrum.params.headerDb) =>
       resetAfterReorg
 
-    case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), blockchain) if blockchain.tip.header != header =>
+    case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), blockchain) if blockchain.tip.header != header => try {
       val difficultyOk = Blockchain.getDifficulty(blockchain, height, electrum.params.headerDb).forall(header.bits.==)
-      val blockchain1Try = Try apply Blockchain.addHeader(blockchain, height, header)
+      if (!difficultyOk) throw new RuntimeException(f"Wrong difficulty, height=$height, header=$header")
 
-      blockchain1Try match {
-        case Success(blockchain1) if difficultyOk =>
-          val (blockchain2, chunks) = Blockchain.optimize(blockchain1)
-          if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
-          context.system.eventStream publish blockchain2
-          stay using blockchain2
+      val (blockchain1, chunks) = Blockchain optimize Blockchain.addHeader(blockchain, height, header)
+      if (chunks.nonEmpty) electrum.params.headerDb.addHeaders(chunks.map(_.header), chunks.head.height)
+      context.system.eventStream publish ElectrumChainSync.ChainSyncEnded(blockchain1.tip)
+      context.system.eventStream publish blockchain1
+      stay using blockchain1
+    } catch {
+      case _: Throwable =>
+        stay replying PoisonPill
+    }
 
-        case _ =>
-          stay replying PoisonPill
-      }
-
-    case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) =>
-      val blockchain1Try = Try apply Blockchain.addHeaders(blockchain, start, headers)
-
-      blockchain1Try match {
-        case Success(blockchain1) =>
-          electrum.params.headerDb.addHeaders(headers, start)
-          context.system.eventStream publish blockchain1
-          stay using blockchain1
-
-        case _ =>
-          stay replying PoisonPill
-      }
+    case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) => try {
+      val blockchain1 = Blockchain.addHeaders(blockchain, start, headers)
+      electrum.params.headerDb.addHeaders(headers, start)
+      context.system.eventStream publish blockchain1
+      stay using blockchain1
+    } catch {
+      case _: Throwable =>
+        stay replying PoisonPill
+    }
 
     case Event(ElectrumWallet.ChainFor(target), blockchain) =>
       target ! blockchain

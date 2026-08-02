@@ -334,15 +334,6 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
             pendingHeadersRequests = Set.empty, pendingTransactionRequests = Set.empty, pendingTransactions = persisted.pendingTransactions)
           electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
 
-        case (Some(data), ElectrumChainSync.ChainReorganized, _) =>
-          val cleanPersistentData = PersistentData(accountKeysCount = data.keys.accountKeys.size, changeKeysCount = data.keys.changeKeys.size)
-          electrum.params.walletDb.persist(cleanPersistentData, lastBalance = Satoshi(0L), ewt.xPub.publicKey)
-
-          val data1 = data.copy(blockchain = null)
-          electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
-          self ! persistentDataCodec.encode(cleanPersistentData).require.toByteVector
-          state = DISCONNECTED
-
         case (Some(data), blockchain1: Blockchain, DISCONNECTED) =>
           for (scriptHash <- data.keys.accountKeyMap.keys) electrum.pool ! ElectrumClient.ScriptHashSubscription(scriptHash, self)
           for (scriptHash <- data.keys.changeKeyMap.keys) electrum.pool ! ElectrumClient.ScriptHashSubscription(scriptHash, self)
@@ -451,6 +442,15 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
               persistAndNotify(data1)
               sender ! PoisonPill
           }
+
+        case (Some(data), ElectrumChainSync.ChainReorganized, _) =>
+          val cleanPersistentData = PersistentData(accountKeysCount = data.keys.accountKeys.size, changeKeysCount = data.keys.changeKeys.size)
+          electrum.params.walletDb.persist(cleanPersistentData, lastBalance = Satoshi(0L), ewt.xPub.publicKey)
+
+          val data1 = data.copy(blockchain = null)
+          electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
+          self ! persistentDataCodec.encode(cleanPersistentData).require.toByteVector
+          state = DISCONNECTED
 
         case (Some(data), ElectrumClient.ElectrumDisconnected, _) =>
           persistAndNotify(data.reset)
@@ -577,7 +577,7 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
   }
 
   def depth(txid: ByteVector32): Int = proofs.get(txid).map(_.blockHeight).map(computeDepth).getOrElse(0)
-  def computeDepth(txHeight: Int): Int = if (txHeight <= 0L) 0 else blockchain.height - txHeight + 1
+  def computeDepth(txHeight: Int): Int = if (txHeight <= 0L) 0 else blockchain.tip.height - txHeight + 1
 
   def withOverridingTxids: ElectrumData = {
     def changeKeyDepth(tx: Transaction) = if (proofs contains tx.txid) Long.MaxValue else tx.txOut.map(_.publicKeyScript).flatMap(keys.publicScriptChangeMap.get).map(_.path.lastChildNumber).headOption.getOrElse(Long.MinValue)

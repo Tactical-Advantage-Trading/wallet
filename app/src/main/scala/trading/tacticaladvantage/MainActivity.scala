@@ -15,7 +15,7 @@ import fr.acinq.bitcoin.DeterministicWallet.ExtendedPublicKey
 import fr.acinq.bitcoin._
 import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
-import fr.acinq.eclair.blockchain.electrum.{ElectrumWallet, WalletSpec}
+import fr.acinq.eclair.blockchain.electrum.{Blockchain, ElectrumWallet, WalletSpec}
 import fr.acinq.eclair.blockchain.fee.FeeratePerByte
 import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
@@ -471,7 +471,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     override def onChainMasterSelected(netId: Int, event: InetSocketAddress): Unit = findAndExecute(netId)(_.cardView setAlpha 1F)
-    override def onChainDisconnected(netId: Int): Unit = findAndExecute(netId)(_.cardView setAlpha 0.5F)
+    override def onChainDisconnected(netId: Int): Unit = findAndExecute(netId)(_.cardView setAlpha 0.75F)
 
     override def onChainSyncing(netId: Int, start: Int, now: Int, maxValue: Int): Unit = findAndExecute(netId) { netCardView =>
       setVis(netCardView.progress.getVisibility == View.VISIBLE || maxValue - now > 2016 * 4, netCardView.progress)
@@ -479,9 +479,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       netCardView.progress.setProgress(now - start)
     }
 
-    override def onChainSyncEnded(netId: Int, localTip: Int): Unit = findAndExecute(netId) { netCardView =>
-      setVis(isVisible = false, netCardView.progress)
-    }
+    override def onChainSyncEnded(netId: Int, localTip: Blockchain.BlockIndex): Unit =
+      findAndExecute(netId) { netCardView =>
+        setVis(isVisible = false, netCardView.progress)
+      }
 
     override def onWalletReady(netId: Int, event: WalletReady): Unit =
       DbStreams.next(DbStreams.txStream)
