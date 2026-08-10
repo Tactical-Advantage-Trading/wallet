@@ -24,6 +24,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       electrum.params.txDb.cleanUp
     }
 
+    context.system.eventStream publish ChainReorganized
     electrum.specs.values.foreach(_.walletRef ! ChainReorganized)
     goto(DISCONNECTED) using freshChain replying PoisonPill
   }
