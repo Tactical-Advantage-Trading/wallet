@@ -70,7 +70,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
 
   def makeOperational(servers: InputStream, checkpts: InputStream, strict: Boolean): Unit = {
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
-    electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId), "catcher")
+    electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId, electrum), "catcher")
     electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, strict), "sync")
 
     electrum.catcher ! new WalletEventsListener {

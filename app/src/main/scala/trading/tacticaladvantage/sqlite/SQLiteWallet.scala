@@ -4,7 +4,7 @@ import fr.acinq.bitcoin.Crypto.PublicKey
 import fr.acinq.bitcoin.DeterministicWallet.ExtendedPrivateKey
 import fr.acinq.bitcoin.Satoshi
 import fr.acinq.eclair.blockchain.electrum.PersistentData
-import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
+import fr.acinq.eclair.blockchain.electrum.Electrum.codec
 import trading.tacticaladvantage.utils.ImplicitJsonFormats._
 import scodec.bits.ByteVector
 import spray.json._
@@ -21,7 +21,7 @@ class SQLiteWallet(val db: DBInterface) {
   }
 
   def persist(data: PersistentData, lastBalance: Satoshi, pub: PublicKey): Unit =
-    db.change(WalletTable.updSql, persistentDataCodec.encode(data).require.toByteArray,
+    db.change(WalletTable.updSql, codec.encode(data).require.toByteArray,
       lastBalance.toLong: java.lang.Long, pub.toString)
 
   def remove(pub: PublicKey): Unit = {

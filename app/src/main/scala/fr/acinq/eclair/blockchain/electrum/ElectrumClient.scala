@@ -279,9 +279,9 @@ object ElectrumClient {
   case class BroadcastTransaction(tx: Transaction) extends Request
   case class BroadcastTransactionResponse(tx: Transaction, error: Option[Error] = None) extends Response
 
-  case class GetTransactionIdFromPosition(height: Int, txPos: Int) extends Request
+  case class GetTransactionIdFromPosition(height: Int, txPos: Int = 0) extends Request
   case class GetTransactionIdFromPositionResponse(height: Int, txPos: Int, txid: ByteVector32, merkle: List[ByteVector32] = Nil) extends Response {
-    lazy val root: ByteVector32 = GetMerkleResponse(txid, merkle, height, txPos).root
+    lazy val hashMerkleRoot: ByteVector32 = GetMerkleResponse(txid, merkle, height, txPos).root
   }
 
   type SideChainNum2BlockHash = (Int, ByteVector32)

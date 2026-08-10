@@ -27,27 +27,27 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
   startWith(Disconnected, DisconnectedData)
 
   when(Disconnected) {
-    case Event(ElectrumClient.ElectrumReady(height, tip, _), _) if addresses.contains(sender) =>
+    case Event(ev: ElectrumClient.ElectrumReady, _) if addresses.contains(sender) =>
       sender ! ElectrumClient.HeaderSubscription(self)
-      handleHeader(sender, height, tip, None)
+      handleHeader(sender, None, ev.height, ev.tip)
 
-    case Event(ElectrumClient.AddStatusListener(listener), _) =>
-      statusListeners += listener
+    case Event(ev: ElectrumClient.AddStatusListener, _) =>
+      statusListeners += ev.actor
       stay
 
-    case Event(Terminated(actor), _) =>
+    case Event(ev: Terminated, _) =>
       context.system.scheduler.scheduleOnce(5.seconds, self, Connect)
-      addresses -= actor
+      addresses -= ev.actor
       stay
   }
 
   when(Connected) {
-    case Event(ElectrumClient.ElectrumReady(height, tip, _), d: ConnectedData) if addresses.contains(sender) =>
+    case Event(ev: ElectrumClient.ElectrumReady, d: ConnectedData) if addresses.contains(sender) =>
       sender ! ElectrumClient.HeaderSubscription(self)
-      handleHeader(sender, height, tip, Some(d))
+      handleHeader(sender, Some(d), ev.height, ev.tip)
 
-    case Event(ElectrumClient.HeaderSubscriptionResponse(height, tip), d: ConnectedData) if addresses.contains(sender) =>
-      handleHeader(sender, height, tip, Some(d))
+    case Event(ev: ElectrumClient.HeaderSubscriptionResponse, d: ConnectedData) if addresses.contains(sender) =>
+      handleHeader(sender, Some(d), ev.height, ev.header)
 
     case Event(request: ElectrumClient.Request, d: ConnectedData) =>
       d.master forward request
@@ -60,10 +60,9 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
       stay
 
     case Event(Terminated(actor), d: ConnectedData) =>
+      context.system.scheduler.scheduleOnce(5.seconds, self, Connect)
       val address = addresses(actor)
       val tips1 = d.tips - actor
-
-      context.system.scheduler.scheduleOnce(5.seconds, self, Connect)
       addresses -= actor
 
       if (tips1.isEmpty) {
@@ -77,7 +76,7 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
         // we choose next best candidate as master
         val tips1 = d.tips - actor
         val (bestClient, bestTip) = tips1.toSeq.maxBy(_._2._1)
-        handleHeader(bestClient, bestTip._1, bestTip._2, Some(d.copy(tips = tips1)))
+        handleHeader(bestClient, Some(d.copy(tips = tips1)), bestTip._1, bestTip._2)
       }
   }
 
@@ -106,12 +105,11 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
   onTransition {
     case Connected -> Disconnected =>
       statusListeners.foreach(_ ! ElectrumClient.ElectrumDisconnected)
-      context.system.eventStream.publish(ElectrumClient.ElectrumDisconnected)
   }
 
   initialize
 
-  private def handleHeader(connection: ActorRef, height: Int, tip: BlockHeader, data: Option[ConnectedData] = None) = {
+  private def handleHeader(connection: ActorRef, data: Option[ConnectedData], height: Int, tip: BlockHeader) = {
     val remoteAddress = addresses(connection)
 
     data match {
@@ -119,7 +117,6 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
         // as soon as we have a connection to an electrum server, we select it as master
         log.info("selecting master {} at {}", remoteAddress, tip)
         statusListeners.foreach(_ ! ElectrumClient.ElectrumReady(height, tip, remoteAddress))
-        context.system.eventStream.publish(ElectrumClient.ElectrumReady(height, tip, remoteAddress))
         goto(Connected) using ConnectedData(connection, Map(connection -> (height, tip)))
       case Some(d) if connection != d.master && height > d.blockHeight + 2 =>
         // we only switch to a new master if there is a significant difference with our current master, because
@@ -131,9 +128,7 @@ class ElectrumClientPool(stream: InputStream) extends Actor with FSM[State, Data
         // we've switched to a new master, treat this as a disconnection/reconnection
         // so users (wallet, watcher, ...) will reset their subscriptions
         statusListeners.foreach(_ ! ElectrumClient.ElectrumDisconnected)
-        context.system.eventStream.publish(ElectrumClient.ElectrumDisconnected)
         statusListeners.foreach(_ ! ElectrumClient.ElectrumReady(height, tip, remoteAddress))
-        context.system.eventStream.publish(ElectrumClient.ElectrumReady(height, tip, remoteAddress))
         goto(Connected) using d.copy(master = connection, tips = d.tips + (connection -> (height, tip)))
       case Some(d) =>
         log.debug("received tip {} from {} at {}", tip, remoteAddress, height)

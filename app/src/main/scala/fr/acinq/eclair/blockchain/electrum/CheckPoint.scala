@@ -23,13 +23,13 @@ object CheckPoint {
     }.toVector
   }
 
-  def withDbHeaders(checkpoints: Vector[CheckPoint], headerDb: SQLiteData): Vector[CheckPoint] = {
+  def withDbHeaders(checkpoints: Vector[CheckPoint], dataDb: SQLiteData): Vector[CheckPoint] = {
     val start = checkpoints.size * RETARGETING_PERIOD - 1 + RETARGETING_PERIOD
 
     val newCheckpoints = for {
-      (height, _) <- headerDb.getTip.toVector
+      (height, _) <- dataDb.getTip.toVector
       height1 <- start to (height - RETARGETING_PERIOD) by RETARGETING_PERIOD
-    } yield CheckPoint(headerDb.getHeader(height1).get.hash, headerDb.getHeader(height1 + 1).get.bits)
+    } yield CheckPoint(dataDb.getHeader(height1).get.hash, dataDb.getHeader(height1 + 1).get.bits)
     checkpoints ++ newCheckpoints
   }
 }

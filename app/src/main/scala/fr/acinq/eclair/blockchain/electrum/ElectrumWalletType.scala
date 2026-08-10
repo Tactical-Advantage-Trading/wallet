@@ -142,7 +142,7 @@ class ElectrumWallet49(val secrets: Option[AccountAndXPrivKey], val xPub: Extend
 
   override def computePublicKeyScript(key: PublicKey): Seq[ScriptElt] = Script.pay2sh(Script pay2wpkh key)
 
-  override def extractPubKeySpentFrom(txIn: TxIn): Option[PublicKey] = {
+  override def extractPubKeySpentFrom(txIn: TxIn): Option[PublicKey] =
     Try {
       require(txIn.witness.stack.size == 2)
       val publicKey = PublicKey(txIn.witness.stack.tail.head)
@@ -150,7 +150,6 @@ class ElectrumWallet49(val secrets: Option[AccountAndXPrivKey], val xPub: Extend
       require(Script.write(Script pay2wpkh publicKey) == script)
       publicKey
     }.toOption
-  }
 
   override def dummySignInput(utxo: Utxo, sequenceFlag: Long): TxIn = {
     val pubKeyScript = OP_PUSHDATA(Script.write(script = Script pay2wpkh utxo.key.publicKey).compact) :: Nil

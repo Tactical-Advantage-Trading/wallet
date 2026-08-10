@@ -13,6 +13,7 @@ case class Blockchain(enforceSameBits: Boolean,
                       bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
 
   lazy val tip = bestchain.last
+
   def getHeader(height: Int): Option[BlockHeader] = {
     val isOk = bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size
     if (isOk) Some(bestchain(height - bestchain.head.height).header) else None
@@ -31,7 +32,8 @@ object Blockchain {
   val RETARGETING_PERIOD = 2016
   val MAX_REORG = 72
 
-  case class BlockIndex(header: BlockHeader, height: Int, parent: Option[BlockIndex], chainwork: BigInt) {
+  case class BlockIndex(header: BlockHeader, height: Int, parent: Option[BlockIndex] = None, chainwork: BigInt = 0) {
+    lazy val heightMerkleId = (height, header.hashMerkleRoot)
     lazy val hash = header.hash
   }
 
@@ -182,16 +184,16 @@ object Blockchain {
       (blockchain, acc ++ safeWithoutCheckpoint)
     }
 
-  def getDifficulty(blockchain: Blockchain, height: Int, headerDb: SQLiteData): Option[Long] =
+  def getDifficulty(blockchain: Blockchain, height: Int, dataDb: SQLiteData): Option[Long] =
     if (!blockchain.enforceSameBits) None
     else if (height % RETARGETING_PERIOD == 0) {
       for {
-        parent <- blockchain.getHeader(height - 1) orElse headerDb.getHeader(height - 1)
-        previous <- blockchain.getHeader(height - 2016) orElse headerDb.getHeader(height - 2016)
+        parent <- blockchain.getHeader(height - 1) orElse dataDb.getHeader(height - 1)
+        previous <- blockchain.getHeader(height - 2016) orElse dataDb.getHeader(height - 2016)
       } yield BlockHeader.calculateNextWorkRequired(parent, previous.time)
     } else {
       val hot = blockchain.getHeader(height - 1)
-      val cold = headerDb.getHeader(height - 1)
+      val cold = dataDb.getHeader(height - 1)
       hot.orElse(cold).map(_.bits)
     }
 }

@@ -8,10 +8,12 @@ import fr.acinq.bitcoin._
 import fr.acinq.eclair.blockchain.electrum.Blockchain.RETARGETING_PERIOD
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
-import fr.acinq.eclair.blockchain.electrum.db.sqlite.SqliteWalletDb.persistentDataCodec
 import fr.acinq.eclair.blockchain.fee.FeeratePerKw
+import fr.acinq.eclair.wire.CommonCodecs._
 import fr.acinq.eclair.{MilliSatoshi, addressToPublicKeyScript}
-import scodec.bits.ByteVector
+import scodec.Codec
+import scodec.bits.{BitVector, ByteVector}
+import scodec.codecs._
 import trading.tacticaladvantage.CanBeShutDown
 import trading.tacticaladvantage.Tools._
 import trading.tacticaladvantage.sqlite._
@@ -25,6 +27,70 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.math.min
 import scala.util.Try
+
+
+object Electrum {
+  val proofCodec = {
+    (bytes32 withContext "txid") ::
+      (listOfN(uint16, bytes32) withContext "merkle") ::
+      (uint24 withContext "blockHeight") ::
+      (uint24 withContext "pos")
+  }.as[GetMerkleResponse]
+
+  type OverriddenPendingTxids = Map[ByteVector32, ByteVector32]
+
+  val overrideCodec: Codec[OverriddenPendingTxids] = Codec[OverriddenPendingTxids](
+    (runtimeMap: OverriddenPendingTxids) => listOfN(uint16, bytes32 ~ bytes32).encode(runtimeMap.toList),
+    (wire: BitVector) => listOfN(uint16, bytes32 ~ bytes32).decode(wire).map(_.map(_.toMap))
+  )
+
+  type Status = Map[ByteVector32, String]
+
+  val statusCodec: Codec[Status] = Codec[Status](
+    (runtimeMap: Status) => listOfN(uint16, bytes32 ~ cstring).encode(runtimeMap.toList),
+    (wire: BitVector) => listOfN(uint16, bytes32 ~ cstring).decode(wire).map(_.map(_.toMap))
+  )
+
+  type Transactions = Map[ByteVector32, Transaction]
+
+  val transactionsCodec: Codec[Transactions] = Codec[Transactions](
+    (runtimeMap: Transactions) => listOfN(uint16, bytes32 ~ txCodec).encode(runtimeMap.toList),
+    (wire: BitVector) => listOfN(uint16, bytes32 ~ txCodec).decode(wire).map(_.map(_.toMap))
+  )
+
+  val transactionHistoryItemCodec = {
+    (int32 withContext "height") ::
+      (bytes32 withContext "txHash")
+  }.as[ElectrumClient.TransactionHistoryItem]
+
+  val seqOfTransactionHistoryItemCodec = listOfN[TransactionHistoryItem](uint16, transactionHistoryItemCodec)
+
+  type History = Map[ByteVector32, ElectrumWallet.TxHistoryItemList]
+
+  val historyCodec: Codec[History] = Codec[History](
+    (runtimeMap: History) => listOfN(uint16, bytes32 ~ seqOfTransactionHistoryItemCodec).encode(runtimeMap.toList),
+    (wire: BitVector) => listOfN(uint16, bytes32 ~ seqOfTransactionHistoryItemCodec).decode(wire).map(_.map(_.toMap))
+  )
+
+  type Proofs = Map[ByteVector32, GetMerkleResponse]
+
+  val proofsCodec: Codec[Proofs] = Codec[Proofs](
+    (runtimeMap: Proofs) => listOfN(uint16, bytes32 ~ proofCodec).encode(runtimeMap.toList),
+    (wire: BitVector) => listOfN(uint16, bytes32 ~ proofCodec).decode(wire).map(_.map(_.toMap))
+  )
+
+  val codec: Codec[PersistentData] = {
+    (int32 withContext "accountKeysCount") ::
+      (int32 withContext "changeKeysCount") ::
+      (statusCodec withContext "status") ::
+      (transactionsCodec withContext "transactions") ::
+      (overrideCodec withContext "overriddenPendingTxids") ::
+      (historyCodec withContext "history") ::
+      (proofsCodec withContext "proofs") ::
+      (listOfN(uint16, txCodec) withContext "pendingTransactions") ::
+      (listOfN(uint16, outPointCodec) withContext "excludedOutpoints")
+  }.as[PersistentData]
+}
 
 
 class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysName: String) extends CanBeShutDown {
@@ -193,7 +259,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
     } yield data.computeDepth(spendingBlockHeight) > 0
 
     val depth = data.depth(tx.txid)
-    val stamp = data.timestamp(tx.txid, params.headerDb)
+    val stamp = data.timestamp(tx.txid, params.dataDb)
     // Has been replaced by one of our txs or somehow we know nothing about it
     val isDoubleSpent = doubleSpendTrials.contains(true) || !data.isTxKnown(tx.txid)
     IsDoubleSpentResponse(depth, stamp, isDoubleSpent)
@@ -237,7 +303,7 @@ object ElectrumWallet {
 
   sealed trait State
   case object DISCONNECTED extends State
-  case object WAITING_FOR_TIP extends State
+  case object WAITING_TIP extends State
   case object SYNCING extends State
   case object RUNNING extends State
 
@@ -303,7 +369,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
     for (item <- items if !data.proofs.contains(item.txHash) && item.height > 0) {
       // We do not have this header because it is older than our checkpoints, so request the entire chunk
       val request = GetHeaders(item.height / RETARGETING_PERIOD * RETARGETING_PERIOD, RETARGETING_PERIOD)
-      val headerOpt = data.blockchain.getHeader(item.height) orElse electrum.params.headerDb.getHeader(item.height)
+      val headerOpt = data.blockchain.getHeader(item.height) orElse electrum.params.dataDb.getHeader(item.height)
       val shouldRequestMerkle = if (headerOpt.nonEmpty) true else if (pendingHeadersRequests1 contains request) false else {
         pendingHeadersRequests1.add(request)
         electrum.sync ! request
@@ -323,7 +389,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
       (electrum.specs.get(ewt.xPub).map(_.data), electrumWalletMessage, state) match {
         case (Some(data), rawPersistentData: ByteVector, DISCONNECTED) if null == data.blockchain =>
           // We perform deserialization here because wallet data may get large and slow down UI thread as time goes by
-          val persisted = Try(persistentDataCodec.decode(rawPersistentData.toBitVector).require.value).getOrElse(electrum.params.emptyPersistentData)
+          val persisted = Try(Electrum.codec.decode(rawPersistentData.toBitVector).require.value).getOrElse(electrum.params.emptyPersistentData)
           val firstAccountKeys = for (idx <- 0 until persisted.accountKeysCount) yield derivePublicKey(ewt.accountMaster, idx)
           val firstChangeKeys = for (idx <- 0 until persisted.changeKeysCount) yield derivePublicKey(ewt.changeMaster, idx)
 
@@ -409,7 +475,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
 
           val data2 = electrum.computeTxDelta(data :: Nil, tx) map { case TransactionDelta(_, received, sent) =>
             val addresses = tx.txOut.filter(data.isMine).map(_.publicKeyScript).flatMap(data.keys.publicScriptMap.get).map(ewt.textAddress).toList
-            context.system.eventStream publish TransactionReceived(tx, data.depth(tx.txid), data.timestamp(tx.txid, electrum.params.headerDb), received, sent, addresses, ewt.xPub :: Nil)
+            context.system.eventStream publish TransactionReceived(tx, data.depth(tx.txid), data.timestamp(tx.txid, electrum.params.dataDb), received, sent, addresses, ewt.xPub :: Nil)
             // Transactions arrive asynchronously, we may have valid txs wihtout parents, if that happens we wait until parents arrive and then retry delta check again
             for (stillPendingTx <- data.pendingTransactions) self ! GetTransactionResponse(stillPendingTx)
             data1.copy(transactions = data.transactions.updated(tx.txid, tx), pendingTransactions = Nil)
@@ -418,7 +484,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
 
         case (Some(data), response: GetMerkleResponse, RUNNING) =>
           val request = GetHeaders(response.blockHeight / RETARGETING_PERIOD * RETARGETING_PERIOD, RETARGETING_PERIOD)
-          data.blockchain.getHeader(response.blockHeight) orElse electrum.params.headerDb.getHeader(response.blockHeight) match {
+          data.blockchain.getHeader(response.blockHeight) orElse electrum.params.dataDb.getHeader(response.blockHeight) match {
             case Some(existingMerkleHeader) if existingMerkleHeader.hashMerkleRoot == response.root && data.isTxKnown(response.txid) =>
               val data1 = data.copy(proofs = data.proofs.updated(response.txid, response), pendingMerkleResponses = data.pendingMerkleResponses - response)
               persistAndNotify(data1.withOverridingTxids)
@@ -443,13 +509,13 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
               sender ! PoisonPill
           }
 
-        case (Some(data), ElectrumChainSync.ChainReorganized, _) =>
+        case (Some(data), ChainReorganized, _) =>
           val cleanPersistentData = PersistentData(accountKeysCount = data.keys.accountKeys.size, changeKeysCount = data.keys.changeKeys.size)
           electrum.params.walletDb.persist(cleanPersistentData, lastBalance = Satoshi(0L), ewt.xPub.publicKey)
 
           val data1 = data.copy(blockchain = null)
           electrum.specs(ewt.xPub) = electrum.specs(ewt.xPub).copy(data = data1)
-          self ! persistentDataCodec.encode(cleanPersistentData).require.toByteVector
+          self ! Electrum.codec.encode(cleanPersistentData).require.toByteVector
           state = DISCONNECTED
 
         case (Some(data), ElectrumClient.ElectrumDisconnected, _) =>
@@ -491,9 +557,9 @@ case class WalletSpec(info: CompleteWalletInfo, data: ElectrumData, walletRef: A
   def spendable: Boolean = info.lastBalance > 0L.sat
 }
 
-case class WalletParameters(headerDb: SQLiteData, walletDb: SQLiteWallet, txDb: SQLiteTx, lockTime: Long, dustLimit: Satoshi = 546L.sat) {
+case class WalletParameters(dataDb: SQLiteData, walletDb: SQLiteWallet, txDb: SQLiteTx, lockTime: Long, dustLimit: Satoshi = 546L.sat) {
   val emptyPersistentData: PersistentData = PersistentData(ElectrumWallet.MAX_UNUSED_ADDRESSES, ElectrumWallet.MAX_UNUSED_ADDRESSES)
-  val emptyPersistentDataBytes: ByteVector = persistentDataCodec.encode(emptyPersistentData).require.toByteVector
+  val emptyPersistentDataBytes: ByteVector = Electrum.codec.encode(emptyPersistentData).require.toByteVector
 }
 
 case class MemoizedKeys(ewt: ElectrumWalletType, accountKeys: Vector[ExtendedPublicKey] = Vector.empty, changeKeys: Vector[ExtendedPublicKey] = Vector.empty) {
@@ -570,9 +636,9 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
 
   def isMine(txOut: TxOut): Boolean = keys.publicScriptMap.contains(txOut.publicKeyScript)
 
-  def timestamp(txid: ByteVector32, headerDb: SQLiteData): Long = {
+  def timestamp(txid: ByteVector32, dataDb: SQLiteData): Long = {
     val blockHeight = proofs.get(txid).map(_.blockHeight).getOrElse(default = 0)
-    val stampOpt = blockchain.getHeader(blockHeight) orElse headerDb.getHeader(blockHeight)
+    val stampOpt = blockchain.getHeader(blockHeight) orElse dataDb.getHeader(blockHeight)
     stampOpt.map(_.time * 1000L).getOrElse(System.currentTimeMillis)
   }
 

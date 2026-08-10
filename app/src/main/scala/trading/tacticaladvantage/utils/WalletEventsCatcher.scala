@@ -2,7 +2,7 @@ package trading.tacticaladvantage.utils
 
 import akka.actor.Actor
 import fr.acinq.bitcoin.ByteVector32
-import fr.acinq.eclair.blockchain.electrum.{Blockchain, ElectrumChainSync}
+import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient._
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet._
 import trading.tacticaladvantage.Tools.none
@@ -13,7 +13,7 @@ object WalletEventsCatcher {
   case class Remove(listener: WalletEventsListener)
 }
 
-class WalletEventsCatcher(netId: Int) extends Actor {
+class WalletEventsCatcher(netId: Int, electrum: Electrum) extends Actor {
   // Not using a set here to ensure insertion order
   var listeners: List[WalletEventsListener] = Nil
 
@@ -23,9 +23,8 @@ class WalletEventsCatcher(netId: Int) extends Actor {
   var transactionReceived: Map[ByteVector32, TransactionReceived] = Map.empty
 
   context.system.eventStream.subscribe(channel = classOf[WalletEvent], subscriber = self)
-  context.system.eventStream.subscribe(channel = classOf[ElectrumEvent], subscriber = self)
-  context.system.eventStream.subscribe(channel = classOf[ElectrumChainSync.ChainSyncing], subscriber = self)
-  context.system.eventStream.subscribe(channel = classOf[ElectrumChainSync.ChainSyncEnded], subscriber = self)
+  context.system.eventStream.subscribe(channel = classOf[ChainSyncEvent], subscriber = self)
+  electrum.pool ! ElectrumClient.AddStatusListener(self)
 
   override def receive: Receive = {
     case listener: WalletEventsListener => listeners = (listeners :+ listener).distinct
@@ -43,9 +42,9 @@ class WalletEventsCatcher(netId: Int) extends Actor {
 
     case ElectrumDisconnected => for (lst <- listeners) lst.onChainDisconnected(netId)
 
-    case event: ElectrumChainSync.ChainSyncing => for (lst <- listeners) lst.onChainSyncing(netId, event.initialLocalTip, event.localTip, event.remoteTip)
+    case event: ChainSyncing => for (lst <- listeners) lst.onChainSyncing(netId, event.initialLocalHeight, event.localHeight, event.remoteHeight)
 
-    case event: ElectrumChainSync.ChainSyncEnded => for (lst <- listeners) lst.onChainSyncEnded(netId, event.localTip)
+    case event: ChainSyncEnded => for (lst <- listeners) lst.onChainSyncEnded(netId, event.blockchain.tip)
   }
 }
 
@@ -60,5 +59,5 @@ class WalletEventsListener {
 
   def onChainSyncing(netId: Int, start: Int, current: Int, max: Int): Unit = none
 
-  def onChainSyncEnded(netId: Int, localTip: Blockchain.BlockIndex): Unit = none
+  def onChainSyncEnded(netId: Int, localIdx: Blockchain.BlockIndex): Unit = none
 }
