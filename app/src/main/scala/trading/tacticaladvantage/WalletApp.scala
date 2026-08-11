@@ -93,16 +93,16 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     }
   }
 
-  def createWallet(ord: Long, master: ExtendedPrivateKey): WalletSpec = {
-    val ewt = ElectrumWalletType.makeSigningType(ElectrumWallet.BIP84, master, electrum.chainHash, ord)
-    val spec = electrum.makeSigningWalletParts(SigningWallet(ElectrumWallet.BIP84), ewt, Satoshi(0L), ticker)
+  def createWallet(master: ExtendedPrivateKey, kind: String): WalletSpec = {
+    val ewt = ElectrumWalletType.makeSigningType(kind, master, electrum.chainHash)
+    val spec = electrum.makeSigningWalletParts(SigningWallet(kind), ewt, lastBalance = Satoshi(0L), ticker)
     walletBag.addWallet(spec.info, electrum.params.emptyPersistentDataBytes, spec.data.keys.ewt.xPub.publicKey)
     spec
   }
 
   def attachWallet(xPriv: ExtendedPrivateKey, kind: String): Unit = {
     val core = SigningWallet(walletType = kind, attachedMaster = xPriv.asSome)
-    val ewt = ElectrumWalletType.makeSigningType(core.walletType, xPriv, electrum.chainHash, 0L)
+    val ewt = ElectrumWalletType.makeSigningType(core.walletType, xPriv, electrum.chainHash)
     if (electrum.specs contains ewt.xPub) return
 
     val spec = electrum.makeSigningWalletParts(core, ewt, lastBalance = Satoshi(0L), label = ticker)
@@ -111,9 +111,10 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
   }
 
   def initWallets(master: ExtendedPrivateKey) = {
-    val attached \ native = walletBag.listWallets.partition(_.core.attachedMaster.isDefined)
-    for (walletInfo \ order <- native.zipWithIndex) initWallet(walletInfo, ord = order, master)
-    for (walletInfo <- attached) initWallet(walletInfo, ord = 0L, walletInfo.core.attachedMaster.get)
+    walletBag.listWallets.foreach {
+      case info if info.core.attachedMaster.isEmpty => initWallet(info, master)
+      case info => initWallet(info, info.core.attachedMaster.get)
+    }
 
     connectionProvider doWhenReady {
       electrum.pool ! ElectrumClientPool.InitConnect
@@ -131,8 +132,8 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     }
   }
 
-  def initWallet(info: CompleteWalletInfo, ord: Long, xPriv: ExtendedPrivateKey): Unit = {
-    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, xPriv, electrum.chainHash, ord)
+  def initWallet(info: CompleteWalletInfo, xPriv: ExtendedPrivateKey): Unit = {
+    val ewt = ElectrumWalletType.makeSigningType(info.core.walletType, xPriv, electrum.chainHash)
     val spec = electrum.makeSigningWalletParts(info.core, ewt, info.lastBalance, info.label)
     electrum.specs.update(ewt.xPub, spec)
     spec.walletRef ! info.initData
@@ -180,7 +181,7 @@ object WalletApp {
   var app: WalletApp = _
 
   def fiatCode: String = app.prefs.getString(FIAT_CODE, "usd")
-  def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, true)
+  def getShowTaCard: Boolean = app.prefs.getBoolean(SHOW_TA_CARD, false)
   def setShowTaCard(show: Boolean) = app.prefs.edit.putBoolean(SHOW_TA_CARD, show).commit
 
   def isAlive: Boolean = null != app && null != btc && null != ecx && btc.isAlive && ecx.isAlive

@@ -294,7 +294,6 @@ object ElectrumWallet {
 
   final val BIP32 = "BIP32"
   final val BIP44 = "BIP44"
-  final val BIP49 = "BIP49"
   final val BIP84 = "BIP84"
 
   final val KEY_REFILL = "key-refill"
@@ -589,7 +588,7 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
                         pendingTransactionRequests: Set[ByteVector32] = Set.empty, pendingHeadersRequests: Set[GetHeaders] = Set.empty, pendingTransactions: List[Transaction] = Nil,
                         pendingMerkleResponses: Set[GetMerkleResponse] = Set.empty, lastReadyMessage: Option[ElectrumWallet.WalletReady] = None) {
 
-  lazy val currentReadyMessage: ElectrumWallet.WalletReady = ElectrumWallet.WalletReady(balance, blockchain.tip.height, proofs.hashCode + transactions.hashCode, keys.ewt.xPub, unExcludedUtxos, excludedOutPoints)
+  lazy val currentReadyMessage: ElectrumWallet.WalletReady = ElectrumWallet.WalletReady(balance, blockchain.height, proofs.hashCode + transactions.hashCode, keys.ewt.xPub, unExcludedUtxos, excludedOutPoints)
 
   lazy val firstUnusedAccountKeys: immutable.Iterable[ExtendedPublicKey] = keys.accountKeyMap.collect {
     case (scriptHash, pubAccountKey) if status(scriptHash) == new String => pubAccountKey
@@ -643,7 +642,7 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
   }
 
   def depth(txid: ByteVector32): Int = proofs.get(txid).map(_.blockHeight).map(computeDepth).getOrElse(0)
-  def computeDepth(txHeight: Int): Int = if (txHeight <= 0L) 0 else blockchain.tip.height - txHeight + 1
+  def computeDepth(txHeight: Int): Int = if (txHeight <= 0L) 0 else blockchain.height - txHeight + 1
 
   def withOverridingTxids: ElectrumData = {
     def changeKeyDepth(tx: Transaction) = if (proofs contains tx.txid) Long.MaxValue else tx.txOut.map(_.publicKeyScript).flatMap(keys.publicScriptChangeMap.get).map(_.path.lastChildNumber).headOption.getOrElse(Long.MinValue)

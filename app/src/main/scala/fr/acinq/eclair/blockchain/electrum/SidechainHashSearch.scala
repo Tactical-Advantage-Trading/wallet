@@ -42,13 +42,13 @@ class SidechainHashSearch(electrum: Electrum) extends FSM[ElectrumWallet.State, 
   }
 
   when(WAITING_TIP) {
-    case Event(ChainSyncEnded(oldHeight, chain), data: Waiting) if chain.tip.height == oldHeight =>
+    case Event(ChainSyncEnded(oldHeight, chain), data: Waiting) if chain.height == oldHeight =>
       data.state.mapValues(_._2).map(HashFound.tupled).foreach(context.system.eventStream.publish)
       stay
 
-    case Event(ChainSyncEnded(oldHeight, chain), data: Waiting) if chain.tip.height > oldHeight =>
-      val data1 = Synching(searchSet, data.state, chain, stopHeight = oldHeight max chain.tip.height - 72)
-      goto(SYNCING) using data1 sending chain.tip.height
+    case Event(ChainSyncEnded(oldHeight, chain), data: Waiting) if chain.height > oldHeight =>
+      val data1 = Synching(searchSet, data.state, chain, stopHeight = oldHeight max chain.height - 72)
+      goto(SYNCING) using data1 sending chain.height
   }
 
   when(SYNCING, stateTimeout = 1.minute) {
@@ -84,7 +84,7 @@ class SidechainHashSearch(electrum: Electrum) extends FSM[ElectrumWallet.State, 
   }
 
   whenUnhandled {
-    case Event(ChainSyncEnded(oldHeight, chain), data: Synching) if chain.tip.height > oldHeight =>
+    case Event(ChainSyncEnded(oldHeight, chain), data: Synching) if chain.height > oldHeight =>
       val oldHeight1 = data.newSyncEnded.map(_.oldLocalHeight).getOrElse(Int.MaxValue).min(oldHeight)
       stay using data.copy(newSyncEnded = ChainSyncEnded(oldHeight1, chain).asSome)
 

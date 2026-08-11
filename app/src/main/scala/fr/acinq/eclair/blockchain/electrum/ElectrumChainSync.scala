@@ -55,7 +55,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       resetAfterReorg
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain)
-      if blockchain.bestchain.nonEmpty && response.height < blockchain.tip.height =>
+      if blockchain.bestchain.nonEmpty && response.height < blockchain.height =>
       goto(DISCONNECTED) replying PoisonPill
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if blockchain.bestchain.isEmpty =>
@@ -65,13 +65,13 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       goto(SYNCING)
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if response.header == blockchain.tip.header =>
-      context.system.eventStream publish ChainSyncEnded(oldLocalHeight = blockchain.tip.height, blockchain)
+      context.system.eventStream publish ChainSyncEnded(oldLocalHeight = blockchain.height, blockchain)
       context.system.eventStream publish blockchain
       goto(RUNNING)
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) =>
-      electrum.pool ! ElectrumClient.GetHeaders(blockchain.tip.height + 1, RETARGETING_PERIOD)
-      initialLocalHeight = blockchain.tip.height
+      electrum.pool ! ElectrumClient.GetHeaders(blockchain.height + 1, RETARGETING_PERIOD)
+      initialLocalHeight = blockchain.height
       reportedHeight = response.height
       goto(SYNCING)
   }
@@ -89,8 +89,8 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
     case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) => try {
       val (blockchain1, chunks) = Blockchain optimize Blockchain.addHeaders(blockchain, start, headers)
       if (chunks.nonEmpty) electrum.params.dataDb.addHeaders(headers = chunks.map(_.header), chunks.head.height)
-      context.system.eventStream publish ChainSyncing(initialLocalHeight, blockchain.tip.height, reportedHeight)
-      electrum.pool ! ElectrumClient.GetHeaders(blockchain1.tip.height + 1, RETARGETING_PERIOD)
+      context.system.eventStream publish ChainSyncing(initialLocalHeight, blockchain.height, reportedHeight)
+      electrum.pool ! ElectrumClient.GetHeaders(blockchain1.height + 1, RETARGETING_PERIOD)
       goto(SYNCING) using blockchain1
     } catch {
       case _: Throwable =>
@@ -113,7 +113,7 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
 
       val (blockchain1, chunks) = Blockchain optimize Blockchain.addHeader(blockchain, height, header)
       if (chunks.nonEmpty) electrum.params.dataDb.addHeaders(chunks.map(_.header), chunks.head.height)
-      context.system.eventStream publish ChainSyncEnded(blockchain.tip.height, blockchain1)
+      context.system.eventStream publish ChainSyncEnded(blockchain.height, blockchain1)
       context.system.eventStream publish blockchain1
       stay using blockchain1
     } catch {

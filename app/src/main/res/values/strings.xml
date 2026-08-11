@@ -23,24 +23,24 @@
     <string name="swap_label"><![CDATA[%1$s &#x2192; %2$s swap]]></string>
 
     <!-- Earn Account -->
-    <string name="ta_earn_label">Earn account</string>
+    <string name="ta_earn_label">Client account</string>
     <string name="ta_client_login">Tap to login</string>
     <string name="ta_login_email">Enter your email</string>
     <string name="ta_login_pass">Paste one-time code</string>
 
-    <string name="ta_login_title_email"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
-    <string name="ta_login_title_pass"><![CDATA[<b>Earn account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
+    <string name="ta_login_title_email"><![CDATA[<b>Client account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
+    <string name="ta_login_title_pass"><![CDATA[<b>Client account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
 
     <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
 
     <string name="ta_loan_duration">Duration</string>
     <string name="ta_loan_annual_return">Annual return</string>
-    <string name="ta_btc_loan_label">Earn account BTC loan</string>
+    <string name="ta_btc_loan_label">Client BTC loan</string>
 
     <string name="ta_withdraw_when">Next withdraw %1$s</string>
     <string name="ta_pending_deposit">Processing a deposit</string>
-    <string name="ta_withdraw_title">Withdraw from Earn account</string>
+    <string name="ta_withdraw_title">Withdraw from Client account</string>
     <string name="ta_withdraw_options">Select available options</string>
     <string name="ta_withdraw">Withdraw</string>
     <string name="ta_support">Support</string>
@@ -72,7 +72,7 @@
 
     <!-- Settings -->
     <string name="settings_show">Show %1$s wallet</string>
-    <string name="settings_show_ta">Show Earn account</string>
+    <string name="settings_show_ta">Show Client account</string>
 
     <string name="settings_attach_wallet">Attach wallet</string>
     <string name="settings_view_recovery_phrase">View recovery phrase</string>

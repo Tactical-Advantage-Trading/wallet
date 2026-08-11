@@ -12,7 +12,8 @@ case class Blockchain(enforceSameBits: Boolean,
                       headersMap: Map[ByteVector32, Blockchain.BlockIndex],
                       bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
 
-  lazy val tip = bestchain.last
+  lazy val tip: Blockchain.BlockIndex = bestchain.last
+  val height: Int = bestchain.lastOption.fold(0)(_.height)
 
   def getHeader(height: Int): Option[BlockHeader] = {
     val isOk = bestchain.nonEmpty && height >= bestchain.head.height && height - bestchain.head.height < bestchain.size
@@ -33,7 +34,6 @@ object Blockchain {
   val MAX_REORG = 72
 
   case class BlockIndex(header: BlockHeader, height: Int, parent: Option[BlockIndex] = None, chainwork: BigInt = 0) {
-    lazy val heightMerkleId = (height, header.hashMerkleRoot)
     lazy val hash = header.hash
   }
 
@@ -127,7 +127,7 @@ object Blockchain {
       case _ if height < blockchain.checkpoints.length * RETARGETING_PERIOD =>
         blockchain
 
-      case _ if height == blockchain.tip.height + 1 =>
+      case _ if height == blockchain.height + 1 =>
         require(headers.head.hashPreviousBlock == blockchain.bestchain.last.hash)
         val cumulative = chainWork(headers.head.bits) + blockchain.bestchain.last.chainwork
         val blockIndex = BlockIndex(headers.head, height, None, cumulative)
@@ -144,7 +144,7 @@ object Blockchain {
   def addHeader(blockchain: Blockchain, height: Int, header: BlockHeader): Blockchain = {
     require(blockchain.bestchain.nonEmpty && header.hashPreviousBlock == blockchain.tip.hash)
     require(BlockHeader checkProofOfWork header)
-    require(height == blockchain.tip.height + 1)
+    require(height == blockchain.height + 1)
 
     if (blockchain.enforceSameBits) {
       val expected = expectedBits(blockchain, height, blockchain.tip)

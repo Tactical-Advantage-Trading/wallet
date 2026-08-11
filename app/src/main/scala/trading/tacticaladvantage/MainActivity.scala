@@ -466,7 +466,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   private var cardsResetSub = Option.empty[Subscription]
 
   private val chainListener = new WalletEventsListener {
-    private def findAndExecute(netId: Int)(fun: CoinWalletCard => Unit) = walletCards.manager.cardViews.collectFirst {
+    private def findAndExecute(netId: Int)(fun: CoinWalletCard => Unit) = walletCards.manager.cardViews.collect {
       case netCardView: CoinWalletCard if netCardView.group.netId == netId => UITask(fun apply netCardView).run
     }
 
@@ -976,14 +976,14 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     def updateView: Unit = {
       val spec = group.electrum.specs(xPub)
       val hasMoney = spec.info.lastBalance.toLong > 0L
-      val attached = spec.info.core.attachedMaster.isDefined
       val bgResource = if (isSelected) group.bgSelectedRes else group.bgRes
-      val label = if (attached) s"<i>${spec.info.core.walletType}</i>" else s"<font color=${group.zeroColor}>${group.coinName}</font>"
+      val nonNative = spec.info.core.attachedMaster.isDefined || spec.info.core.walletType != ElectrumWallet.BIP84
+      val label = if (nonNative) s"<i>${spec.info.core.walletType}</i>" else s"${group.coinName}"
+
+      infoWalletLabel setText s"${group.ticker} <font color=${group.zeroColor}>$label</font> ".html
       balanceWallet setText CoinDenom.parsedTT(spec.info.lastBalance.toMilliSatoshi, mainColor = "#FFFFFF", group.zeroColor).html
       balanceWalletFiat setText WalletApp.currentMsatInFiatHuman(group.fiatRates, spec.info.lastBalance.toMilliSatoshi)
-      infoWalletLabel.setCompoundDrawablesWithIntrinsicBounds(0, 0, if (attached) R.drawable.attachment_24 else 0, 0)
       setVisMany(hasMoney -> balanceContainer, !hasMoney -> imageTip)
-      infoWalletLabel setText s"${group.ticker} $label ".html
       infoContainer setBackgroundResource bgResource
     }
   }
@@ -1211,13 +1211,13 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def attachWallet = showMnemonicInput(action_recovery_phrase_title) { mnemonic =>
-      val attachedKeys = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray)
-      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP84)
-      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP44)
-      WalletApp.btc.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP32)
-      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP84)
-      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP44)
-      WalletApp.ecx.attachWallet(attachedKeys.bitcoinMaster, ElectrumWallet.BIP32)
+      val master = MasterKeys.fromSeed(MnemonicCode.toSeed(mnemonic, new String).toArray).bitcoinMaster
+      Seq(WalletApp.btc -> ElectrumWallet.BIP84, WalletApp.btc -> ElectrumWallet.BIP44, WalletApp.btc -> ElectrumWallet.BIP32,
+        WalletApp.ecx -> ElectrumWallet.BIP84, WalletApp.ecx -> ElectrumWallet.BIP44, WalletApp.ecx -> ElectrumWallet.BIP32
+      ).foreach {
+        case (group, walletType) =>
+          group.attachWallet(master, walletType)
+      }
     }
 
     def makeCards = {
@@ -1234,7 +1234,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       val coinCards = for {
-        group <- List(WalletApp.btc, WalletApp.ecx)
+        group <- List(WalletApp.ecx, WalletApp.btc)
         xPub <- group.electrum.specs.keys.toList
         dest = classOf[QRCoinActivity]
       } yield new CoinWalletCard(xPub, group) {
@@ -1264,14 +1264,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       if (isSettingsOn) {
         val msg = getString(settings_show)
-        val hasNativeBtc = WalletApp.btc.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
+        val hasNativeBtc = WalletApp.btc.electrum.specs.values.exists(spec => spec.info.core.attachedMaster.isEmpty && spec.info.core.walletType == ElectrumWallet.BIP84)
+        val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(spec => spec.info.core.attachedMaster.isEmpty && spec.info.core.walletType == ElectrumWallet.BIP84)
+
         if (!hasNativeBtc) addFlowChip(settingsButtons, msg.format(WalletApp.btc.ticker), R.drawable.border_white) {
-          WalletApp.btc postInitWallet WalletApp.btc.createWallet(ord = 0L, WalletApp.secret.keys.bitcoinMaster)
+          WalletApp.btc postInitWallet WalletApp.btc.createWallet(WalletApp.secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
         }
 
-        val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(_.info.core.attachedMaster.isEmpty)
         if (!hasNativeEcx) addFlowChip(settingsButtons, msg.format(WalletApp.ecx.ticker), R.drawable.border_white) {
-          WalletApp.ecx postInitWallet WalletApp.ecx.createWallet(ord = 0L, WalletApp.secret.keys.bitcoinMaster)
+          WalletApp.ecx postInitWallet WalletApp.ecx.createWallet(WalletApp.secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
         }
 
         if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_white)(showTaCard)

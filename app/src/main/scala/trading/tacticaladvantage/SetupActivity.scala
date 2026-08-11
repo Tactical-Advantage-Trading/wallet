@@ -6,6 +6,7 @@ import android.widget._
 import androidx.appcompat.app.AlertDialog
 import fr.acinq.bitcoin.MnemonicCode
 import Tools._
+import fr.acinq.eclair.blockchain.electrum.ElectrumWallet
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
 
@@ -63,8 +64,10 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   val proceedWithMnemonics: StringList => Unit = mnemonic => {
     val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
     val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
-    WalletApp.btc.createWallet(ord = 0L, secret.keys.bitcoinMaster)
-    WalletApp.ecx.createWallet(ord = 0L, secret.keys.bitcoinMaster)
+    WalletApp.btc.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
+    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
+    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP44)
+    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP32)
     WalletApp.btc.extDataBag.putSecret(secret)
     me exitTo classOf[MainActivity]
   }
