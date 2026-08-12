@@ -61,13 +61,18 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
   lazy val devInfo = me clickableTextField findViewById(R.id.devInfo).asInstanceOf[TextView]
   lazy val fancyAppName = findViewById(R.id.fancyAppName).asInstanceOf[TextView]
 
-  val proceedWithMnemonics: StringList => Unit = mnemonic => {
-    val walletSeed = MnemonicCode.toSeed(mnemonic, passphrase = new String)
-    val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), mnemonic, walletSeed)
+  def proceedWithMnemonics(words: StringList, ecxLegacy: Boolean): Unit = {
+    val walletSeed = MnemonicCode.toSeed(mnemonics = words, passphrase = new String)
+    val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), words, walletSeed)
+
     WalletApp.btc.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
     WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
-    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP44)
-    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP32)
+
+    if (ecxLegacy) {
+      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP44)
+      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP32)
+    }
+
     WalletApp.btc.extDataBag.putSecret(secret)
     me exitTo classOf[MainActivity]
   }
@@ -80,10 +85,12 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
 
   def createNewWallet(view: View): Unit = {
     val twelveWordsEntropy = fr.acinq.eclair.randomBytes(length = 16)
-    val mnemonic = MnemonicCode.toMnemonics(twelveWordsEntropy, englishWordList)
-    proceedWithMnemonics(mnemonic)
+    val words = MnemonicCode.toMnemonics(twelveWordsEntropy, englishWordList)
+    proceedWithMnemonics(words, ecxLegacy = false)
   }
 
   def showMnemonicPopup(view: View): Unit =
-    showMnemonicInput(action_recovery_phrase_title)(proceedWithMnemonics)
+    showMnemonicInput(action_recovery_phrase_title) { words =>
+      proceedWithMnemonics(words, ecxLegacy = true)
+    }
 }
