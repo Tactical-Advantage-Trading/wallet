@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/StandardLinearLayout"
+    android:scrollbars="none">
+
+    <LinearLayout style="@style/StandardLinearLayout">
+
+        <LinearLayout
+            style="@style/FillingView"
+            android:id="@+id/networkAddresses"
+            android:background="@android:color/black"
+            android:orientation="vertical"/>
+
+        <TextView
+            style="@style/XMarginFillingView"
+            android:id="@+id/networkQuestion"
+            android:paddingBottom="15dp"
+            android:paddingTop="15dp"
+            android:textStyle="bold"/>
+
+        <LinearLayout
+            style="@style/FillingView"
+            android:orientation="horizontal">
+
+            <include
+                android:id="@+id/ecxNetworkButton"
+                layout="@layout/frag_network_button"/>
+
+            <include
+                android:id="@+id/btcNetworkButton"
+                layout="@layout/frag_network_button"/>
+
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

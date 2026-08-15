@@ -104,6 +104,17 @@
     <string name="dialog_send_confirm_amount">Send amount</string>
     <string name="dialog_send_confirm_fee">Chain fee</string>
 
+    <string name="network_selector_title">Select network for address</string>
+    <string name="network_selector_question_single">Which network is this from?</string>
+    <string name="network_selector_question_multiple">Which network are these from?</string>
+
+    <array name="network_selector_more">
+        <item>no more</item>
+        <item>%1$s more</item>
+        <item>%1$s more</item>
+        <item>%1$s more</item>
+    </array>
+
     <!-- Errors -->
     <string name="error_no_wallet">Related wallet is not found</string>
     <string name="error_nothing_useful">Nothing useful is found</string>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    card_view:cardCornerRadius="@dimen/corner_radius"
+    android:layout_margin="@dimen/corner_radius"
+    android:layout_height="wrap_content"
+    android:layout_width="0dp"
+    android:layout_weight="1"
+    style="@style/Card">
+
+    <LinearLayout
+        style="@style/FillingView"
+        android:id="@+id/networkButtonBackground"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="15dp">
+
+        <TextView
+            style="@style/Emphasized"
+            android:id="@+id/networkButtonTicker"
+            android:textColor="@android:color/white"
+            android:gravity="center"/>
+
+        <TextView
+            style="@style/BoundedView"
+            android:id="@+id/networkButtonName"
+            android:layout_marginTop="@dimen/corner_radius"
+            android:gravity="center"/>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
