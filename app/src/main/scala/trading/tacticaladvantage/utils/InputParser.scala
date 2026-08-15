@@ -52,7 +52,7 @@ object PlainCoinUri {
 }
 
 case class PlainCoinUri(uri: Try[Uri], address: String) extends CoinUri {
-  def addressGood(electrum: Electrum): Boolean = Try(electrum addressToPubKeyScript address).isSuccess
+  def ok(electrum: Electrum): Boolean = Try(electrum addressToPubKeyScript address).isSuccess
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption
   val desc: CoinDescription = CoinDescription(addresses = List(address), label, networkId = -1)
@@ -64,7 +64,7 @@ object MultiAddressParser extends RegexParsers {
   type AddressToAmountItem = (String, Satoshi)
 
   case class AddressToAmount(values: Seq[AddressToAmountItem] = Nil) {
-    def addressGood(electrum: Electrum): Boolean = values.nonEmpty && values.forall { case (address, amount) =>
+    def ok(electrum: Electrum): Boolean = values.nonEmpty && values.forall { case (address, amount) =>
       amount > electrum.params.dustLimit && Try(electrum addressToPubKeyScript address).isSuccess
     }
   }

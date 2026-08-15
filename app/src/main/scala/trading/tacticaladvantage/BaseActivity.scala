@@ -39,17 +39,28 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 
+
 object BaseActivity {
   implicit class StringOps(source: String) {
     def html: Spanned = android.text.Html.fromHtml(source)
 
-    def short: String = {
-      val len = source.length
+    private def components = {
       val firstFirst = source.slice(0, 4)
       val secondFirst = source.slice(4, 8)
-      val secondLast = source.slice(len - 4, len)
+      val secondLast = source.slice(source.length - 4, source.length)
+      val firstLast = source.slice(source.length - 8, source.length - 4)
       val doubleSmall = "<sup><small><small>&#8230;</small></small></sup>"
+      (firstFirst, secondFirst, firstLast, secondLast, doubleSmall)
+    }
+
+    def short: String = {
+      val (firstFirst, secondFirst, _, secondLast, doubleSmall) = components
       s"<tt>$firstFirst&#160;$secondFirst&#160;$doubleSmall&#160;$secondLast</tt>"
+    }
+
+    def long: String = {
+      val (firstFirst, secondFirst, firstLast, secondLast, doubleSmall) = components
+      s"<tt>$firstFirst&#160;$secondFirst&#160;$doubleSmall&#160;$firstLast&#160;$secondLast</tt>"
     }
   }
 }

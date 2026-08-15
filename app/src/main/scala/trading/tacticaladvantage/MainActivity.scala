@@ -542,12 +542,30 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       case PackageManager.PERMISSION_GRANTED => bringScanner(null)
     }
 
-  override def checkExternalData(whenNone: Runnable): Unit = InputParser.checkAndMaybeErase {
-    case cu: PlainCoinUri if cu.addressGood(WalletApp.btc.electrum) => bringAddressSelector(WalletApp.btc, cu, plainTitle(WalletApp.btc), txToSendProxyNoop).run
-    case cu: PlainCoinUri if cu.addressGood(WalletApp.ecx.electrum) => bringAddressSelector(WalletApp.ecx, cu, plainTitle(WalletApp.ecx), txToSendProxyNoop).run
-    case a2a: MultiAddressParser.AddressToAmount if a2a.addressGood(WalletApp.btc.electrum) => bringMultiAddressSelector(WalletApp.btc, a2a)
-    case a2a: MultiAddressParser.AddressToAmount if a2a.addressGood(WalletApp.ecx.electrum) => bringMultiAddressSelector(WalletApp.ecx, a2a)
-    case _ => whenNone.run
+  override def checkExternalData(whenNone: Runnable): Unit = {
+    def chooseTargetNetwork(addresses: Seq[String] = Nil)(proceed: NetworkWalletGroup => Unit): Unit = {
+      val activeGroups = List(WalletApp.btc, WalletApp.ecx).filter(_.electrum.specs.nonEmpty)
+
+      activeGroups match {
+        case group :: Nil => proceed(group)
+        case Nil => WalletApp.app.quickToast(error_no_wallet)
+        case _ => bringNetworkSelector(addresses)(proceed)
+      }
+    }
+
+    InputParser.checkAndMaybeErase {
+      case a2a: MultiAddressParser.AddressToAmount if a2a.ok(WalletApp.btc.electrum) =>
+        chooseTargetNetwork(a2a.values.firstItems.toList) { group =>
+          bringMultiAddressSend(group, a2a)
+        }
+
+      case cu: PlainCoinUri if cu.ok(WalletApp.btc.electrum) =>
+        chooseTargetNetwork(addresses = cu.address :: Nil) { group =>
+          bringAddressSend(group, cu, plainTitle(group), txToSendProxyNoop).run
+        }
+
+      case _ => whenNone.run
+    }
   }
 
   def isSettingsOn: Boolean = walletCards.settingsContainer.getVisibility == View.VISIBLE
@@ -662,6 +680,52 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     new TitleView(caption)
   }
 
+  def bringNetworkSelector(addresses: Seq[String] = Nil)(proceed: NetworkWalletGroup => Unit): Unit = {
+    val questionRes = if (addresses.size == 1) network_selector_question_single else network_selector_question_multiple
+
+    val body = getLayoutInflater.inflate(R.layout.frag_network_selector, null)
+    val addressList = body.findViewById(R.id.networkAddresses).asInstanceOf[LinearLayout]
+    val question = body.findViewById(R.id.networkQuestion).asInstanceOf[TextView]
+    question setText questionRes
+
+    def addAddress(text: CharSequence): Unit = {
+      val item = new TwoSidedItem(getLayoutInflater.inflate(R.layout.frag_two_sided_item_gen, addressList, false), text, new String)
+      val addressParams = item.firstItem.getLayoutParams.asInstanceOf[RelativeLayout.LayoutParams]
+      addressParams.addRule(RelativeLayout.CENTER_IN_PARENT)
+      item.firstItem.setLayoutParams(addressParams)
+      addressList.addView(item.parent)
+    }
+
+    for (address <- addresses take 3)
+      addAddress(address.long.html)
+
+    if (addresses.size > 3) {
+      val msg = getResources getStringArray R.array.network_selector_more
+      val moreText = WalletApp.app.plurOrZero(msg, addresses.size - 3)
+      addAddress(moreText)
+    }
+
+    val builder = titleBodyAsViewBuilder(getString(network_selector_title).asDefView, body)
+    lazy val alert = mkCheckForm(_ => none, none, builder, -1, dialog_cancel)
+
+    def button(buttonRes: Int, group: NetworkWalletGroup): Unit = {
+      val networkButton = body.findViewById(buttonRes).asInstanceOf[View]
+      val name = networkButton.findViewById(R.id.networkButtonName).asInstanceOf[TextView]
+      networkButton.findViewById(R.id.networkButtonBackground).asInstanceOf[View] setBackgroundResource group.bgRes
+      networkButton.findViewById(R.id.networkButtonTicker).asInstanceOf[TextView] setText group.ticker
+      name setTextColor android.graphics.Color.parseColor(group.zeroColor)
+      name setText group.coinName
+
+      networkButton setOnClickListener onButtonTap {
+        runAnd(alert.dismiss)(proceed apply group)
+      }
+    }
+
+    button(R.id.ecxNetworkButton, WalletApp.ecx)
+    button(R.id.btcNetworkButton, WalletApp.btc)
+    alert
+  }
+
   def loanTitle(loan: LinkClient.LoanAd): TitleView = {
     val durationHuman = WalletApp.app.plurOrZero(daysLeftRes, loan.durationDays.toInt)
     val parentDuration = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
@@ -691,7 +755,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def bringAddressSelector[T <: CoinUri](group: NetworkWalletGroup, cu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
+  def bringAddressSend[T <: CoinUri](group: NetworkWalletGroup, cu: T, makeTitle: T => TitleView, txToSendProxy: TxToSendProxy) = UITask {
     val pubKeyScript = group.electrum.addressToPubKeyScript(cu.address)
 
     new WalletSelector(makeTitle(cu), group) {
@@ -741,7 +805,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  def bringMultiAddressSelector(group: NetworkWalletGroup, a2a: MultiAddressParser.AddressToAmount) = {
+  def bringMultiAddressSend(group: NetworkWalletGroup, a2a: MultiAddressParser.AddressToAmount) = {
     val scriptToAmount = a2a.values.firstItems.map(group.electrum.addressToPubKeyScript).zip(a2a.values.secondItems).toMap
     val titleMsg = getString(dialog_send_many).format(group.ticker)
 
@@ -910,19 +974,18 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       def chosenSpecs: Seq[WalletSpec] = cards.filter(_.isSelected).map(_.xPub).flatMap(group.electrum.specs.get)
 
       lazy val cards =
-        for (spec <- spendable) yield
-          new CoinWalletCard(spec.data.keys.ewt.xPub, group) {
-            setVisMany(false -> cardButtons, false -> infoWalletNotice)
+        for (spec <- spendable) yield new CoinWalletCard(spec.data.keys.ewt.xPub, group) {
+          setVisMany(false -> cardButtons, false -> infoWalletNotice)
 
-            def onTap: Unit = {
-              isSelected = !isSelected
-              val totalCanSend = chosenSpecs.map(_.info.lastBalance).sum.toMilliSatoshi
-              val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
-              if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
-              updatePosButton(alert, isEnabled = chosenSpecs.nonEmpty).run
-              updateView
-            }
+          def onTap: Unit = {
+            isSelected = !isSelected
+            val totalCanSend = chosenSpecs.map(_.info.lastBalance).sum.toMilliSatoshi
+            val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
+            if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(select_wallets)
+            updatePosButton(alert, isEnabled = chosenSpecs.nonEmpty).run
+            updateView
           }
+        }
 
       updatePosButton(alert, isEnabled = false).run
       val chooser = new WalletCardManager(cardsContainer)
@@ -1079,7 +1142,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }
 
       lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_white) {
-        val onOk = bringAddressSelector(WalletApp.btc, _: LinkClient.LoanAd, loanTitle, txSendProxyTa).run
+        val onOk = bringAddressSend(WalletApp.btc, _: LinkClient.LoanAd, loanTitle, txSendProxyTa).run
         new ButtonCall("get-loan-ad", onOk, getLoanAdButton) send LinkClient.GetLoanAd
       }
 

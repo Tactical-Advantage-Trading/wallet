@@ -103,6 +103,17 @@
     <string name="dialog_send_confirm_amount">Сума відправки</string>
     <string name="dialog_send_confirm_fee">Комісія мережі</string>
 
+    <string name="network_selector_title">Оберіть мережу для адреси</string>
+    <string name="network_selector_question_single">З якої мережі ця адреса?</string>
+    <string name="network_selector_question_multiple">З якої мережі ці адреси?</string>
+
+    <array name="network_selector_more">
+        <item>Більше немає</item>
+        <item>Ще %1$s</item>
+        <item>Ще %1$s</item>
+        <item>Ще %1$s</item>
+    </array>
+
     <!-- Errors -->
     <string name="error_no_wallet">Пов’язаний гаманець не знайдено</string>
     <string name="error_nothing_useful">Нічого корисного не знайдено</string>
