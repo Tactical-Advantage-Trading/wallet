@@ -402,7 +402,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           val fee = CoinDenom.parsed(info.feeSat.toMilliSatoshi, cardIn, cardZero)
 
           for (label <- info.description.label) addFlowChip(extraInfo, label, R.drawable.border_white, None)
-          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray)(me browse s"https://mempool.space/tx/${info.identity}")
+          addFlowChip(extraInfo, getString(popup_txid).format(info.identity.short), R.drawable.border_gray)(me browse currentGroup.explorer + info.identity)
           if (!info.isIncoming || isRbfCancel || info.description.cpfpOf.isDefined) addFlowChip(extraInfo, getString(popup_fee).format(fee), R.drawable.border_gray)(none)
 
           if (canRBF) addFlowChip(extraInfo, getString(dialog_boost), R.drawable.border_white)(self boostRBF info)

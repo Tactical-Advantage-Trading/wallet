@@ -28,9 +28,8 @@ import scala.collection.mutable
 import scala.util.Try
 
 
-class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
-                         val coinName: String, val bgRes: Int, val bgSelectedRes: Int,
-                         val qrBgRes: Int, val zeroColor: String, genesis: Block) {
+class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String, val explorer: String, val coinName: String,
+                         val bgRes: Int, val bgSelectedRes: Int, val qrBgRes: Int, val zeroColor: String, genesis: Block) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
@@ -165,13 +164,13 @@ object WalletApp {
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
 
-  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:",
-    coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected,
-    R.drawable.qrbg_btc, zeroColor = "#FBB945", Block.LivenetGenesisBlock)
+  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:", "https://mempool.space/tx/",
+    coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected, R.drawable.qrbg_btc, zeroColor = "#FBB945",
+    Block.LivenetGenesisBlock)
 
-  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:",
-    coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected,
-    R.drawable.qrbg_ecx, zeroColor = "#FA625C", Block.TestnetGenesisBlock)
+  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:", "https://explorer.drynet4.drivechain.dev/tx/",
+    coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected, R.drawable.qrbg_ecx, zeroColor = "#FA625C",
+    Block.LivenetGenesisBlock)
 
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]
