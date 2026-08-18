@@ -1,4 +1,4 @@
-# Key Wallet
+# eWallet
 This is a non-custodial BTC wallet for Android devices. On top of that, it provides means for Tactical Advanage clients to manage their accounts.
 
 # Building from source
