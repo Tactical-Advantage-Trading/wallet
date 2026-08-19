@@ -1,43 +1,14 @@
 {
-    "blackie.c3-soft.com": {
+    "drynet4.drivechain.dev": {
         "pruning": "-",
-        "s": "57006",
-        "t": "57005",
+        "s": "50002",
+        "t": "50001",
         "version": "1.4.5"
     },
-    "blockstream.info": {
+    "tactical-advantage.trading": {
         "pruning": "-",
-        "s": "993",
-        "t": "143",
-        "version": "1.4"
-    },
-    "electrum.blockstream.info": {
-        "pruning": "-",
-        "s": "60002",
-        "t": "60001",
-        "version": "1.4"
-    },
-    "testnet.aranguren.org": {
-        "pruning": "-",
-        "s": "51002",
-        "t": "51001",
-        "version": "1.4.2"
-    },
-    "testnet.hsmiths.com": {
-        "pruning": "-",
-        "s": "53012",
-        "version": "1.4.2"
-    },
-    "testnet.qtornado.com": {
-        "pruning": "-",
-        "s": "51002",
-        "t": "51001",
-        "version": "1.5"
-    },
-    "tn.not.fyi": {
-        "pruning": "-",
-        "s": "55002",
-        "t": "55001",
-        "version": "1.4"
+        "s": "50002",
+        "t": "50001",
+        "version": "1.4.5"
     }
 }
