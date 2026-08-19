@@ -201,7 +201,7 @@ object WalletApp {
     }
 
     btc.makeOperational(app.getAssets.open("btc_servers.json"), app.getAssets.open("btc_checkpoints.json"), strict = true)
-    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = false)
+    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = true)
 
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {

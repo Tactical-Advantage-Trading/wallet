@@ -38,7 +38,7 @@ object Tools {
   }
 
   implicit class ThrowableOps(error: Throwable) {
-    def stackTraceAsString: String = {
+    def stackTraceString: String = {
       val stackTraceWriter = new java.io.StringWriter
       error printStackTrace new java.io.PrintWriter(stackTraceWriter)
       stackTraceWriter.toString

@@ -7,7 +7,7 @@ import android.graphics.{Bitmap, Color}
 import android.net.Uri
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
-import android.text.{Editable, Spanned, TextWatcher}
+import android.text.{Editable, SpannableStringBuilder, Spanned, TextWatcher}
 import android.view.View.OnClickListener
 import android.view.{View, ViewGroup}
 import android.widget._
@@ -28,6 +28,7 @@ import fr.acinq.eclair._
 import fr.acinq.eclair.blockchain.electrum._
 import fr.acinq.eclair.blockchain.fee.{FeeratePerByte, FeeratePerKw}
 import Tools._
+import android.text.style.{ForegroundColorSpan, UnderlineSpan}
 import org.apmem.tools.layouts.FlowLayout
 import trading.tacticaladvantage.BaseActivity.StringOps
 import trading.tacticaladvantage.R.string._
@@ -469,8 +470,24 @@ trait BaseActivity extends AppCompatActivity { me =>
     val rm = new RateManager(editView.rmc, group, WalletApp.fiatCode)
     val canSend = CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
 
+    val maxHint = getString(dialog_up_to).format(canSend).html
     editView.rmc.hintFiatDenom setText getString(dialog_up_to).format(canSendFiat).html
-    editView.rmc.hintDenom setText getString(dialog_up_to).format(canSend).html
+    editView.rmc.hintDenom setText maxHint
+
+    editView.rmc.inputAmount addTextChangedListener onTextChange { input =>
+      val hint = new SpannableStringBuilder(maxHint)
+      val textString = hint.toString
+
+      if (input.nonEmpty) {
+        val dot = textString.indexOf('.')
+        val decimals = input.dropWhile(_ != '.').drop(1).count(_.isDigit)
+        textString.indices.filter(idx => idx > dot && textString(idx).isDigit).lift(decimals).foreach { idx =>
+          hint.setSpan(new UnderlineSpan, idx, idx + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+      }
+
+      editView.rmc.hintDenom setText hint
+    }
   }
 }
 

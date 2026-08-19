@@ -16,7 +16,7 @@ class UncaughtHandler(ctxt: Activity) extends UncaughtExceptionHandler {
     val emergencyActivity = classOf[EmergencyActivity]
     val intent = new Intent(ctxt, emergencyActivity)
 
-    ctxt startActivity intent.putExtra(UncaughtHandler.ERROR_REPORT, exception.stackTraceAsString)
+    ctxt startActivity intent.putExtra(UncaughtHandler.ERROR_REPORT, exception.stackTraceString)
     android.os.Process killProcess android.os.Process.myPid
     System exit 10
   }

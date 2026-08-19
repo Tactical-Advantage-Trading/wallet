@@ -64,39 +64,39 @@ object Blockchain {
   def validateHeadersChunk(blockchain: Blockchain, height: Int, headers: Seq[BlockHeader] = Nil): Unit = {
     if (headers.isEmpty) return
 
-    require(height % RETARGETING_PERIOD == 0)
+    require(height % RETARGETING_PERIOD == 0, "e1")
     val cpindex = (height / RETARGETING_PERIOD) - 1
-    require(BlockHeader checkProofOfWork headers.head)
+    require(BlockHeader checkProofOfWork headers.head, "e2")
 
     headers.tail.foldLeft(headers.head) {
       case (previous, current) =>
-        require(BlockHeader checkProofOfWork current)
-        require(current.hashPreviousBlock == previous.hash)
+        require(BlockHeader checkProofOfWork current, "e3")
+        require(current.hashPreviousBlock == previous.hash, "e4")
         // on mainnet all blocks with a re-targeting window have the same difficulty target
         // on testnet it doesn't hold, there can be a drop in difficulty if there are no blocks for 20 minutes
-        if (blockchain.enforceSameBits) require(current.bits == previous.bits)
+        if (blockchain.enforceSameBits) require(current.bits == previous.bits, "e5")
         current
     }
 
     if (cpindex < blockchain.checkpoints.length) {
       val checkpoint = blockchain.checkpoints(cpindex)
-      require(headers.head.hashPreviousBlock == checkpoint.hash)
-      if (blockchain.enforceSameBits) require(headers.head.bits == checkpoint.nextBits)
+      require(headers.head.hashPreviousBlock == checkpoint.hash, "e6")
+      if (blockchain.enforceSameBits) require(headers.head.bits == checkpoint.nextBits, "e7")
     } else if (blockchain.enforceSameBits) {
       val parent = blockchain.headersMap.getOrElse(headers.head.hashPreviousBlock, throw new IllegalArgumentException)
       val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
-      require(headers.head.bits == expected)
-      require(parent.height == height - 1)
+      require(headers.head.bits == expected, "e8")
+      require(parent.height == height - 1, "e9")
     }
 
     if (cpindex < blockchain.checkpoints.length - 1) {
       val nextCheckpoint = blockchain.checkpoints(cpindex + 1)
-      require(headers.last.hash == nextCheckpoint.hash)
-      require(headers.length == RETARGETING_PERIOD)
+      require(headers.last.hash == nextCheckpoint.hash, "e10")
+      require(headers.length == RETARGETING_PERIOD, "e11")
 
       if (blockchain.enforceSameBits) {
         val diff = BlockHeader.calculateNextWorkRequired(headers.last, headers.head.time)
-        require(diff == nextCheckpoint.nextBits)
+        require(diff == nextCheckpoint.nextBits, "e12")
       }
     }
   }
@@ -128,7 +128,7 @@ object Blockchain {
         blockchain
 
       case _ if height == blockchain.height + 1 =>
-        require(headers.head.hashPreviousBlock == blockchain.bestchain.last.hash)
+        require(headers.head.hashPreviousBlock == blockchain.bestchain.last.hash, "e13")
         val cumulative = chainWork(headers.head.bits) + blockchain.bestchain.last.chainwork
         val blockIndex = BlockIndex(headers.head, height, None, cumulative)
 
@@ -142,13 +142,13 @@ object Blockchain {
   }
 
   def addHeader(blockchain: Blockchain, height: Int, header: BlockHeader): Blockchain = {
-    require(blockchain.bestchain.nonEmpty && header.hashPreviousBlock == blockchain.tip.hash)
-    require(BlockHeader checkProofOfWork header)
-    require(height == blockchain.height + 1)
+    require(blockchain.bestchain.nonEmpty && header.hashPreviousBlock == blockchain.tip.hash, "e14")
+    require(BlockHeader checkProofOfWork header, "e15")
+    require(height == blockchain.height + 1, "e16")
 
     if (blockchain.enforceSameBits) {
       val expected = expectedBits(blockchain, height, blockchain.tip)
-      require(expected.getOrElse(throw new IllegalArgumentException) == header.bits)
+      require(expected.getOrElse(throw new IllegalArgumentException) == header.bits, "e17")
     }
 
     val blockIndex = BlockIndex(header = header, height = height, parent = Some(blockchain.tip), chainwork = chainWork(header.bits) + blockchain.tip.chainwork)

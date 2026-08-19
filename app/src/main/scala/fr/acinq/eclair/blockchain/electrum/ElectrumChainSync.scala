@@ -1,10 +1,9 @@
 package fr.acinq.eclair.blockchain.electrum
 
-import akka.actor.{FSM, PoisonPill}
-import fr.acinq.bitcoin.BlockHeader
 import fr.acinq.eclair.blockchain.electrum.Blockchain.RETARGETING_PERIOD
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient.GetHeaders
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{DISCONNECTED, RUNNING, SYNCING, WAITING_TIP}
+import trading.tacticaladvantage.Tools.ThrowableOps
 import java.io.InputStream
 import scala.util.Try
 
@@ -14,7 +13,7 @@ case class ChainSyncing(initialLocalHeight: Int, localHeight: Int, remoteHeight:
 case class ChainSyncEnded(oldLocalHeight: Int, blockchain: Blockchain) extends ChainSyncEvent
 case object ChainReorganized extends ChainSyncEvent
 
-class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean) extends FSM[ElectrumWallet.State, Blockchain] {
+class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean) extends akka.actor.FSM[ElectrumWallet.State, Blockchain] {
   def freshChain: Blockchain = Blockchain(enforceSameBits = strict, checkpoints = bundled, headersMap = Map.empty)
   lazy val bundled: Vector[CheckPoint] = CheckPoint.load(stream)
 
@@ -24,9 +23,10 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       electrum.params.txDb.cleanUp
     }
 
+    log.info("[KILLPEER] reorg")
     context.system.eventStream publish ChainReorganized
     electrum.specs.values.foreach(_.walletRef ! ChainReorganized)
-    goto(DISCONNECTED) using freshChain replying PoisonPill
+    goto(DISCONNECTED) using freshChain replying akka.actor.PoisonPill
   }
 
   var reportedHeight = 0
@@ -56,7 +56,8 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain)
       if blockchain.bestchain.nonEmpty && response.height < blockchain.height =>
-      goto(DISCONNECTED) replying PoisonPill
+      log.info(s"[KILLPEER] stale remote=${response.height}, local=${blockchain.height}")
+      goto(DISCONNECTED) replying akka.actor.PoisonPill
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if blockchain.bestchain.isEmpty =>
       electrum.pool ! ElectrumClient.GetHeaders(blockchain.checkpoints.size * RETARGETING_PERIOD, RETARGETING_PERIOD)
@@ -93,8 +94,9 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       electrum.pool ! ElectrumClient.GetHeaders(blockchain1.height + 1, RETARGETING_PERIOD)
       goto(SYNCING) using blockchain1
     } catch {
-      case _: Throwable =>
-        goto(DISCONNECTED) replying PoisonPill
+      case err: Throwable =>
+        log.info(s"[KILLPEER] e1 ${err.stackTraceString}")
+        goto(DISCONNECTED) replying akka.actor.PoisonPill
     }
 
     case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), _) =>
@@ -110,15 +112,15 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
     case Event(ElectrumClient.HeaderSubscriptionResponse(height, header), blockchain) if blockchain.tip.header != header => try {
       val difficultyOk = Blockchain.getDifficulty(blockchain, height, electrum.params.dataDb).forall(header.bits.==)
       if (!difficultyOk) throw new RuntimeException(f"Wrong difficulty, height=$height, header=$header")
-
       val (blockchain1, chunks) = Blockchain optimize Blockchain.addHeader(blockchain, height, header)
       if (chunks.nonEmpty) electrum.params.dataDb.addHeaders(chunks.map(_.header), chunks.head.height)
       context.system.eventStream publish ChainSyncEnded(blockchain.height, blockchain1)
       context.system.eventStream publish blockchain1
       stay using blockchain1
     } catch {
-      case _: Throwable =>
-        stay replying PoisonPill
+      case err: Throwable =>
+        log.info(s"[KILLPEER] e2 ${err.stackTraceString}")
+        stay replying akka.actor.PoisonPill
     }
 
     case Event(ElectrumClient.GetHeadersResponse(start, headers, _), blockchain) => try {
@@ -127,8 +129,9 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean
       context.system.eventStream publish blockchain1
       stay using blockchain1
     } catch {
-      case _: Throwable =>
-        stay replying PoisonPill
+      case err: Throwable =>
+        log.info(s"[KILLPEER] e3 ${err.stackTraceString}")
+        stay replying akka.actor.PoisonPill
     }
 
     case Event(ElectrumWallet.ChainFor(target), blockchain) =>

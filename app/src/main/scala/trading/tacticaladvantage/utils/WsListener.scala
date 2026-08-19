@@ -26,7 +26,7 @@ class WsListener[T, V](host: StateMachine[T], parse: String => Try[V], errorFun:
 
   override def onTextMessage(ws: WebSocket, text: String): Unit =
     parse(text).map(host ! _).recover { case exception =>
-      errorFun(exception.stackTraceAsString)
+      errorFun(exception.stackTraceString)
       ws.disconnect
     }
 }
