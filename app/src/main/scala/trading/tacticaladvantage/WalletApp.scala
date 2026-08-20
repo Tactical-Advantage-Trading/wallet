@@ -29,7 +29,8 @@ import scala.util.Try
 
 
 class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String, val explorer: String, val coinName: String,
-                         val bgRes: Int, val bgSelectedRes: Int, val qrBgRes: Int, val zeroColor: String, genesis: Block) {
+                         val bgRes: Int, val bgSelectedRes: Int, val qrBgRes: Int, val zeroColor: String, genesis: Block,
+                         serversJson: String, checkptsJson: String, strict: Boolean) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
@@ -67,7 +68,9 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     electrum = new Electrum(params, genesis.hash, ticker)
   }
 
-  def makeOperational(servers: InputStream, checkpts: InputStream, strict: Boolean): Unit = {
+  def makeOperational(app: WalletApp): Unit = {
+    val servers = app.getAssets.open(serversJson)
+    val checkpts = app.getAssets.open(checkptsJson)
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
     electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId, electrum), "catcher")
     electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, strict), "sync")
@@ -166,11 +169,11 @@ object WalletApp {
 
   val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:", "https://mempool.space/tx/",
     coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected, R.drawable.qrbg_btc, zeroColor = "#FBB945",
-    Block.LivenetGenesisBlock)
+    Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", strict = true)
 
   val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:", "https://explorer.drynet4.drivechain.dev/tx/",
     coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected, R.drawable.qrbg_ecx, zeroColor = "#FA625C",
-    Block.LivenetGenesisBlock)
+    Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", strict = true)
 
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]
@@ -200,8 +203,8 @@ object WalletApp {
       ecx.fiatRates = new EcxFiatRates(ecx.extDataBag)
     }
 
-    btc.makeOperational(app.getAssets.open("btc_servers.json"), app.getAssets.open("btc_checkpoints.json"), strict = true)
-    ecx.makeOperational(app.getAssets.open("ecx_servers.json"), app.getAssets.open("ecx_checkpoints.json"), strict = true)
+    btc.makeOperational(app)
+    ecx.makeOperational(app)
 
     linkClient ! new LinkClient.Listener(LinkClient.USER_UPDATE) {
       override def onConnected(stateData: LinkClient.TaLinkState): Unit = stateData match {
