@@ -1328,15 +1328,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       if (isSettingsOn) {
         val msg = getString(settings_show)
         val hasNativeBtc = WalletApp.btc.electrum.specs.values.exists(spec => spec.info.core.attachedMaster.isEmpty && spec.info.core.walletType == ElectrumWallet.BIP84)
-        val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(spec => spec.info.core.attachedMaster.isEmpty && spec.info.core.walletType == ElectrumWallet.BIP84)
+//        val hasNativeEcx = WalletApp.ecx.electrum.specs.values.exists(spec => spec.info.core.attachedMaster.isEmpty && spec.info.core.walletType == ElectrumWallet.BIP84)
 
         if (!hasNativeBtc) addFlowChip(settingsButtons, msg.format(WalletApp.btc.ticker), R.drawable.border_white) {
           WalletApp.btc postInitWallet WalletApp.btc.createWallet(WalletApp.secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
         }
 
-        if (!hasNativeEcx) addFlowChip(settingsButtons, msg.format(WalletApp.ecx.ticker), R.drawable.border_white) {
-          WalletApp.ecx postInitWallet WalletApp.ecx.createWallet(WalletApp.secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
-        }
+//        if (!hasNativeEcx) addFlowChip(settingsButtons, msg.format(WalletApp.ecx.ticker), R.drawable.border_white) {
+//          WalletApp.ecx postInitWallet WalletApp.ecx.createWallet(WalletApp.secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
+//        }
 
         if (!WalletApp.getShowTaCard) addFlowChip(settingsButtons, getString(settings_show_ta), R.drawable.border_white)(showTaCard)
         addFlowChip(settingsButtons, getString(settings_view_recovery_phrase), R.drawable.border_white)(viewRecoveryCode)

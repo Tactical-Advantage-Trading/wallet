@@ -66,12 +66,12 @@ class SetupActivity extends BaseActivity with MnemonicActivity { me =>
     val secret = WalletSecret(MasterKeys.fromSeed(walletSeed.toArray), words, walletSeed)
 
     WalletApp.btc.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
-    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
-
-    if (ecxLegacy) {
-      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP44)
-      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP32)
-    }
+//    WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP84)
+//
+//    if (ecxLegacy) {
+//      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP44)
+//      WalletApp.ecx.createWallet(secret.keys.bitcoinMaster, ElectrumWallet.BIP32)
+//    }
 
     WalletApp.btc.extDataBag.putSecret(secret)
     me exitTo classOf[MainActivity]
