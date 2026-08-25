@@ -30,7 +30,7 @@ import scala.util.Try
 
 class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String, val explorer: String, val coinName: String,
                          val bgRes: Int, val bgSelectedRes: Int, val qrBgRes: Int, val zeroColor: String, genesis: Block,
-                         serversJson: String, checkptsJson: String, strict: Boolean) {
+                         serversJson: String, checkptsJson: String, val enforceSameBitsAfterHeight: Int) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
@@ -73,7 +73,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     val checkpts = app.getAssets.open(checkptsJson)
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
     electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId, electrum), "catcher")
-    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, strict), "sync")
+    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, enforceSameBitsAfterHeight), "sync")
 
     electrum.catcher ! new WalletEventsListener {
       override def onTransactionReceived(netId: Int, event: TransactionReceived): Unit = {
@@ -169,11 +169,11 @@ object WalletApp {
 
   val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:", "https://mempool.space/tx/",
     coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected, R.drawable.qrbg_btc, zeroColor = "#FBB945",
-    Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", strict = true)
+    Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", enforceSameBitsAfterHeight = 0)
 
   val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:", "https://explorer.drynet4.drivechain.dev/tx/",
     coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected, R.drawable.qrbg_ecx, zeroColor = "#FA625C",
-    Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", strict = true)
+    Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", enforceSameBitsAfterHeight = 963648)
 
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]

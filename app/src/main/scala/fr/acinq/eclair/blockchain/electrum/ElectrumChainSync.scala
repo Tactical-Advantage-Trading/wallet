@@ -13,8 +13,8 @@ case class ChainSyncing(initialLocalHeight: Int, localHeight: Int, remoteHeight:
 case class ChainSyncEnded(oldLocalHeight: Int, blockchain: Blockchain) extends ChainSyncEvent
 case object ChainReorganized extends ChainSyncEvent
 
-class ElectrumChainSync(electrum: Electrum, stream: InputStream, strict: Boolean) extends akka.actor.FSM[ElectrumWallet.State, Blockchain] {
-  def freshChain: Blockchain = Blockchain(enforceSameBits = strict, checkpoints = bundled, headersMap = Map.empty)
+class ElectrumChainSync(electrum: Electrum, stream: InputStream, enforceSameBitsAfterHeight: Int) extends akka.actor.FSM[ElectrumWallet.State, Blockchain] {
+  def freshChain: Blockchain = Blockchain(enforceSameBitsAfterHeight, checkpoints = bundled, headersMap = Map.empty)
   lazy val bundled: Vector[CheckPoint] = CheckPoint.load(stream)
 
   def resetAfterReorg = {

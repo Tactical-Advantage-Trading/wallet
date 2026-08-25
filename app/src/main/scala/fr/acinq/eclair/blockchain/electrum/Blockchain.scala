@@ -7,7 +7,7 @@ import java.math.BigInteger
 import scala.annotation.tailrec
 
 
-case class Blockchain(enforceSameBits: Boolean,
+case class Blockchain(enforceSameBitsAfterHeight: Int,
                       checkpoints: Vector[CheckPoint],
                       headersMap: Map[ByteVector32, Blockchain.BlockIndex],
                       bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
@@ -74,15 +74,16 @@ object Blockchain {
         require(current.hashPreviousBlock == previous.hash, "e4")
         // on mainnet all blocks with a re-targeting window have the same difficulty target
         // on testnet it doesn't hold, there can be a drop in difficulty if there are no blocks for 20 minutes
-        if (blockchain.enforceSameBits) require(current.bits == previous.bits, "e5")
+        if (blockchain.enforceSameBitsAfterHeight < height) require(current.bits == previous.bits, "e5")
         current
     }
 
     if (cpindex < blockchain.checkpoints.length) {
       val checkpoint = blockchain.checkpoints(cpindex)
       require(headers.head.hashPreviousBlock == checkpoint.hash, "e6")
-      if (blockchain.enforceSameBits) require(headers.head.bits == checkpoint.nextBits, "e7")
-    } else if (blockchain.enforceSameBits) {
+      if (blockchain.enforceSameBitsAfterHeight < height)
+        require(headers.head.bits == checkpoint.nextBits, "e7")
+    } else if (blockchain.enforceSameBitsAfterHeight < height) {
       val parent = blockchain.headersMap.getOrElse(headers.head.hashPreviousBlock, throw new IllegalArgumentException)
       val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
       require(headers.head.bits == expected, "e8")
@@ -94,7 +95,7 @@ object Blockchain {
       require(headers.last.hash == nextCheckpoint.hash, "e10")
       require(headers.length == RETARGETING_PERIOD, "e11")
 
-      if (blockchain.enforceSameBits) {
+      if (blockchain.enforceSameBitsAfterHeight < height) {
         val diff = BlockHeader.calculateNextWorkRequired(headers.last, headers.head.time)
         require(diff == nextCheckpoint.nextBits, "e12")
       }
@@ -146,7 +147,7 @@ object Blockchain {
     require(BlockHeader checkProofOfWork header, "e15")
     require(height == blockchain.height + 1, "e16")
 
-    if (blockchain.enforceSameBits) {
+    if (blockchain.enforceSameBitsAfterHeight < height) {
       val expected = expectedBits(blockchain, height, blockchain.tip)
       require(expected.getOrElse(throw new IllegalArgumentException) == header.bits, "e17")
     }
@@ -185,7 +186,7 @@ object Blockchain {
     }
 
   def getDifficulty(blockchain: Blockchain, height: Int, dataDb: SQLiteData): Option[Long] =
-    if (!blockchain.enforceSameBits) None
+    if (blockchain.enforceSameBitsAfterHeight >= height) None
     else if (height % RETARGETING_PERIOD == 0) {
       for {
         parent <- blockchain.getHeader(height - 1) orElse dataDb.getHeader(height - 1)

@@ -393,7 +393,7 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           val firstChangeKeys = for (idx <- 0 until persisted.changeKeysCount) yield derivePublicKey(ewt.changeMaster, idx)
 
           // We start with dummy blockchain, it will be replaced with a real one later
-          val data1 = ElectrumData(Blockchain(enforceSameBits = false, checkpoints = Vector.empty, headersMap = Map.empty),
+          val data1 = ElectrumData(Blockchain(enforceSameBitsAfterHeight = 0, checkpoints = Vector.empty, headersMap = Map.empty),
             MemoizedKeys(ewt, firstAccountKeys.toVector, firstChangeKeys.toVector), persisted.excludedOutPoints, persisted.status.withDefaultValue(new String),
             persisted.transactions, persisted.overriddenPendingTxids, persisted.history, persisted.proofs, pendingHistoryRequests = Set.empty,
             pendingHeadersRequests = Set.empty, pendingTransactionRequests = Set.empty, pendingTransactions = persisted.pendingTransactions)
