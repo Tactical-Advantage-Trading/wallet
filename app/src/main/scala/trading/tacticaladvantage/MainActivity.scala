@@ -928,8 +928,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   def paymentAdapterDataChanged: TimerTask = UITask {
-    val expandVisible = btcInfosToConsider.size + ecxInfosToConsider.size > DEFAULT_SHOW_ITEMS
-    setVisMany(expandVisible -> expandContainer, allInfos.nonEmpty -> walletCards.recentActivity)
+    val identities = (btcInfosToConsider ++ ecxInfosToConsider).map(info => info.description.semanticOrder.map(_.id) getOrElse info.identity)
+    setVisMany(identities.toSet.size > DEFAULT_SHOW_ITEMS -> expandContainer, allInfos.nonEmpty -> walletCards.recentActivity)
     paymentsAdapter.notifyDataSetChanged
   }
 
