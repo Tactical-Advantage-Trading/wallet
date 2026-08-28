@@ -25,11 +25,25 @@
 
             <include
                 android:id="@+id/ecxNetworkButton"
-                layout="@layout/frag_network_button"/>
+                layout="@layout/frag_network_button"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginTop="3dp"
+                android:layout_marginEnd="3dp"
+                android:layout_width="0dp"
+                android:layout_weight="1"/>
 
             <include
                 android:id="@+id/btcNetworkButton"
-                layout="@layout/frag_network_button"/>
+                layout="@layout/frag_network_button"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:layout_marginStart="3dp"
+                android:layout_marginTop="3dp"
+                android:layout_marginEnd="6dp"
+                android:layout_width="0dp"
+                android:layout_weight="1"/>
 
         </LinearLayout>
     </LinearLayout>
