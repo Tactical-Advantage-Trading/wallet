@@ -560,9 +560,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         }
 
       case cu: PlainCoinUri if cu.ok(WalletApp.btc.electrum) =>
-        chooseTargetNetwork(addresses = cu.address :: Nil) { group =>
-          bringAddressSend(group, cu, plainTitle(group), txToSendProxyNoop).run
-        }
+        if (cu.prefix.toLowerCase == WalletApp.btc.prefix) bringAddressSend(WalletApp.btc, cu, plainTitle(WalletApp.btc), txToSendProxyNoop).run
+        else if (cu.prefix.toLowerCase == WalletApp.ecx.prefix) bringAddressSend(WalletApp.ecx, cu, plainTitle(WalletApp.ecx), txToSendProxyNoop).run
+        else chooseTargetNetwork(addresses = cu.address :: Nil) { group => bringAddressSend(group, cu, plainTitle(group), txToSendProxyNoop).run }
 
       case _ => whenNone.run
     }

@@ -22,17 +22,17 @@ object InputParser {
     case _ => value = null // Erase recorded value
   }
 
-  def removePrefix(raw: String): String =
+  def separatePrefix(raw: String): (String, String) =
     raw.split(':').toList match {
-      case noPrefixData :: Nil => noPrefixData
-      case _ :: data => data.mkString.replace("//", "")
-      case Nil => raw
+      case noPrefixData :: Nil => "dummy" -> noPrefixData
+      case prefix :: data => prefix -> data.mkString.replace("//", "")
+      case Nil => "dummy" -> raw
     }
 
   def parse(raw: String): Any = {
-    val withoutSlashes = removePrefix(raw take 2880).trim
+    val (prefix, body) = separatePrefix(raw.take(2880).trim)
     val addressToAmount = MultiAddressParser.parseAll(MultiAddressParser.parse, raw)
-    addressToAmount getOrElse PlainCoinUri.fromRaw(s"dummy:$withoutSlashes")
+    addressToAmount getOrElse PlainCoinUri.fromRaw(s"$prefix:$body")
   }
 }
 
@@ -45,13 +45,13 @@ trait CoinUri {
 
 object PlainCoinUri {
   def fromRaw(raw: String): PlainCoinUri = {
-    val dataWithoutPrefix = InputParser.removePrefix(raw)
-    val uri = Uri.parse(s"dummy://$dataWithoutPrefix")
-    PlainCoinUri(Success(uri), uri.getHost)
+    val (prefix, body) = InputParser.separatePrefix(raw)
+    val uri = Success(Uri parse s"$prefix://$body")
+    PlainCoinUri(uri, prefix, uri.value.getHost)
   }
 }
 
-case class PlainCoinUri(uri: Try[Uri], address: String) extends CoinUri {
+case class PlainCoinUri(uri: Try[Uri], prefix: String, address: String) extends CoinUri {
   def ok(electrum: Electrum): Boolean = Try(electrum addressToPubKeyScript address).isSuccess
   val label: Option[String] = uri.map(_ getQueryParameter "label").map(trimmed).filter(_.nonEmpty).toOption
   val amount: Option[MilliSatoshi] = uri.map(_ getQueryParameter "amount").map(BigDecimal.apply).map(Denomination.btcBigDecimal2MSat).toOption

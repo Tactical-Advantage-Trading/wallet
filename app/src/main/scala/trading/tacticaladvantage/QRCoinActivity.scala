@@ -37,7 +37,7 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
 
     private def updateView(cu: PlainCoinUri, holder: QRViewHolder): Unit = cu.uri foreach { uri =>
       val humanAmountOpt = for (requestedAmount <- cu.amount) yield CoinDenom.parsedTT(requestedAmount, cardIn, cardZero)
-      val contentToShare = if (cu.amount.isDefined || cu.label.isDefined) group.prefix + InputParser.removePrefix(uri.toString) else cu.address
+      val contentToShare = InputParser.separatePrefix(uri.toString) match { case (_, body) => s"${group.prefix}:$body" }
 
       val visibleText = (cu.label, humanAmountOpt) match {
         case Some(label) \ Some(amount) => s"${cu.address.short}<br><br>$label<br><br>$amount"
@@ -79,8 +79,8 @@ class QRCoinActivity extends QRActivity with ExternalDataChecker { me =>
       } else uriBuilder
 
       addresses = addresses map {
-        case oldUri if oldUri.address == bu.uri.get.getHost => PlainCoinUri(Success(uriBuilder1.build), oldUri.address)
-        case oldUri => PlainCoinUri(oldUri.uri.map(_.buildUpon.clearQuery.build), oldUri.address)
+        case oldUri if oldUri.address == bu.uri.get.getHost => PlainCoinUri(Success(uriBuilder1.build), group.prefix, oldUri.address)
+        case oldUri => PlainCoinUri(oldUri.uri.map(_.buildUpon.clearQuery.build), group.prefix, oldUri.address)
       }
 
       adapter.notifyDataSetChanged

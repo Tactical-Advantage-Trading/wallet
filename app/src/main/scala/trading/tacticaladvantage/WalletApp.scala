@@ -167,11 +167,11 @@ object WalletApp {
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
 
-  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin:", "https://mempool.space/tx/",
+  val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin", "https://mempool.space/tx/",
     coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected, R.drawable.qrbg_btc, zeroColor = "#FBB945",
     Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", enforceSameBitsAfterHeight = 0)
 
-  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash:", "https://explorer.drynet4.drivechain.dev/tx/",
+  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash", "https://explorer.drynet4.drivechain.dev/tx/",
     coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected, R.drawable.qrbg_ecx, zeroColor = "#FA625C",
     Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", enforceSameBitsAfterHeight = 963648)
 
