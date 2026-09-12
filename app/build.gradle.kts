@@ -4,7 +4,6 @@ plugins {
 }
 
 scala.scalaVersion = "2.11.12"
-configurations["androidTestReleaseImplementation"].dependencies.clear()
 
 android {
     namespace = "trading.tacticaladvantage"

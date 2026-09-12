@@ -31,9 +31,7 @@
     <string name="ta_login_title_email"><![CDATA[<b>Client account</b> login<br>at tactical-advantage.trading<br><i>Step 1 of 2: provide your email</i>]]></string>
     <string name="ta_login_title_pass"><![CDATA[<b>Client account</b> login<br>at tactical-advantage.trading<br><i>Step 2 of 2: we mailed you a code</i>]]></string>
 
-    <string name="ta_balances">Balances</string>
     <string name="ta_loans">Active loans</string>
-
     <string name="ta_loan_duration">Duration</string>
     <string name="ta_loan_annual_return">Annual return</string>
     <string name="ta_btc_loan_label">Client BTC loan</string>

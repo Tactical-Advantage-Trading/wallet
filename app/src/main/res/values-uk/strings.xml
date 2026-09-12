@@ -30,9 +30,7 @@
     <string name="ta_login_title_email"><![CDATA[<b>Вхід до Earn акаунту</b><br>на tactical-advantage.trading<br><i>Крок 1 із 2: вкажіть email</i>]]></string>
     <string name="ta_login_title_pass"><![CDATA[<b>Вхід до Earn акаунту</b><br>на tactical-advantage.trading<br><i>Крок 2 із 2: ми надіслали код</i>]]></string>
 
-    <string name="ta_balances">Баланс</string>
     <string name="ta_loans">Активні позики</string>
-
     <string name="ta_loan_duration">Тривалість</string>
     <string name="ta_loan_annual_return">Річна дохідність</string>
     <string name="ta_btc_loan_label">BTC позика в Earn акаунті</string>

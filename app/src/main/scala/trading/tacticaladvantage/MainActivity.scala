@@ -21,7 +21,7 @@ import org.apmem.tools.layouts.FlowLayout
 import rx.lang.scala.Subscription
 import spray.json._
 import trading.tacticaladvantage.BaseActivity.StringOps
-import trading.tacticaladvantage.LinkClient.WithdrawSource
+import trading.tacticaladvantage.LinkClient.{BTC, USDT, WithdrawSource}
 import trading.tacticaladvantage.MainActivity._
 import trading.tacticaladvantage.R.string._
 import trading.tacticaladvantage.Tools._
@@ -138,7 +138,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       WalletApp.linkClient ! cmd
     }
 
-    val intent = LinkClient.DepositIntent(response.tx.txid.toHex)
+    val intent = LinkClient.DepositIntent(BTC, response.tx.txid.toHex)
     WalletApp.linkClient ! LinkClient.Request(intent, listener.id)
     WalletApp.linkClient ! listener
   }
@@ -961,10 +961,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val usable = group.electrum.specs.values.filter(_.usable).toList
     def onOk(specs: List[WalletSpec] = Nil): Unit
 
-    if (group.electrum.specs.isEmpty) {
-      WalletApp.app.quickToast(error_no_wallet)
-    } else if (spendable.size == 1) onOk(spendable)
-    else if (usable.size == 1) onOk(usable)
+    if (group.electrum.specs.isEmpty) WalletApp.app.quickToast(error_no_wallet)
+    else if (spendable.size == 1) onOk(specs = spendable)
+    else if (usable.size == 1) onOk(specs = usable)
     else {
       val info = addFlowChip(title.flow, getString(select_wallets), R.drawable.border_white, None)
       val cardsContainer = getLayoutInflater.inflate(R.layout.frag_linear_layout, null).asInstanceOf[LinearLayout]
@@ -1052,27 +1051,34 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   abstract class TaWalletCard(parent: WalletCardsViewHolder) extends WalletCard {
-    val earnAccount = new ExpandedEarnAccount
-    cardView.addView(earnAccount.wrap, 0)
+    val usdtClientAccount = new ExpandedEarnAccount(TokenDenom, R.drawable.ic_logo_tether_24)
+    val btcClientAccount = new ExpandedEarnAccount(CoinDenom, R.drawable.ic_logo_bitcoin_24)
+    cardView.addView(usdtClientAccount.wrap, 0)
+    cardView.addView(btcClientAccount.wrap, 1)
     infoWalletLabel setText ta_earn_label
 
     def updateView: Unit =
       WalletApp.linkClient.data match {
         case status: LinkClient.UserStatus =>
           imageTip.setImageResource(R.drawable.info_24)
-          earnAccount.updateStatus(status, infoWalletNotice)(_ setText status.email)
-          balanceWalletFiat setText WalletApp.app.plurOrZero(daysLeftRes, status.minLoanDaysLeft)
-          balanceWallet setText WalletApp.app.plurOrZero(activeLoansRes, status.activeLoans.size)
-          setVisMany(parent.isEarnAccountExpanded -> earnAccount.wrap, !parent.isEarnAccountExpanded -> infoContainer)
-          setVisMany(status.activeLoans.nonEmpty -> balanceContainer, status.activeLoans.isEmpty -> imageTip)
-          earnAccount.updateView(status)
+          val allLoanExps = status.assets.flatMap(_.activeLoans).map(_.daysLeft)
+          balanceWallet setText WalletApp.app.plurOrZero(number = allLoanExps.size, opts = activeLoansRes)
+          balanceWalletFiat setText WalletApp.app.plurOrZero(number = minOptionByValue(allLoanExps)(identity, 0), opts = daysLeftRes)
+          for (assetStat <- status.assets if assetStat.asset == USDT) usdtClientAccount.updateStatus(assetStat, infoWalletNotice)
+          for (assetStat <- status.assets if assetStat.asset == BTC) btcClientAccount.updateStatus(assetStat, infoWalletNotice)
+          setVisMany(allLoanExps.nonEmpty -> balanceContainer, allLoanExps.isEmpty -> imageTip)
+          setVis(isVisible = parent.isEarnAccountExpanded, usdtClientAccount.wrap)
+          setVis(isVisible = parent.isEarnAccountExpanded, btcClientAccount.wrap)
+          setVis(isVisible = !parent.isEarnAccountExpanded, infoContainer)
         case LinkClient.LoggedOut if parent.isEarnAccountExpanded =>
-          setVisMany(false -> earnAccount.wrap, true -> infoContainer)
+          setVis(isVisible = false, usdtClientAccount.wrap)
+          setVis(isVisible = false, btcClientAccount.wrap)
+          setVis(isVisible = true, infoContainer)
           parent.isEarnAccountExpanded = false
           updateView
         case LinkClient.LoggedOut =>
           infoWalletNotice setText ta_client_login
-          imageTip.setImageResource(R.drawable.lock_24)
+          imageTip setImageResource R.drawable.lock_24
           setVis(isVisible = false, balanceContainer)
           setVis(isVisible = true, imageTip)
       }
@@ -1096,17 +1102,15 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
   }
 
-  class ExpandedEarnAccount {
+  class ExpandedEarnAccount(denom: Denomination, logo: Int) {
     val wrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_ta_account, null).asInstanceOf[LinearLayout]
     val taBalancesContainer: LinearLayout = wrap.findViewById(R.id.taBalancesContainer).asInstanceOf[LinearLayout]
     val taLoansContainer: LinearLayout = wrap.findViewById(R.id.taLoansContainer).asInstanceOf[LinearLayout]
-    val taClientEmail: TextView = wrap.findViewById(R.id.taClientEmail).asInstanceOf[TextView]
     val taExtended: FlowLayout = wrap.findViewById(R.id.taExtended).asInstanceOf[FlowLayout]
-    val taBalancesTitle: View = wrap.findViewById(R.id.taBalancesTitle).asInstanceOf[View]
     val taLoansTitle: View = wrap.findViewById(R.id.taLoansTitle).asInstanceOf[View]
     val taInfo: TextView = wrap.findViewById(R.id.taInfo).asInstanceOf[TextView]
 
-    def updateStatus(status: LinkClient.UserStatus, view: TextView)(fun: TextView => Unit): Unit =
+    def updateStatus(status: LinkClient.AssetStatus, view: TextView): Unit =
       if (status.pendingDeposits.nonEmpty) {
         view setText getString(ta_pending_deposit)
         setVis(isVisible = true, view = view)
@@ -1114,36 +1118,36 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val humanDate = WalletApp.when(status.withdrawDate, WalletApp.app.dateFormat)
         view setText getString(R.string.ta_withdraw_when).format(humanDate)
         setVis(isVisible = true, view = view)
-      } else fun(view)
-
-    def updateView(status: LinkClient.UserStatus): Unit = {
-      List(taBalancesContainer, taLoansContainer, taExtended).foreach(_.removeAllViewsInLayout)
-      setVisMany(status.totalFunds.nonEmpty -> taBalancesTitle, status.activeLoans.nonEmpty -> taLoansTitle)
-      taClientEmail.setText(status.email)
-      updateStatus(status, taInfo)(none)
-
-      for (total <- status.totalFunds) {
-        val amount = Btc(total.withdrawable).toSatoshi.toMilliSatoshi
-        val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
-        val item = new TwoSidedItem(parent, WalletApp.btc.ticker, CoinDenom.parsedTT(amount, cardIn, cardZero).html)
-        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
-        taBalancesContainer.addView(parent)
       }
+
+    def updateView(status: LinkClient.AssetStatus): Unit = {
+      taBalancesContainer.removeAllViewsInLayout
+      taLoansContainer.removeAllViewsInLayout
+      taExtended.removeAllViewsInLayout
+
+      setVis(status.activeLoans.nonEmpty, taLoansTitle)
+      updateStatus(status, taInfo)
+
+      val amount = Btc(status.totalFunds.withdrawable).toSatoshi.toMilliSatoshi
+      val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
+      val item = new TwoSidedItem(parent, status.asset.kind, denom.parsedTT(amount, cardIn, cardZero).html)
+      item.firstItem.setCompoundDrawablesWithIntrinsicBounds(logo, 0, 0, 0)
+      taBalancesContainer.addView(parent)
 
       for (loan <- status.activeLoans) {
         val apr = Denomination.formatRoi.format(loan.roi)
         val daysLeft = WalletApp.app.plurOrZero(daysLeftRes, loan.daysLeft.toInt)
         val parent = getLayoutInflater.inflate(R.layout.frag_two_sided_item_ta, null)
-        val amount = CoinDenom.parsedTT(Btc(loan.amount).toSatoshi.toMilliSatoshi, cardIn, cardZero)
-        val interest = CoinDenom.directedTT(Btc(loan.interest).toSatoshi.toMilliSatoshi, MilliSatoshi(0L), cardOut, cardIn, cardZero, isIncoming = true)
+        val amount = denom.parsedTT(Btc(loan.amount).toSatoshi.toMilliSatoshi, cardIn, cardZero)
+        val interest = denom.directedTT(Btc(loan.interest).toSatoshi.toMilliSatoshi, MilliSatoshi(0L), cardOut, cardIn, cardZero, isIncoming = true)
         val item = new TwoSidedItem(parent, s"APR $apr<br><small><tt>$daysLeft</tt></small>".html, s"$amount<br><small>$interest</small>".html)
-        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_logo_bitcoin_24, 0, 0, 0)
+        item.firstItem.setCompoundDrawablesWithIntrinsicBounds(logo, 0, 0, 0)
         taLoansContainer.addView(parent)
       }
 
       lazy val getLoanAdButton: TextView = addFlowChip(taExtended, getString(ta_loan), R.drawable.border_white) {
         val onOk = bringAddressSend(WalletApp.btc, _: LinkClient.LoanAd, loanTitle, txSendProxyTa).run
-        new ButtonCall("get-loan-ad", onOk, getLoanAdButton) send LinkClient.GetLoanAd
+        new ButtonCall("get-loan-ad", onOk, getLoanAdButton) send LinkClient.GetLoanAd(BTC)
       }
 
       def showOptionsForm(data: LinkClient.WithdrawOptions) = UITask {
@@ -1153,7 +1157,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         val list = new ListView(me)
 
         val labels = options.map { option =>
-          CoinDenom.directedTT(option.msat, option.msat,
+          denom.directedTT(option.msat, option.msat,
             cardOut, cardIn, cardZero, option.amount > 0).html
         }.toArray
 
@@ -1195,7 +1199,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
         def updateTotal = {
           val totalCanSend = pending.map(_.msat).sum
-          val formatted = "<b>sum</b> " + CoinDenom.parsedTT(totalCanSend, cardIn, cardZero)
+          val formatted = "<b>sum</b> " + denom.parsedTT(totalCanSend, cardIn, cardZero)
           if (totalCanSend > 0L.msat) info.setText(formatted.html) else info.setText(msg)
         }
 
@@ -1225,12 +1229,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       }.run
 
       def requestWithdraw(ws: List[WithdrawSource] = Nil): Unit = WalletApp.btc.electrum.specs.values.find(_.info.core.attachedMaster.isEmpty).map(_.data.keys) match {
-        case Some(keys) => new ButtonCall("schedule-withdraw", none, withdrawButton) send LinkClient.WithdrawReq(keys.ewt.textAddress(keys.accountKeys.head), ws)
+        case Some(keys) => new ButtonCall("schedule-withdraw", none, withdrawButton) send LinkClient.WithdrawReq(BTC, keys.ewt.textAddress(keys.accountKeys.head), ws)
         case None => WalletApp.app.quickToast(error_no_wallet)
       }
 
       lazy val withdrawButton: TextView = addFlowChip(taExtended, getString(ta_withdraw), R.drawable.border_white) {
-        new ButtonCall("get-withdraw-options", showOptionsForm, withdrawButton) send LinkClient.GetWithdrawOptions
+        new ButtonCall("get-withdraw-options", showOptionsForm, withdrawButton) send LinkClient.GetWithdrawOptions(BTC)
       }
 
       getLoanAdButton

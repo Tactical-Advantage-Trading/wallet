@@ -29,12 +29,27 @@ object LinkClient {
   case object ACCOUNT_BANNED extends FailureCode { val code = 50 }
 
   val failureCodes = Seq(INVALID_JSON, NOT_AUTHORIZED, INVALID_REQUEST, UPDATE_CLIENT_APP, ACCOUNT_BANNED)
-
   implicit object FailureCodeFormat extends JsonFormat[FailureCode] {
     def write(fc: FailureCode): JsValue = JsNumber(fc.code)
 
     def read(value: JsValue): FailureCode = value match {
       case JsNumber(num) => failureCodes.find(_.code == num).get
+      case _ => throw new RuntimeException
+    }
+  }
+
+  // Asset types
+
+  sealed trait AssetType { def kind: String }
+  case object BTC extends AssetType { val kind = "BTC" }
+  case object USDT extends AssetType { val kind = "USDT" }
+
+  val assetTypes: Seq[AssetType] = Seq(BTC, USDT)
+  implicit object AssetTypeFormat extends JsonFormat[AssetType] {
+    def write(ds: AssetType): JsValue = JsString(ds.kind)
+
+    def read(value: JsValue): AssetType = value match {
+      case JsString(kind) => assetTypes.find(_.kind == kind).get
       case _ => throw new RuntimeException
     }
   }
@@ -84,19 +99,19 @@ object LinkClient {
   // Request types
 
   sealed trait RequestArguments
-  case object GetLoanAd extends RequestArguments
-  case object GetWithdrawOptions extends RequestArguments
+  case class GetLoanAd(asset: AssetType) extends RequestArguments
   case class GetUserStatus(sessionToken: String) extends RequestArguments
+  case class GetWithdrawOptions(asset: AssetType) extends RequestArguments
   case class Login(oneTimePassword: Option[String], email: String) extends RequestArguments
-  case class WithdrawReq(address: String, ws: List[WithdrawSource] = Nil) extends RequestArguments
-  case class DepositIntent(txid: String) extends RequestArguments
+  case class WithdrawReq(asset: AssetType, address: String, ws: List[WithdrawSource] = Nil) extends RequestArguments
+  case class DepositIntent(asset: AssetType, txid: String) extends RequestArguments
 
+  implicit val getLoanAddFormat: JsonFormat[GetLoanAd] = taggedJsonFmt(jsonFormat[AssetType, GetLoanAd](GetLoanAd.apply, "asset"), tag = "GetLoanAd")
   implicit val loginFormat: JsonFormat[Login] = taggedJsonFmt(jsonFormat[Option[String], String, Login](Login.apply, "oneTimePassword", "email"), tag = "Login")
-  implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[String, DepositIntent](DepositIntent.apply, "txid"), tag = "DepositIntent")
   implicit val getUserStatusFormat: JsonFormat[GetUserStatus] = taggedJsonFmt(jsonFormat[String, GetUserStatus](GetUserStatus.apply, "sessionToken"), tag = "GetUserStatus")
-  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[String, List[WithdrawSource], WithdrawReq](WithdrawReq.apply, "address", "ws"), tag = "Withdraw")
-  implicit val getWithdrawOptionsFormat: JsonFormat[GetWithdrawOptions.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetWithdrawOptions), tag = "GetWithdrawOptions")
-  implicit val getLoanAddFormat: JsonFormat[GetLoanAd.type] = taggedJsonFmt(jsonFormat0(construct = (/**/) => GetLoanAd), tag = "GetLoanAd")
+  implicit val depositIntentFormat: JsonFormat[DepositIntent] = taggedJsonFmt(jsonFormat[AssetType, String, DepositIntent](DepositIntent.apply, "asset", "txid"), tag = "DepositIntent")
+  implicit val withdrawReqFormat: JsonFormat[WithdrawReq] = taggedJsonFmt(jsonFormat[AssetType, String, List[WithdrawSource], WithdrawReq](WithdrawReq.apply, "asset", "address", "ws"), tag = "Withdraw")
+  implicit val getWithdrawOptionsFormat: JsonFormat[GetWithdrawOptions] = taggedJsonFmt(jsonFormat[AssetType, GetWithdrawOptions](GetWithdrawOptions.apply, "asset"), tag = "GetWithdrawOptions")
 
   implicit object RequestArgumentsFormat extends JsonFormat[RequestArguments] {
     def read(json: JsValue): RequestArguments =
@@ -106,8 +121,8 @@ object LinkClient {
       case request: WithdrawReq => withdrawReqFormat.write(request)
       case request: GetUserStatus => getUserStatusFormat.write(request)
       case request: DepositIntent => depositIntentFormat.write(request)
-      case GetWithdrawOptions => getWithdrawOptionsFormat.write(GetWithdrawOptions)
-      case GetLoanAd => getLoanAddFormat.write(GetLoanAd)
+      case request: GetWithdrawOptions => getWithdrawOptionsFormat.write(request)
+      case request: GetLoanAd => getLoanAddFormat.write(request)
       case request: Login => loginFormat.write(request)
     }
   }
@@ -124,52 +139,49 @@ object LinkClient {
     lazy val interest = amount * roi / inverseSpan
   }
 
-  implicit val depositFormat: JsonFormat[Deposit] =
-    jsonFormat[Long, String, String, BigDecimal, Long, DepositState,
-      Deposit](Deposit.apply, "id", "txid", "address", "amount", "created", "state")
-
+  implicit val depositFormat: JsonFormat[Deposit] = jsonFormat[Long, String, String, BigDecimal, Long, DepositState,
+    Deposit](Deposit.apply, "id", "txid", "address", "amount", "created", "state")
   implicit val withdrawFormat: JsonFormat[Withdraw] =
     jsonFormat[Long, Long, BigDecimal, String, String, String, BigDecimal, Option[WithdrawSource], Long, Boolean, BigDecimal,
       Withdraw](Withdraw.apply, "id", "userId", "totalAmount", "txid", "exid", "address", "amount", "ws", "created", "started", "fee")
+  implicit val activeLoanFormat: JsonFormat[ActiveLoan] = jsonFormat[Long, Long, Long, Long, BigDecimal, BigDecimal,
+    ActiveLoan](ActiveLoan.apply, "id", "userId", "start", "end", "roi", "amount")
+  implicit val totalFundsFormat: JsonFormat[TotalFunds] = jsonFormat[BigDecimal, BigDecimal,
+    TotalFunds](TotalFunds.apply, "balance", "withdrawable")
 
-  implicit val activeLoanFormat: JsonFormat[ActiveLoan] =
-    jsonFormat[Long, Long, Long, Long, BigDecimal, BigDecimal,
-      ActiveLoan](ActiveLoan.apply, "id", "userId", "start", "end", "roi", "amount")
-
-  implicit val totalFundsFormat: JsonFormat[TotalFunds] =
-    jsonFormat[BigDecimal, BigDecimal, TotalFunds](TotalFunds.apply, "balance", "withdrawable")
-
-  sealed trait ResponseArguments
-  case class Failure(failureCode: FailureCode) extends ResponseArguments
-  case class WithdrawOptions(options: List[WithdrawOption], withdraws: List[Withdraw] = Nil) extends ResponseArguments
-  case class LoanAd(durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
-    val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).asSome, networkId = -1, taRoi = roi.asSome)
-    val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
-    val amount: Option[MilliSatoshi] = None
-  }
-
-  sealed trait TaLinkState
-  case object LoggedOut extends TaLinkState
-  case class UserStatus(pendingWithdraws: List[Withdraw], pendingDeposits: List[Deposit], activeLoans: List[ActiveLoan],
-                        totalFunds: List[TotalFunds], email: String, sessionToken: String, withdrawDelay: Long) extends ResponseArguments with TaLinkState {
+  case class Request(arguments: RequestArguments, id: String)
+  case class Response(arguments: Option[ResponseArguments], id: String)
+  case class AssetStatus(asset: AssetType, pendingWithdraws: List[Withdraw], pendingDeposits: List[Deposit], activeLoans: List[ActiveLoan], totalFunds: TotalFunds, withdrawDelay: Long) {
     val withdrawDate = new Date(maxOptionByValue(activeLoans)(_.end, 0L) max maxOptionByValue(pendingWithdraws)(_.created + withdrawDelay, 0L) max System.currentTimeMillis)
     val minLoanDaysLeft = minOptionByValue(activeLoans)(_.daysLeft, 0L).toInt
   }
 
-  implicit val failureFormat: JsonFormat[Failure] =
-    jsonFormat[FailureCode, Failure](Failure.apply, "failureCode")
+  implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
+  implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
+  implicit val assetStatusFormat: JsonFormat[AssetStatus] = jsonFormat[AssetType, List[Withdraw], List[Deposit], List[ActiveLoan], TotalFunds, Long,
+    AssetStatus](AssetStatus.apply, "asset", "pendingWithdraws", "pendingDeposits", "activeLoans", "totalFunds", "withdrawDelay")
 
-  implicit val loanAdFormat: JsonFormat[LoanAd] =
-    jsonFormat[Long, BigDecimal, BigDecimal, String, String, BigDecimal,
-      LoanAd](LoanAd.apply, "durationDays", "minDeposit", "maxDeposit", "address", "challenge", "roi")
+  sealed trait ResponseArguments
+  case class Failure(failureCode: FailureCode) extends ResponseArguments
+  case class WithdrawOptions(asset: AssetType, options: List[WithdrawOption], withdraws: List[Withdraw] = Nil) extends ResponseArguments
+  case class LoanAd(asset: AssetType, durationDays: Long, minDeposit: BigDecimal, maxDeposit: BigDecimal, address: String, challenge: String, roi: BigDecimal) extends ResponseArguments with CoinUri {
+    lazy val desc: CoinDescription = CoinDescription(addresses = List(address), WalletApp.app.getString(R.string.ta_btc_loan_label).asSome, networkId = -1, taRoi = roi.asSome)
+    lazy val maxAmount: MilliSatoshi = Btc(maxDeposit).toSatoshi.toMilliSatoshi
+    lazy val amount: Option[MilliSatoshi] = None
+  }
 
-  implicit val userStatusFormat: JsonFormat[UserStatus] =
-    jsonFormat[List[Withdraw], List[Deposit], List[ActiveLoan], List[TotalFunds], String, String, Long,
-      UserStatus](UserStatus.apply, "pendingWithdraws", "pendingDeposits", "activeLoans", "totalFunds", "email",
-      "sessionToken", "withdrawDelay")
+  sealed trait TaLinkState
+  case object LoggedOut extends TaLinkState
+  case class UserStatus(assets: List[AssetStatus], email: String,
+                        sessionToken: String) extends ResponseArguments with TaLinkState
 
-  implicit val withdrawOptionsFormat: JsonFormat[WithdrawOptions] =
-    jsonFormat[List[WithdrawOption], List[Withdraw], WithdrawOptions](WithdrawOptions.apply, "options", "withdraws")
+  implicit val failureFormat: JsonFormat[Failure] = jsonFormat[FailureCode, Failure](Failure.apply, "failureCode")
+  implicit val loanAdFormat: JsonFormat[LoanAd] = jsonFormat[AssetType, Long, BigDecimal, BigDecimal, String, String, BigDecimal,
+    LoanAd](LoanAd.apply, "asset", "durationDays", "minDeposit", "maxDeposit", "address", "challenge", "roi")
+  implicit val withdrawOptionsFormat: JsonFormat[WithdrawOptions] = jsonFormat[AssetType, List[WithdrawOption], List[Withdraw],
+    WithdrawOptions](WithdrawOptions.apply, "asset", "options", "withdraws")
+  implicit val userStatusFormat: JsonFormat[UserStatus] = jsonFormat[List[AssetStatus], String, String,
+    UserStatus](UserStatus.apply, "assets", "email", "sessionToken")
 
   implicit object ResponseArgumentsFormat extends JsonFormat[ResponseArguments] {
     def read(json: JsValue): ResponseArguments = json.asJsObject.fields(TAG) match {
@@ -183,12 +195,6 @@ object LinkClient {
     def write(obj: ResponseArguments): JsValue =
       throw new RuntimeException
   }
-
-  case class Request(arguments: RequestArguments, id: String)
-  case class Response(arguments: Option[ResponseArguments], id: String)
-
-  implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
-  implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none

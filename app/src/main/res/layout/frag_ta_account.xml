@@ -5,24 +5,6 @@
     android:orientation="vertical"
     android:visibility="gone">
 
-    <TextView
-        android:textColor="@android:color/white"
-        android:text="@string/ta_earn_label"
-        style="@style/Emphasized"/>
-
-    <TextView
-        android:layout_marginTop="6dp"
-        android:textColor="@android:color/white"
-        android:id="@+id/taClientEmail"
-        style="@style/BoundedView"/>
-
-    <TextView
-        style="@style/BoundedView"
-        android:layout_marginTop="15dp"
-        android:id="@+id/taBalancesTitle"
-        android:textColor="@color/cardZeroText"
-        android:text="@string/ta_balances"/>
-
     <LinearLayout
         style="@style/FillingView"
         android:id="@+id/taBalancesContainer"
