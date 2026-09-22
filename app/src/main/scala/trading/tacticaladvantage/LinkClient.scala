@@ -153,13 +153,7 @@ object LinkClient {
   case class Response(arguments: Option[ResponseArguments], id: String)
   case class AssetStatus(asset: AssetType, pendingWithdraws: List[Withdraw], pendingDeposits: List[Deposit], activeLoans: List[ActiveLoan], totalFunds: TotalFunds, withdrawDelay: Long) {
     val withdrawDate = new Date(maxOptionByValue(activeLoans)(_.end, 0L) max maxOptionByValue(pendingWithdraws)(_.created + withdrawDelay, 0L) max System.currentTimeMillis)
-    val minLoanDaysLeft = minOptionByValue(activeLoans)(_.daysLeft, 0L).toInt
   }
-
-  implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
-  implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
-  implicit val assetStatusFormat: JsonFormat[AssetStatus] = jsonFormat[AssetType, List[Withdraw], List[Deposit], List[ActiveLoan], TotalFunds, Long,
-    AssetStatus](AssetStatus.apply, "asset", "pendingWithdraws", "pendingDeposits", "activeLoans", "totalFunds", "withdrawDelay")
 
   sealed trait ResponseArguments
   case class Failure(failureCode: FailureCode) extends ResponseArguments
@@ -172,8 +166,9 @@ object LinkClient {
 
   sealed trait TaLinkState
   case object LoggedOut extends TaLinkState
-  case class UserStatus(assets: List[AssetStatus], email: String,
-                        sessionToken: String) extends ResponseArguments with TaLinkState
+  case class UserStatus(assets: List[AssetStatus], email: String, sessionToken: String) extends ResponseArguments with TaLinkState
+  implicit val assetStatusFormat: JsonFormat[AssetStatus] = jsonFormat[AssetType, List[Withdraw], List[Deposit], List[ActiveLoan], TotalFunds, Long,
+    AssetStatus](AssetStatus.apply, "asset", "pendingWithdraws", "pendingDeposits", "activeLoans", "totalFunds", "withdrawDelay")
 
   implicit val failureFormat: JsonFormat[Failure] = jsonFormat[FailureCode, Failure](Failure.apply, "failureCode")
   implicit val loanAdFormat: JsonFormat[LoanAd] = jsonFormat[AssetType, Long, BigDecimal, BigDecimal, String, String, BigDecimal,
@@ -195,6 +190,9 @@ object LinkClient {
     def write(obj: ResponseArguments): JsValue =
       throw new RuntimeException
   }
+
+  implicit val requestFormat: JsonFormat[Request] = jsonFormat[RequestArguments, String, Request](Request.apply, "arguments", "id")
+  implicit val responseFormat: JsonFormat[Response] = jsonFormat[Option[ResponseArguments], String, Response](Response.apply, "arguments", "id")
 
   class Listener(val id: String) {
     def onResponse(args: Option[ResponseArguments] = None): Unit = none

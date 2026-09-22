@@ -13,6 +13,14 @@
         android:id="@+id/cardView"
         style="@style/Card">
 
+        <LinearLayout
+            style="@style/FillingView"
+            android:id="@+id/addedItems"
+            android:showDividers="middle"
+            android:orientation="vertical"
+            android:divider="?android:attr/listDivider"
+            android:dividerPadding="0dp"/>
+
         <RelativeLayout
             style="@style/FillingView"
             android:id="@+id/infoContainer"

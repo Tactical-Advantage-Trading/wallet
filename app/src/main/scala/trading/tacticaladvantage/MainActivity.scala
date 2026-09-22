@@ -1010,6 +1010,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
   abstract class WalletCard {
     val cardWrap: LinearLayout = getLayoutInflater.inflate(R.layout.frag_wallet_card, null).asInstanceOf[LinearLayout]
+    val addedItems: LinearLayout = cardWrap.findViewById(R.id.addedItems).asInstanceOf[LinearLayout]
     val progress: ProgressBar = cardWrap.findViewById(R.id.progress).asInstanceOf[ProgressBar]
     val imageTip: ImageView = cardWrap.findViewById(R.id.imageTip).asInstanceOf[ImageView]
     val cardView: CardView = cardWrap.findViewById(R.id.cardView).asInstanceOf[CardView]
@@ -1053,8 +1054,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   abstract class TaWalletCard(parent: WalletCardsViewHolder) extends WalletCard {
     val usdtClientAccount = new ExpandedEarnAccount(TokenDenom, R.drawable.ic_logo_tether_24)
     val btcClientAccount = new ExpandedEarnAccount(CoinDenom, R.drawable.ic_logo_bitcoin_24)
-    cardView.addView(usdtClientAccount.wrap, 0)
-    cardView.addView(btcClientAccount.wrap, 1)
+    addedItems.addView(usdtClientAccount.wrap, 0)
+    addedItems.addView(btcClientAccount.wrap, 1)
     infoWalletLabel setText ta_earn_label
 
     def updateView: Unit =
@@ -1063,13 +1064,23 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
           imageTip.setImageResource(R.drawable.info_24)
           val allLoanExps = status.assets.flatMap(_.activeLoans).map(_.daysLeft)
           balanceWallet setText WalletApp.app.plurOrZero(number = allLoanExps.size, opts = activeLoansRes)
-          balanceWalletFiat setText WalletApp.app.plurOrZero(number = minOptionByValue(allLoanExps)(identity, 0), opts = daysLeftRes)
-          for (assetStat <- status.assets if assetStat.asset == USDT) usdtClientAccount.updateStatus(assetStat, infoWalletNotice)
-          for (assetStat <- status.assets if assetStat.asset == BTC) btcClientAccount.updateStatus(assetStat, infoWalletNotice)
+          balanceWalletFiat setText WalletApp.app.plurOrZero(number = minOptionByValue(allLoanExps)(_.toInt, 0), opts = daysLeftRes)
           setVisMany(allLoanExps.nonEmpty -> balanceContainer, allLoanExps.isEmpty -> imageTip)
           setVis(isVisible = parent.isEarnAccountExpanded, usdtClientAccount.wrap)
           setVis(isVisible = parent.isEarnAccountExpanded, btcClientAccount.wrap)
           setVis(isVisible = !parent.isEarnAccountExpanded, infoContainer)
+
+          infoWalletNotice setText status.email
+          for (stat <- status.assets if stat.asset == USDT) {
+            usdtClientAccount.updateStatus(stat, infoWalletNotice)
+            usdtClientAccount.updateView(stat, showTaExtended = false)
+          }
+
+          for (stat <- status.assets if stat.asset == BTC) {
+            btcClientAccount.updateStatus(stat, infoWalletNotice)
+            btcClientAccount.updateView(stat, showTaExtended = true)
+          }
+
         case LinkClient.LoggedOut if parent.isEarnAccountExpanded =>
           setVis(isVisible = false, usdtClientAccount.wrap)
           setVis(isVisible = false, btcClientAccount.wrap)
@@ -1120,12 +1131,10 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         setVis(isVisible = true, view = view)
       }
 
-    def updateView(status: LinkClient.AssetStatus): Unit = {
+    def updateView(status: LinkClient.AssetStatus, showTaExtended: Boolean): Unit = {
       taBalancesContainer.removeAllViewsInLayout
       taLoansContainer.removeAllViewsInLayout
       taExtended.removeAllViewsInLayout
-
-      setVis(status.activeLoans.nonEmpty, taLoansTitle)
       updateStatus(status, taInfo)
 
       val amount = Btc(status.totalFunds.withdrawable).toSatoshi.toMilliSatoshi
@@ -1249,6 +1258,9 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
         WalletApp.linkClient ! LinkClient.LoggedOut
         WalletApp.linkClient.ws.disconnect
       }
+
+      // Run this last because populating elements forces flow to become visible
+      setVisMany(status.activeLoans.nonEmpty -> taLoansTitle, showTaExtended -> taExtended)
     }
   }
 
@@ -1265,7 +1277,7 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
     val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>v4.0</font>"
+    val appName = s"${me getString app_name} <font color=$cardZero>v4.1-19</font>"
     val coin = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)

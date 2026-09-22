@@ -59,8 +59,7 @@ object CoinDenom extends Denomination { me =>
 
 object TokenDenom extends Denomination {
   val fmt: DecimalFormat = new DecimalFormat("#,##0.00", Denomination.symbols)
-  // 1,000 satoshi per cent, or 100,000,000 millisatoshi per dollar.
-  val factor = 100000000L
+  val factor = 100000000000L
 
   def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
     if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
