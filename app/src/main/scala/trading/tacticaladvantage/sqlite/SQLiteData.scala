@@ -1,7 +1,6 @@
 package trading.tacticaladvantage.sqlite
 
 import fr.acinq.bitcoin.BlockHeader
-import fr.acinq.eclair.blockchain.electrum.SidechainHashSearch
 import scodec.bits.ByteVector
 import spray.json._
 import trading.tacticaladvantage.MasterKeys.walletSecretCodec
@@ -20,7 +19,6 @@ object SQLiteData {
   final val LABEL_ECX_FEE_RATES = "label-ecx-fee-rates"
   final val LABEL_BTC_FIAT_RATES = "label-btc-fiat-rates"
   final val LABEL_ECX_FIAT_RATES = "label-ecx-fiat-rates"
-  final val LABEL_ECX_SIDE_HASHES = "label-ecx-side-hashes"
 
   def byteVecToString(bv: ByteVector): String = new String(bv.toArray, "UTF-8")
   type HeightAndHeader = (Int, BlockHeader)
@@ -44,12 +42,6 @@ class SQLiteData(val db: DBInterface) {
   def putSecret(secret: WalletSecret): Unit = put(LABEL_SECRET, walletSecretCodec.encode(secret).require.toByteArray)
 
   def tryGetSecret: Try[WalletSecret] = tryGet(LABEL_SECRET).map(raw => walletSecretCodec.decode(raw.toBitVector).require.value)
-
-  // Stored sidechain headers
-
-  def putSideHashes(data: SidechainHashSearch.SideChainNum2Info): Unit = put(LABEL_ECX_SIDE_HASHES, SidechainHashSearch.codec.encode(data).require.toByteArray)
-
-  def tryGetSideHashes: Try[SidechainHashSearch.SideChainNum2Info] = tryGet(LABEL_ECX_SIDE_HASHES).map(raw => SidechainHashSearch.codec.decode(raw.toBitVector).require.value)
 
   // Fiat rates, fee rates
 
