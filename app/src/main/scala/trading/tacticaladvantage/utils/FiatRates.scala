@@ -7,7 +7,6 @@ import trading.tacticaladvantage.{CanBeShutDown, ConnectionProvider, Tools}
 
 object FiatRates {
   type BlockchainInfoItemMap = Map[String, BlockchainInfoItem]
-  type CoinGeckoItemMap = Map[String, CoinGeckoItem]
 }
 
 abstract class FiatRates(bag: SQLiteData, label: String) extends CanBeShutDown {
@@ -37,9 +36,11 @@ abstract class FiatRates(bag: SQLiteData, label: String) extends CanBeShutDown {
 }
 
 class BtcFiatRates(bag: SQLiteData) extends FiatRates(bag, SQLiteData.LABEL_BTC_FIAT_RATES) {
-  def reloadData(provider: ConnectionProvider) = fr.acinq.eclair.secureRandom nextInt 2 match {
-    case 0 => to[CoinGecko](provider.get("https://api.coingecko.com/api/v3/exchange_rates").string).rates.map { case (code, item) => code.toLowerCase -> item.value }
-    case 1 => to[FiatRates.BlockchainInfoItemMap](provider.get("https://blockchain.info/ticker").string).map { case (code, item) => code.toLowerCase -> item.last }
+  def reloadData(provider: ConnectionProvider) = {
+    val data = provider.get("https://blockchain.info/ticker")
+    to[FiatRates.BlockchainInfoItemMap](data.string).map {
+      case (code, item) => (code.toLowerCase, item.last)
+    }
   }
 }
 
@@ -51,9 +52,7 @@ trait FiatRatesListener {
   def onFiatRates(rates: FiatRatesInfo): Unit
 }
 
-case class CoinGeckoItem(value: Double)
 case class BlockchainInfoItem(last: Double)
-case class CoinGecko(rates: FiatRates.CoinGeckoItemMap)
 
 case class FiatRatesInfo(rates: Tools.Fiat2Coin, oldRates: Tools.Fiat2Coin, stamp: Long) {
   def pctDifference(code: String): Option[String] = List(rates get code, oldRates get code) match {

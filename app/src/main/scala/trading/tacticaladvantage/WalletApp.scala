@@ -126,7 +126,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
       val feerateObs = Rx.initDelay(rateRepeat, feeRates.info.stamp, feeratePeriodHours * 3600 * 1000L)
       feeRates.updater = feerateObs.subscribe(feeRates.updateInfo, none).asSome
 
-      val fiatPeriodSecs = 60 * 3
+      val fiatPeriodSecs = 60
       val fiatRetry = Rx.retry(Rx.ioQueue.map(_ => fiatRates reloadData connectionProvider), Rx.incSec, 3 to 18 by 3)
       val fiatRepeat = Rx.repeat(fiatRetry, Rx.incSec, fiatPeriodSecs to Int.MaxValue by fiatPeriodSecs)
       fiatRates.updater = fiatRepeat.subscribe(fiatRates.updateInfo, none).asSome
