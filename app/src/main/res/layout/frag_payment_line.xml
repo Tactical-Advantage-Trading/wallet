@@ -87,10 +87,11 @@
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
-                        android:minWidth="120dp"
-                        android:gravity="center_horizontal"
-                        android:layout_centerVertical="true"
+                        android:gravity="center"
+                        android:layout_width="match_parent"
+                        android:layout_toEndOf="@id/amount"
                         android:layout_toStartOf="@id/statusIcon"
+                        android:layout_centerVertical="true"
                         style="@style/BoundedView"/>
 
                     <ImageView

@@ -11,7 +11,6 @@ import spray.json._
 import trading.tacticaladvantage.Tools.{Fiat2Coin, StringList}
 import trading.tacticaladvantage._
 import trading.tacticaladvantage.sqlite.SigningWallet
-import trading.tacticaladvantage.utils.FiatRates.CoinGeckoItemMap
 
 import scala.util.Try
 
@@ -78,10 +77,6 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
   // Fiat feerates
 
   implicit val blockchainInfoItemFmt: JsonFormat[BlockchainInfoItem] = jsonFormat[Double, BlockchainInfoItem](BlockchainInfoItem.apply, "last")
-
-  implicit val coinGeckoItemFmt: JsonFormat[CoinGeckoItem] = jsonFormat[Double, CoinGeckoItem](CoinGeckoItem.apply, "value")
-
-  implicit val coinGeckoFmt: JsonFormat[CoinGecko] = jsonFormat[CoinGeckoItemMap, CoinGecko](CoinGecko.apply, "rates")
 
   implicit val fiatRatesInfoFmt: JsonFormat[FiatRatesInfo] = jsonFormat[Fiat2Coin, Fiat2Coin, Long, FiatRatesInfo](FiatRatesInfo.apply, "rates", "oldRates", "stamp")
 

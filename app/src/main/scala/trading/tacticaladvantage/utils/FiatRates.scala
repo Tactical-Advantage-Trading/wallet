@@ -53,7 +53,6 @@ trait FiatRatesListener {
 }
 
 case class BlockchainInfoItem(last: Double)
-
 case class FiatRatesInfo(rates: Tools.Fiat2Coin, oldRates: Tools.Fiat2Coin, stamp: Long) {
   def pctDifference(code: String): Option[String] = List(rates get code, oldRates get code) match {
     case Some(fresh) :: Some(old) :: Nil if fresh > old + old / 200 => Some(s"▲ ${Denomination.formatFiatShort format pctChange(fresh, old).abs}%")
