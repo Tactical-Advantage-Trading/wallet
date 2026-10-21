@@ -84,6 +84,11 @@ object ImplicitJsonFormats extends DefaultJsonProtocol {
 
   implicit val bitGoFeeRateStructureFmt: JsonFormat[BitGoFeeRateStructure] = jsonFormat[Map[String, Long], Long, BitGoFeeRateStructure](BitGoFeeRateStructure.apply, "feeByBlockTarget", "feePerKb")
 
+  implicit val jupiterPriceFmt: JsonFormat[JupiterPrice] = jsonFormat[Double, JupiterPrice](JupiterPrice.apply, "usdPrice")
+  implicit val orcaTokenFmt: JsonFormat[OrcaToken] = jsonFormat[String, OrcaToken](OrcaToken.apply, "address")
+  implicit val orcaPoolFmt: JsonFormat[OrcaPool] = jsonFormat[String, OrcaToken, OrcaToken, OrcaPool](OrcaPool.apply, "price", "tokenA", "tokenB")
+  implicit val orcaResponseFmt: JsonFormat[OrcaResponse] = jsonFormat[OrcaPool, OrcaResponse](OrcaResponse.apply, "data")
+
   implicit val feeratePerKBFmt: JsonFormat[FeeratePerKB] = jsonFormat[Satoshi, FeeratePerKB](FeeratePerKB.apply, "feerate")
 
   implicit val feeratesPerKBFmt: JsonFormat[FeeratesPerKB] =
