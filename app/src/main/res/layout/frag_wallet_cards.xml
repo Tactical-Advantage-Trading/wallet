@@ -19,17 +19,31 @@
             style="@style/FillingView">
 
             <TextView
-                android:alpha="0.4"
-                android:textSize="16sp"
-                android:id="@+id/fiatUnitPriceAndChange"
+                android:text="@string/app_name"
                 android:layout_centerVertical="true"
-                style="@style/BoundedView"/>
+                style="@style/Emphasized"/>
+
+            <TextView
+                android:textSize="14sp"
+                android:id="@+id/ecxPrice"
+                style="@style/ChipTextGray"
+                android:layout_marginRight="12dp"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@id/btcPrice"/>
+
+            <TextView
+                android:textSize="14sp"
+                android:id="@+id/btcPrice"
+                style="@style/ChipTextGray"
+                android:layout_marginRight="6dp"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@id/settingsButton"/>
 
             <ImageButton
                 android:padding="5dp"
                 android:id="@+id/settingsButton"
-                android:onClick="toggleSettingsMode"
                 android:src="@drawable/settings_24"
+                android:onClick="toggleSettingsMode"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:background="?android:selectableItemBackground"
@@ -47,10 +61,6 @@
             android:visibility="gone">
 
             <TextView
-                android:id="@+id/nameAndVer"
-                style="@style/BoundedView"/>
-
-            <TextView
                 android:id="@+id/devInfo"
                 android:linksClickable="true"
                 android:layout_marginTop="10dp"
@@ -64,18 +74,11 @@
 
         </LinearLayout>
 
-        <TextView
-            style="@style/BoundedView"
-            android:layout_marginTop="10dp"
-            android:layout_marginStart="15dp"
-            android:layout_marginBottom="@dimen/corner_radius"
-            android:textColor="@color/cardZeroText"
-            android:text="@string/wallets"/>
-
         <!-- List of cards -->
 
         <LinearLayout
             style="@style/FillingView"
+            android:layout_marginTop="15dp"
             android:id="@+id/chainCardsContainer"
             android:orientation="vertical"/>
 

@@ -503,10 +503,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   }
 
   private val fiatListener = new FiatRatesListener {
-    def onFiatRates(rates: FiatRatesInfo): Unit = UITask {
-      walletCards.fiatUnitPriceAndChange.setAlpha(1F)
-      walletCards.updateView
-    }.run
+    def onFiatRates(rates: FiatRatesInfo): Unit =
+      UITask(walletCards.updateView).run
   }
 
   // Lifecycle methods
@@ -1267,21 +1265,19 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
   class WalletCardsViewHolder {
     var isEarnAccountExpanded = false
     val view = getLayoutInflater.inflate(R.layout.frag_wallet_cards, null).asInstanceOf[LinearLayout]
-    val fiatUnitPriceAndChange = view.findViewById(R.id.fiatUnitPriceAndChange).asInstanceOf[TextView]
     val holder = view.findViewById(R.id.chainCardsContainer).asInstanceOf[LinearLayout]
     val recentActivity = view.findViewById(R.id.recentActivity).asInstanceOf[View]
+    val ecxPrice = view.findViewById(R.id.ecxPrice).asInstanceOf[TextView]
+    val btcPrice = view.findViewById(R.id.btcPrice).asInstanceOf[TextView]
     val manager = new WalletCardManager(holder)
 
     // Settings region
     val settingsContainer = view.findViewById(R.id.settingsContainer).asInstanceOf[LinearLayout]
     val devInfo = me clickableTextField settingsContainer.findViewById(R.id.devInfo).asInstanceOf[TextView]
     val settingsButtons = settingsContainer.findViewById(R.id.settingsButtons).asInstanceOf[FlowLayout]
-    val nameAndVer = settingsContainer.findViewById(R.id.nameAndVer).asInstanceOf[TextView]
-    val appName = s"${me getString app_name} <font color=$cardZero>v4.1-19</font>"
     val coin = 100000000000L.msat
 
     devInfo.setText(getString(dev_info).html)
-    nameAndVer.setText(appName.html)
 
     def showTaCard = {
       WalletApp.setShowTaCard(show = true)
@@ -1315,9 +1311,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val coinCards = for {
         group <- List(WalletApp.ecx, WalletApp.btc)
         xPub <- group.electrum.specs.keys.toList
-        dest = classOf[QRCoinActivity]
       } yield new CoinWalletCard(xPub, group) {
-        override def onTap: Unit = goToWithValue(dest, group -> xPub)
+        override def onTap: Unit = goToWithValue(classOf[QRCoinActivity], group -> xPub)
         override def hide: Unit = group.removeWallet(key = xPub)
       }
 
@@ -1332,9 +1327,12 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
     }
 
     def updateView: Unit = {
-      val change = WalletApp.btc.fiatRates.info.pctDifference(WalletApp.fiatCode).getOrElse(new String)
-      val unitRate = WalletApp.msatInFiatHuman(WalletApp.btc.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
-      fiatUnitPriceAndChange.setText(s"BTC &middot; $unitRate $change".html)
+      val btcChange = WalletApp.btc.fiatRates.info.pctDifference(WalletApp.fiatCode).getOrElse(new String)
+      val ecxChange = WalletApp.ecx.fiatRates.info.pctDifference(WalletApp.fiatCode).getOrElse(new String)
+      val btcUnitRate = WalletApp.msatInFiatHuman(WalletApp.btc.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
+      val ecxUnitRate = WalletApp.msatInFiatHuman(WalletApp.ecx.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
+      walletCards.btcPrice.setText(s"BTC &middot; $btcChange $btcUnitRate".html)
+      walletCards.ecxPrice.setText(s"ECX &middot; $ecxChange $ecxUnitRate".html)
       manager.cardViews.foreach(_.updateView)
 
       settingsButtons.removeAllViewsInLayout

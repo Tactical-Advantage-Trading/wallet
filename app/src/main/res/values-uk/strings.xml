@@ -5,7 +5,6 @@
     <string name="select_wallets">Оберіть гаманці</string>
     <string name="tap_to_receive">Отримати</string>
     <string name="recent_activity">Нещодавнє</string>
-    <string name="wallets">Гаманці</string>
     <string name="typing_hints">Адреса отримувача</string>
     <string name="copied_to_clipboard">Скопійовано</string>
     <string name="emergency_mode">Щось пішло не так</string>
@@ -51,7 +50,7 @@
         якщо ви вважаєте що це помилка чи бажаєте подати заявку на отримання статусу кваліфікованого інвестора.
     ]]></string>
 
-    <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a>]]></string>
+    <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a> v4.1-19]]></string>
 
     <array name="ta_loans">
         <item>немає позик</item>
