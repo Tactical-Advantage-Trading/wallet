@@ -1331,8 +1331,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
       val ecxChange = WalletApp.ecx.fiatRates.info.pctDifference(WalletApp.fiatCode).getOrElse(new String)
       val btcUnitRate = WalletApp.msatInFiatHuman(WalletApp.btc.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
       val ecxUnitRate = WalletApp.msatInFiatHuman(WalletApp.ecx.fiatRates, WalletApp.fiatCode, coin, Denomination.formatFiatShort)
-      walletCards.btcPrice.setText(s"BTC &middot; $btcChange $btcUnitRate".html)
-      walletCards.ecxPrice.setText(s"ECX &middot; $ecxChange $ecxUnitRate".html)
+      walletCards.btcPrice.setText(s"BTC &middot; $btcUnitRate $btcChange".trim.html)
+      walletCards.ecxPrice.setText(s"ECX &middot; $ecxUnitRate $ecxChange".trim.html)
       manager.cardViews.foreach(_.updateView)
 
       settingsButtons.removeAllViewsInLayout

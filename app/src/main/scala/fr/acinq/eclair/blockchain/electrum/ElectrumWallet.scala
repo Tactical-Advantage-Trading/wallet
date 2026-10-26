@@ -163,34 +163,32 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
     SendAllResponse(allPubKeyScriptsToAmount, wallets, tx3, fee)
   }
 
-  def computeTxDelta(datas: Seq[ElectrumData], transaction: Transaction): Option[TransactionDelta] = {
-    // For incoming transactions this will work because they typically have no our inputs at all
-    // For outgoing transactions this wiil work only if all inputs come from our utxos
+  def computeTxDelta(datas: Seq[ElectrumData], transaction: Transaction): Option[TransactionDelta] = Try {
+    def prevOutput(data: ElectrumData, input: TxIn): Option[TxOut] = data.transactions.get(input.outPoint.txid).map(_ txOut input.outPoint.index.toInt)
+    def isOurInput(data: ElectrumData, input: TxIn): Boolean = prevOutput(data, input).map(data.isMine).getOrElse(data.extPubKeyFromInput(input).isDefined)
 
-    val ourOutputs = for {
-      txOutput <- transaction.txOut
-      data <- datas if data.isMine(txOutput)
-    } yield txOutput
+    def verifyInput(input: TxIn, index: Int, output: TxOut): Boolean = {
+      val flags = ScriptFlags.SCRIPT_VERIFY_P2SH | ScriptFlags.SCRIPT_VERIFY_WITNESS
+      val runner = new Script.Runner(Script.Context(transaction, index, output.amount), flags)
+      runner.verifyScripts(input.signatureScript, output.publicKeyScript, input.witness)
+    }
 
     val ourInputs = for {
-      txInput <- transaction.txIn
-      data <- datas if data.extPubKeyFromInput(txInput).isDefined
-    } yield txInput
+      (input, index) <- transaction.txIn.zipWithIndex
+      data <- datas if isOurInput(data, input)
+    } yield (input, index, data)
 
     val utxos = for {
-      txInput <- ourInputs
-      data <- datas if data.transactions.contains(txInput.outPoint.txid)
-      txOutput = data.transactions(txInput.outPoint.txid).txOut(txInput.outPoint.index.toInt)
-      item = ElectrumClient.UnspentItem(txInput.outPoint.txid, txInput.outPoint.index.toInt, txOutput.amount.toLong, 0)
-      spentPubKeyExt <- data.keys.publicScriptMap.get(txOutput.publicKeyScript)
-    } yield Utxo(spentPubKeyExt, item, data.keys.ewt)
+      (input, index, data) <- ourInputs
+      output <- prevOutput(data, input) if verifyInput(input, index, output)
+      item = UnspentItem(input.outPoint.txid, input.outPoint.index.toInt, output.amount.toLong, 0)
+    } yield Utxo(key = data.keys.publicScriptMap(output.publicKeyScript), item, data.keys.ewt)
+    require(utxos.size == ourInputs.size)
 
-    if (utxos.size != ourInputs.size) None else {
-      val totalMineSent = utxos.map(_.item.value.sat).sum
-      val totalMineReceived = ourOutputs.map(_.amount).sum
-      TransactionDelta(utxos, totalMineReceived, totalMineSent).asSome
-    }
-  }
+    val sent = utxos.map(_.item.value.sat)
+    val received = datas.flatMap(transaction.txOut filter _.isMine)
+    TransactionDelta(utxos, received.map(_.amount).sum, sent.sum)
+  }.toOption
 
   // API
 
@@ -213,7 +211,7 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
     spendAll(pubKeyScript, Map.empty, usableInUtxos, feeRatePerKw, OPT_IN_FULL_RBF)
   }
 
-  def rbfBump(specs: Seq[WalletSpec], changeTo: WalletSpec, transaction: Transaction, feeRatePerKw: FeeratePerKw): RBFResponse = {
+  def rbfBump(specs: Seq[WalletSpec], changeTo: WalletSpec, transaction: Transaction, rate: FeeratePerKw): RBFResponse = {
     // We could have sent everything to a certain address, in which case we can deduce a higher fee from receiver
     // Or we have sent such that we have change, in which case a higher fee must be deduced from sender
     val usedDatas = specs.map(_.data)
@@ -227,15 +225,19 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
     val tx1 = transaction.copy(txOut = foreignOutputs, txIn = Nil)
 
     computeTxDelta(usedDatas, transaction) match {
+      // Reject unless every original input spends our wallet output AND has passed signature verification
+      case Some(delta) if delta.spentUtxos.isEmpty || !transaction.txIn.forall(delta.spendsInput) =>
+        RBFResponse(FOREIGN_INPUTS.asLeft)
+
       // We sent ALL our funds from given wallets to a single address which does not belong to us
       case Some(delta) if transaction.txOut.size == 1 && tx1.txOut.nonEmpty && usedDatas.flatMap(_.utxos).isEmpty =>
-        RBFResponse(spendAll(tx1.txOut.head.publicKeyScript, Map.empty, delta.spentUtxos, feeRatePerKw, OPT_IN_FULL_RBF).asRight)
+        RBFResponse(spendAll(tx1.txOut.head.publicKeyScript, Map.empty, delta.spentUtxos, rate, OPT_IN_FULL_RBF).asRight)
 
       case Some(delta) =>
         val leftUtxos = usedDatas.flatMap(_.utxos).filterNot(_.item.txHash == transaction.txid)
         // We have sent an amount with fee, this overwhelmingly likely means there's a change which got back to our wallet, we must use that leftover to bump the fee
         val changeScript = changeTo.data.keys.ewt.computePublicKeyScript(changeTo.data.unusedOrRand(changeTo.data.firstUnusedChangeKeys, changeTo.data.keys.changeKeys).publicKey)
-        RBFResponse(completeTransaction(tx1, feeRatePerKw, OPT_IN_FULL_RBF, changeScript, leftUtxos, delta.spentUtxos).asRight)
+        RBFResponse(completeTransaction(tx1, rate, OPT_IN_FULL_RBF, changeScript, leftUtxos, delta.spentUtxos).asRight)
 
       case None => RBFResponse(PARENTS_MISSING.asLeft)
       case _ => RBFResponse(FOREIGN_INPUTS.asLeft)
@@ -243,8 +245,9 @@ class Electrum(val params: WalletParameters, val chainHash: ByteVector32, sysNam
   }
 
   // We use this one for cancelling (rerouting onto our own address)
-  def rbfReroute(pubs: Seq[WalletSpec], tx: Transaction, feeRatePerKw: FeeratePerKw, publicKeyScript: ByteVector): RBFResponse = computeTxDelta(pubs.map(_.data), tx) match {
-    case Some(delta) => RBFResponse(spendAll(publicKeyScript, Map.empty, usableInUtxos = delta.spentUtxos, feeRatePerKw, OPT_IN_FULL_RBF).asRight)
+  def rbfReroute(pubs: Seq[WalletSpec], tx: Transaction, rate: FeeratePerKw, publicKeyScript: ByteVector): RBFResponse = computeTxDelta(pubs.map(_.data), tx) match {
+    case Some(delta) if delta.spentUtxos.isEmpty || !tx.txIn.forall(delta.spendsInput) => RBFResponse(FOREIGN_INPUTS.asLeft)
+    case Some(delta) => RBFResponse(spendAll(publicKeyScript, Map.empty, delta.spentUtxos, rate, OPT_IN_FULL_RBF).asRight)
     case None => RBFResponse(PARENTS_MISSING.asLeft)
   }
 
@@ -468,17 +471,16 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
           persistAndNotify(data1)
 
         case (Some(data), GetTransactionResponse(tx), RUNNING) =>
-          val clearedExcludedOutPoints = data.excludedOutPoints diff tx.txIn.map(_.outPoint)
-          // Even though we have excluded some utxos in this wallet user may still spend them from other wallet, so clear excluded outpoints here
-          val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests - tx.txid, excludedOutPoints = clearedExcludedOutPoints)
-
-          val data2 = electrum.computeTxDelta(data :: Nil, tx) map { case TransactionDelta(_, received, sent) =>
+          val data1 = data.copy(pendingTransactionRequests = data.pendingTransactionRequests - tx.txid)
+          val data2 = electrum.computeTxDelta(data :: Nil, tx) map { case TransactionDelta(spentUtxos, received, sent) =>
             val addresses = tx.txOut.filter(data.isMine).map(_.publicKeyScript).flatMap(data.keys.publicScriptMap.get).map(ewt.textAddress).toList
-            context.system.eventStream publish TransactionReceived(tx, data.depth(tx.txid), data.timestamp(tx.txid, electrum.params.dataDb), received, sent, addresses, ewt.xPub :: Nil)
-            // Transactions arrive asynchronously, we may have valid txs wihtout parents, if that happens we wait until parents arrive and then retry delta check again
-            for (stillPendingTx <- data.pendingTransactions) self ! GetTransactionResponse(stillPendingTx)
-            data1.copy(transactions = data.transactions.updated(tx.txid, tx), pendingTransactions = Nil)
-          } getOrElse data1.copy(pendingTransactions = data.pendingTransactions :+ tx)
+            val remainingExcluded = data1.excludedOutPoints diff spentUtxos.map(_.item.outPoint)
+            val stamp = data.timestamp(tx.txid, electrum.params.dataDb)
+
+            for (stillPendingTx <- data1.pendingTransactions) self ! GetTransactionResponse(stillPendingTx)
+            context.system.eventStream publish TransactionReceived(tx, data.depth(tx.txid), stamp, received, sent, addresses, ewt.xPub :: Nil)
+            data1.copy(transactions = data1.transactions.updated(tx.txid, tx), excludedOutPoints = remainingExcluded, pendingTransactions = Nil)
+          } getOrElse data1.copy(pendingTransactions = data1.pendingTransactions :+ tx)
           persistAndNotify(data2)
 
         case (Some(data), response: GetMerkleResponse, RUNNING) =>
@@ -548,8 +550,11 @@ class ElectrumWallet(electrum: Electrum, ewt: ElectrumWalletType) extends Actor 
 }
 
 case class AccountAndXPrivKey(xPriv: ExtendedPrivateKey, master: ExtendedPrivateKey)
-case class TransactionDelta(spentUtxos: Seq[Utxo], received: Satoshi, sent: Satoshi)
 case class Utxo(key: ExtendedPublicKey, item: ElectrumClient.UnspentItem, ewt: ElectrumWalletType)
+
+case class TransactionDelta(spentUtxos: Seq[Utxo], received: Satoshi, sent: Satoshi) {
+  def spendsInput(input: TxIn): Boolean = spentUtxos.exists(_.item.outPoint == input.outPoint)
+}
 
 case class WalletSpec(info: CompleteWalletInfo, data: ElectrumData, walletRef: ActorRef) {
   def usable: Boolean = data.keys.ewt.secrets.nonEmpty || info.core.masterFingerprint.nonEmpty
@@ -633,7 +638,7 @@ case class ElectrumData(blockchain: Blockchain, keys: MemoizedKeys, excludedOutP
 
   def randKey(pool: Seq[ExtendedPublicKey] = Nil): ExtendedPublicKey = pool(fr.acinq.eclair.secureRandom nextInt pool.size)
 
-  def isMine(txOut: TxOut): Boolean = keys.publicScriptMap.contains(txOut.publicKeyScript)
+  def isMine(txOut: TxOut) = keys.publicScriptMap.contains(txOut.publicKeyScript)
 
   def timestamp(txid: ByteVector32, dataDb: SQLiteData): Long = {
     val blockHeight = proofs.get(txid).map(_.blockHeight).getOrElse(default = 0)

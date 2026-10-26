@@ -50,7 +50,7 @@
         якщо ви вважаєте що це помилка чи бажаєте подати заявку на отримання статусу кваліфікованого інвестора.
     ]]></string>
 
-    <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a> v4.1-19]]></string>
+    <string name="dev_info"><![CDATA[від <a href="https://tactical-advantage.trading"><b>Tactical Advantage</b></a> v4.1-22]]></string>
 
     <array name="ta_loans">
         <item>немає позик</item>
