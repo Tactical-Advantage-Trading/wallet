@@ -28,7 +28,7 @@ import scala.util.Try
 
 class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String, val explorer: String, val coinName: String,
                          val bgRes: Int, val bgSelectedRes: Int, val qrBgRes: Int, val zeroColor: String, genesis: Block,
-                         serversJson: String, checkptsJson: String, val enforceSameBitsAfterHeight: Int) {
+                         serversJson: String, checkptsJson: String, val retargetPeriod: Int) {
   val connectionProvider: ConnectionProvider = new ClearnetConnectionProvider
   var currentNode = Option.empty[InetSocketAddress]
 
@@ -71,7 +71,7 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
     val checkpts = app.getAssets.open(checkptsJson)
     electrum.pool = electrum.system.actorOf(Props(classOf[ElectrumClientPool], servers), "pool")
     electrum.catcher = electrum.system.actorOf(Props(classOf[WalletEventsCatcher], netId, electrum), "catcher")
-    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, enforceSameBitsAfterHeight), "sync")
+    electrum.sync = electrum.system.actorOf(Props(classOf[ElectrumChainSync], electrum, checkpts, retargetPeriod), "sync")
 
     electrum.catcher ! new WalletEventsListener {
       override def onTransactionReceived(netId: Int, event: TransactionReceived): Unit = {
@@ -160,18 +160,18 @@ class NetworkWalletGroup(val netId: Int, val ticker: String, val prefix: String,
 }
 
 object WalletApp {
+  final val ID_ECX = 0
   final val ID_BTC = 1
-  final val ID_ECX = 2
   final val FIAT_CODE = "fiatCode"
   final val SHOW_TA_CARD = "showTaCard"
 
   val btc = new NetworkWalletGroup(WalletApp.ID_BTC, ticker = "BTC", prefix = "bitcoin", "https://mempool.space/tx/",
     coinName = "Bitcoin", R.color.signCardBitcoin, R.drawable.border_btc_selected, R.drawable.qrbg_btc, zeroColor = "#FBB945",
-    Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", enforceSameBitsAfterHeight = 0)
+    Block.LivenetGenesisBlock, "btc_servers.json", "btc_checkpoints.json", retargetPeriod = 2016)
 
-  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash", "https://explorer.drynet4.drivechain.dev/tx/",
+  val ecx = new NetworkWalletGroup(WalletApp.ID_ECX, ticker = "ECX", prefix = "ecash", "https://explorer.ecash.ninja/tx/",
     coinName = "eCash", R.color.signCardEcash, R.drawable.border_ecx_selected, R.drawable.qrbg_ecx, zeroColor = "#FA625C",
-    Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", enforceSameBitsAfterHeight = 963648)
+    Block.LivenetGenesisBlock, "ecx_servers.json", "ecx_checkpoints.json", retargetPeriod = 288)
 
   val pendingInfos = mutable.Map.empty[String, ItemDetails]
   val seenInfos = mutable.Map.empty[String, ItemDetails]

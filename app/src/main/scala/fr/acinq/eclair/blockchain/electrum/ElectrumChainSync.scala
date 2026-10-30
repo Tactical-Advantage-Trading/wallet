@@ -1,9 +1,11 @@
 package fr.acinq.eclair.blockchain.electrum
 
-import fr.acinq.eclair.blockchain.electrum.Blockchain.RETARGETING_PERIOD
+import fr.acinq.bitcoin.BlockHeader
 import fr.acinq.eclair.blockchain.electrum.ElectrumClient.GetHeaders
 import fr.acinq.eclair.blockchain.electrum.ElectrumWallet.{DISCONNECTED, RUNNING, SYNCING, WAITING_TIP}
+import fr.acinq.eclair.blockchain.electrum.Blockchain.{ECX_RETARGETING_PERIOD, RETARGETING_PERIOD}
 import trading.tacticaladvantage.Tools.ThrowableOps
+
 import java.io.InputStream
 import scala.util.Try
 
@@ -13,9 +15,18 @@ case class ChainSyncing(initialLocalHeight: Int, localHeight: Int, remoteHeight:
 case class ChainSyncEnded(oldLocalHeight: Int, blockchain: Blockchain) extends ChainSyncEvent
 case object ChainReorganized extends ChainSyncEvent
 
-class ElectrumChainSync(electrum: Electrum, stream: InputStream, enforceSameBitsAfterHeight: Int) extends akka.actor.FSM[ElectrumWallet.State, Blockchain] {
-  def freshChain: Blockchain = Blockchain(enforceSameBitsAfterHeight, checkpoints = bundled, headersMap = Map.empty)
+class ElectrumChainSync(electrum: Electrum, stream: InputStream, retargetPeriod: Int) extends akka.actor.FSM[ElectrumWallet.State, Blockchain] {
+  private def needsCheckpointHeader(bc: Blockchain): Boolean = bc.retargetPeriod == ECX_RETARGETING_PERIOD && !bc.headersMap.contains(bc.checkpoints.last.hash)
+  private def freshChain: Blockchain = Blockchain(retargetPeriod, checkpoints = bundled, headersMap = Map.empty)
   lazy val bundled: Vector[CheckPoint] = CheckPoint.load(stream)
+
+  private def withCheckpointHeader(blockchain: Blockchain, header: BlockHeader): Blockchain = {
+    require(header.hash == blockchain.checkpoints.last.hash, "Wrong checkpoint header")
+    require(BlockHeader.checkProofOfWork(header), "Invalid checkpoint PoW")
+
+    val index = Blockchain.BlockIndex(header, blockchain.checkpoints.size * RETARGETING_PERIOD - 1)
+    blockchain.copy(headersMap = Map(index.hash -> index) ++ blockchain.headersMap)
+  }
 
   def resetAfterReorg = {
     electrum.params.dataDb.db.txWrap {
@@ -33,13 +44,24 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, enforceSameBits
   var initialLocalHeight = 0
 
   {
+    require(retargetPeriod == RETARGETING_PERIOD || retargetPeriod == ECX_RETARGETING_PERIOD)
     val checkpoints = CheckPoint.withDbHeaders(bundled, electrum.params.dataDb)
     val startHeight = checkpoints.size * RETARGETING_PERIOD
+    val base = freshChain.copy(checkpoints = checkpoints)
 
-    val blockchain0 = freshChain.copy(checkpoints = checkpoints)
-    val headers = electrum.params.dataDb.getHeaders(startHeight, Int.MaxValue)
-    val blockchain1 = Try apply Blockchain.addHeadersChunk(blockchain0, startHeight, headers)
-    startWith(DISCONNECTED, blockchain1 getOrElse blockchain0)
+    val anchored = if (retargetPeriod == ECX_RETARGETING_PERIOD) {
+      electrum.params.dataDb.getHeader(startHeight - 1) map { header =>
+        withCheckpointHeader(base, header)
+      } getOrElse base
+    } else base
+
+    val needsHeader = needsCheckpointHeader(anchored)
+    val restored = if (needsHeader) anchored else Try {
+      val headers = electrum.params.dataDb.getHeaders(startHeight, Int.MaxValue)
+      Blockchain.addHeadersChunk(anchored, startHeight, headers)
+    } getOrElse anchored
+
+    startWith(DISCONNECTED, restored)
     electrum.pool ! ElectrumClient.AddStatusListener(self)
   }
 
@@ -60,9 +82,13 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, enforceSameBits
       goto(DISCONNECTED) replying akka.actor.PoisonPill
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if blockchain.bestchain.isEmpty =>
-      electrum.pool ! ElectrumClient.GetHeaders(blockchain.checkpoints.size * RETARGETING_PERIOD, RETARGETING_PERIOD)
-      initialLocalHeight = blockchain.checkpoints.size * RETARGETING_PERIOD - 1
+      val startHeight = blockchain.checkpoints.size * RETARGETING_PERIOD
+      initialLocalHeight = startHeight - 1
       reportedHeight = response.height
+
+      val needsHeader = needsCheckpointHeader(blockchain)
+      if (needsHeader) electrum.pool ! ElectrumClient.GetHeader(startHeight - 1)
+      else electrum.pool ! ElectrumClient.GetHeaders(startHeight, RETARGETING_PERIOD)
       goto(SYNCING)
 
     case Event(response: ElectrumClient.HeaderSubscriptionResponse, blockchain) if response.header == blockchain.tip.header =>
@@ -78,6 +104,20 @@ class ElectrumChainSync(electrum: Electrum, stream: InputStream, enforceSameBits
   }
 
   when(SYNCING) {
+    case Event(ElectrumClient.GetHeaderResponse(height, header), blockchain)
+      if needsCheckpointHeader(blockchain) && height == blockchain.checkpoints.size * RETARGETING_PERIOD - 1 =>
+
+      try {
+        val blockchain1 = withCheckpointHeader(blockchain, header)
+        electrum.params.dataDb.addHeaders(headers = Seq(header), height)
+        electrum.pool ! ElectrumClient.GetHeaders(height + 1, RETARGETING_PERIOD)
+        stay using blockchain1
+      } catch {
+        case err: Throwable =>
+          log.info(s"[KILLPEER] e0 ${err.stackTraceString}")
+          goto(DISCONNECTED) replying akka.actor.PoisonPill
+      }
+
     case Event(ElectrumClient.GetHeadersResponse(startHeight, header +: _, _), blockchain)
       if blockchain.isReorg(startHeight, header, electrum.params.dataDb) =>
       resetAfterReorg

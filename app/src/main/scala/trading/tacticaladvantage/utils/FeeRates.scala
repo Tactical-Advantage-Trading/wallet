@@ -73,7 +73,7 @@ class BtcFeeRates(bag: SQLiteData) extends FeeRates(bag, SQLiteData.LABEL_BTC_FE
 
 class EcxFeeRates(bag: SQLiteData) extends FeeRates(bag, SQLiteData.LABEL_ECX_FEE_RATES) {
   def reloadData(provider: ConnectionProvider) = fr.acinq.eclair.secureRandom nextInt 3 match {
-    case _ => new EsploraFeeProvider("https://esplora.drynet4.drivechain.dev/fee-estimates").provide(provider)
+    case _ => new EsploraFeeProvider("https://esplora.ecash.ninja/fee-estimates").provide(provider)
   }
 }
 
@@ -95,7 +95,7 @@ trait FeeRatesProvider {
 // Esplora
 
 class EsploraFeeProvider(val url: String) extends FeeRatesProvider {
-  type EsploraFeeStructure = Map[String, Long]
+  type EsploraFeeStructure = Map[String, Double]
 
   def provide(provider: ConnectionProvider): FeeratesPerKB = {
     val structure = to[EsploraFeeStructure](provider.get(url).string)
@@ -113,11 +113,11 @@ class EsploraFeeProvider(val url: String) extends FeeRatesProvider {
     )
   }
 
-  // First we keep only fee ranges with a max block delay below the limit
-  // out of all the remaining fee ranges, we select the one with the minimum higher bound
   def extractFeerate(structure: EsploraFeeStructure, maxBlockDelay: Int): FeeratePerKB = {
-    val belowLimit = structure.filterKeys(_.toInt <= maxBlockDelay).values
-    FeeratePerKB(belowLimit.min.sat * 1000L)
+    val estimates = structure.filter { case (_, rate) => rate > 0D && !rate.isNaN && !rate.isInfinity }
+    val belowLimit = estimates.collect { case (target, rate) if target.toInt <= maxBlockDelay => rate }
+    val satPerVByte = if (belowLimit.nonEmpty) belowLimit.min else estimates.values.max
+    FeeratePerKB(math.ceil(satPerVByte * 1000D).toLong.sat)
   }
 }
 
@@ -144,8 +144,6 @@ object BitgoFeeProvider extends FeeRatesProvider {
     )
   }
 
-  // first we keep only fee ranges with a max block delay below the limit
-  // out of all the remaining fee ranges, we select the one with the minimum higher bound
   def extractFeerate(structure: BitGoFeeRateStructure, maxBlockDelay: Int): FeeratePerKB = {
     val belowLimit = structure.feeByBlockTarget.filterKeys(_.toInt <= maxBlockDelay).values
     FeeratePerKB(belowLimit.min.sat)

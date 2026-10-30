@@ -48,10 +48,10 @@ class BtcFiatRates(bag: SQLiteData) extends FiatRates(bag, SQLiteData.LABEL_BTC_
 }
 
 class EcxFiatRates(bag: SQLiteData) extends FiatRates(bag, SQLiteData.LABEL_ECX_FIAT_RATES) {
-  private val poolAddress = "nNKg814Wq3uTkoG4fM8LzvBQv4Fu2iCgKFmK2YmPQzM"
-  private val WbEcxMint = "EVHqNdzjCupKi4rQkbuYw52sa1m8A7jeUAMP23S9AVVq"
+  private val poolAddress = "7T4xAj1ENEuPckhWqz6nJP9ZkvDnFpVF7nLbUAvSwm43"
+  private val WEcxMint = "6ombVv3YMs9qpx1QkycD9XW8HKSfv7vGrCFX3cxCYMVY"
   private val UsdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-  private val impliedEcxMultiplier = 50D
+  private val impliedEcxMultiplier = 1D
 
   private def positive(value: Double): Double = {
     require(value > 0D && !value.isNaN && !value.isInfinity, "Invalid price")
@@ -65,17 +65,17 @@ class EcxFiatRates(bag: SQLiteData) extends FiatRates(bag, SQLiteData.LABEL_ECX_
   }
 
   private def reload(provider: ConnectionProvider) = Try {
-    val url = s"https://lite-api.jup.ag/price/v3?ids=$WbEcxMint"
+    val url = s"https://lite-api.jup.ag/price/v3?ids=$WEcxMint"
     val quotes = load[FiatRates.JupiterInfoItemMap](provider, url)
-    positive(quotes(WbEcxMint).usdPrice)
+    positive(quotes(WEcxMint).usdPrice)
   } recover { case _ =>
     val url = s"https://api.orca.so/v2/solana/pools/$poolAddress"
     val pool = load[OrcaResponse](provider, url).data
     val raw = positive(pool.price.toDouble)
 
     (pool.tokenA.address, pool.tokenB.address) match {
-      case (UsdcMint, WbEcxMint) => positive(1D / raw)
-      case (WbEcxMint, UsdcMint) => raw
+      case (UsdcMint, WEcxMint) => positive(1D / raw)
+      case (WEcxMint, UsdcMint) => raw
       case _ => throw new Exception
     }
   }

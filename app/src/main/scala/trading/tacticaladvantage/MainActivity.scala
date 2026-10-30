@@ -627,8 +627,8 @@ class MainActivity extends BaseActivity with MnemonicActivity with ExternalDataC
 
       case false =>
         WalletApp.btc.makeAlive(WalletApp.app, lockTime = 0)
-        // nLockTime = 499999999 (LOCKTIME_THRESHOLD - 1) is replay-protected
-        WalletApp.ecx.makeAlive(WalletApp.app, lockTime = LockTimeThreshold - 1)
+        // nLockTime = 499999998 (LOCKTIME_THRESHOLD - 2) is replay-protected
+        WalletApp.ecx.makeAlive(WalletApp.app, lockTime = LockTimeThreshold - 2)
         START(state)
     }
 

@@ -7,7 +7,7 @@ import java.math.BigInteger
 import scala.annotation.tailrec
 
 
-case class Blockchain(enforceSameBitsAfterHeight: Int,
+case class Blockchain(retargetPeriod: Int,
                       checkpoints: Vector[CheckPoint],
                       headersMap: Map[ByteVector32, Blockchain.BlockIndex],
                       bestchain: Vector[Blockchain.BlockIndex] = Vector.empty) {
@@ -30,6 +30,7 @@ case class Blockchain(enforceSameBitsAfterHeight: Int,
 
 object Blockchain {
   type BlockIdxVec = Vector[BlockIndex]
+  val ECX_RETARGETING_PERIOD = 288
   val RETARGETING_PERIOD = 2016
   val MAX_REORG = 72
 
@@ -49,56 +50,66 @@ object Blockchain {
 
   private def checkpointNextBits(blockchain: Blockchain, height: Int): Option[Long] = {
     val cpindex = (height / RETARGETING_PERIOD) - 1
-    if (cpindex >= 0 && cpindex < blockchain.checkpoints.length)
-      Some(blockchain.checkpoints(cpindex).nextBits) else None
+    val needsBits = height % RETARGETING_PERIOD == 0 && cpindex >= 0 && cpindex < blockchain.checkpoints.length
+    if (needsBits) Some(blockchain.checkpoints(cpindex).nextBits) else None
   }
 
   private def expectedBits(blockchain: Blockchain, height: Int, parent: BlockIndex): Option[Long] =
-    if (height % RETARGETING_PERIOD != 0) Some(parent.header.bits)
-    else checkpointNextBits(blockchain, height).orElse {
-      ancestorAt(parent, height - RETARGETING_PERIOD).map { previous =>
-        BlockHeader.calculateNextWorkRequired(parent.header, previous.header.time)
+    if (height % blockchain.retargetPeriod != 0) Some(parent.header.bits) else {
+      checkpointNextBits(blockchain, height).orElse {
+        val oneOff = if (blockchain.retargetPeriod == ECX_RETARGETING_PERIOD) 1 else 0
+        val referenceHeight = height - blockchain.retargetPeriod - oneOff
+        ancestorAt(parent, referenceHeight).map { reference =>
+          BlockHeader.calculateNextWorkRequired(parent.header, reference.header.time, blockchain.retargetPeriod)
+        }
       }
     }
 
   def validateHeadersChunk(blockchain: Blockchain, height: Int, headers: Seq[BlockHeader] = Nil): Unit = {
     if (headers.isEmpty) return
 
-    require(height % RETARGETING_PERIOD == 0, "e1")
+    require(height >= 0 && height % RETARGETING_PERIOD == 0, "e1")
+    require(headers.length <= RETARGETING_PERIOD, "e2")
+
+    headers.foreach { header =>
+      require(BlockHeader.checkProofOfWork(header), "e3")
+    }
+
+    headers.zip(headers.tail).foreach { case (previous, current) =>
+      require(current.hashPreviousBlock == previous.hash, "e4")
+    }
+
     val cpindex = (height / RETARGETING_PERIOD) - 1
-    require(BlockHeader checkProofOfWork headers.head, "e2")
-
-    headers.tail.foldLeft(headers.head) {
-      case (previous, current) =>
-        require(BlockHeader checkProofOfWork current, "e3")
-        require(current.hashPreviousBlock == previous.hash, "e4")
-        // on mainnet all blocks with a re-targeting window have the same difficulty target
-        // on testnet it doesn't hold, there can be a drop in difficulty if there are no blocks for 20 minutes
-        if (blockchain.enforceSameBitsAfterHeight < height) require(current.bits == previous.bits, "e5")
-        current
+    if (cpindex >= 0 && cpindex < blockchain.checkpoints.length) {
+      require(headers.head.hashPreviousBlock == blockchain.checkpoints(cpindex).hash, "e5")
     }
 
-    if (cpindex < blockchain.checkpoints.length) {
-      val checkpoint = blockchain.checkpoints(cpindex)
-      require(headers.head.hashPreviousBlock == checkpoint.hash, "e6")
-      if (blockchain.enforceSameBitsAfterHeight < height)
-        require(headers.head.bits == checkpoint.nextBits, "e7")
-    } else if (blockchain.enforceSameBitsAfterHeight < height) {
-      val parent = blockchain.headersMap.getOrElse(headers.head.hashPreviousBlock, throw new IllegalArgumentException)
-      val expected = expectedBits(blockchain, height, parent).getOrElse(throw new IllegalArgumentException)
-      require(headers.head.bits == expected, "e8")
-      require(parent.height == height - 1, "e9")
+    if (cpindex + 1 < blockchain.checkpoints.length) {
+      require(headers.length == RETARGETING_PERIOD, "e16")
+      require(headers.last.hash == blockchain.checkpoints(cpindex + 1).hash, "e7")
+      return
     }
 
-    if (cpindex < blockchain.checkpoints.length - 1) {
-      val nextCheckpoint = blockchain.checkpoints(cpindex + 1)
-      require(headers.last.hash == nextCheckpoint.hash, "e10")
-      require(headers.length == RETARGETING_PERIOD, "e11")
+    val parent = blockchain.headersMap.get(headers.head.hashPreviousBlock)
+    parent.foreach(blockIdx => require(blockIdx.height == height - 1, "e8"))
 
-      if (blockchain.enforceSameBitsAfterHeight < height) {
-        val diff = BlockHeader.calculateNextWorkRequired(headers.last, headers.head.time)
-        require(diff == nextCheckpoint.nextBits, "e12")
-      }
+    val firstBits = checkpointNextBits(blockchain, height) orElse {
+      parent.flatMap(blockIdx => expectedBits(blockchain, height, blockIdx))
+    } getOrElse {
+      throw new IllegalArgumentException(s"e9 $height")
+    }
+
+    var previous = BlockIndex(headers.head, height, parent)
+    require(headers.head.bits == firstBits, s"e10 $height")
+    headers.tail.zipWithIndex.foreach { case (current, offset) =>
+        val currentHeight = height + offset + 1
+
+        val bits = expectedBits(blockchain, currentHeight, previous).getOrElse {
+          throw new IllegalArgumentException(s"e11 $currentHeight")
+        }
+
+        require(current.bits == bits, s"e12 $currentHeight")
+        previous = BlockIndex(current, currentHeight, Some(previous))
     }
   }
 
@@ -119,7 +130,8 @@ object Blockchain {
       case _ if height == blockchain.checkpoints.length * RETARGETING_PERIOD =>
         val workSpan = blockchain.checkpoints(0) +: blockchain.checkpoints.dropRight(1)
         val chainwork = workSpan.map(_.nextBits).map(chainWork).map(bits => BigInt(RETARGETING_PERIOD) * bits)
-        val blockIndex = BlockIndex(headers.head, height, None, chainWork(headers.head.bits) + chainwork.sum)
+        val blockIndex = BlockIndex(headers.head, height, blockchain.headersMap.get(headers.head.hashPreviousBlock),
+          chainWork(headers.head.bits) + chainwork.sum)
 
         val bestchain1 = doAddHeaders(Vector(blockIndex), headers)
         val headersMap1 = blockchain.headersMap ++ bestchain1.map(bi => bi.hash -> bi)
@@ -131,7 +143,7 @@ object Blockchain {
       case _ if height == blockchain.height + 1 =>
         require(headers.head.hashPreviousBlock == blockchain.bestchain.last.hash, "e13")
         val cumulative = chainWork(headers.head.bits) + blockchain.bestchain.last.chainwork
-        val blockIndex = BlockIndex(headers.head, height, None, cumulative)
+        val blockIndex = BlockIndex(headers.head, height, Some(blockchain.tip), cumulative)
 
         val indexes = doAddHeaders(Vector(blockIndex), headers)
         val headersMap1 = blockchain.headersMap ++ indexes.map(bi => bi.hash -> bi)
@@ -147,10 +159,8 @@ object Blockchain {
     require(BlockHeader checkProofOfWork header, "e15")
     require(height == blockchain.height + 1, "e16")
 
-    if (blockchain.enforceSameBitsAfterHeight < height) {
-      val expected = expectedBits(blockchain, height, blockchain.tip)
-      require(expected.getOrElse(throw new IllegalArgumentException) == header.bits, "e17")
-    }
+    val expected = expectedBits(blockchain, height, blockchain.tip)
+    require(expected.getOrElse(throw new IllegalArgumentException) == header.bits, "e17")
 
     val blockIndex = BlockIndex(header = header, height = height, parent = Some(blockchain.tip), chainwork = chainWork(header.bits) + blockchain.tip.chainwork)
     blockchain.copy(headersMap = blockchain.headersMap + (blockIndex.hash -> blockIndex), bestchain = blockchain.bestchain :+ blockIndex)
@@ -176,25 +186,33 @@ object Blockchain {
   def optimize(blockchain: Blockchain, acc: BlockIdxVec = Vector.empty): (Blockchain, BlockIdxVec) =
     if (blockchain.bestchain.size >= RETARGETING_PERIOD + MAX_REORG) {
       val saveme = blockchain.bestchain.take(RETARGETING_PERIOD)
-      val headersMap1 = blockchain.headersMap -- saveme.map(_.hash)
-      val bestchain1 = blockchain.bestchain.drop(RETARGETING_PERIOD)
-      val checkpoints1 = blockchain.checkpoints :+ CheckPoint(saveme.last.hash, bestchain1.head.header.bits)
-      optimize(blockchain.copy(headersMap = headersMap1, bestchain = bestchain1, checkpoints = checkpoints1), acc ++ saveme)
+      val anchor = saveme.last.copy(parent = None)
+
+      val rebuilt = blockchain.bestchain.drop(RETARGETING_PERIOD).foldLeft(Vector(anchor)) {
+        case (chain, index) => chain :+ index.copy(parent = chain.lastOption)
+      }
+
+      val headersMap1 = rebuilt.map(index => index.hash -> index).toMap
+      val checkpoints1 = blockchain.checkpoints :+ CheckPoint(anchor.hash, rebuilt.tail.head.header.bits)
+      optimize(blockchain.copy(bestchain = rebuilt.tail, headersMap = headersMap1, checkpoints = checkpoints1), acc ++ saveme)
     } else {
       val safeWithoutCheckpoint = blockchain.bestchain.dropRight(MAX_REORG)
       (blockchain, acc ++ safeWithoutCheckpoint)
     }
 
-  def getDifficulty(blockchain: Blockchain, height: Int, dataDb: SQLiteData): Option[Long] =
-    if (blockchain.enforceSameBitsAfterHeight >= height) None
-    else if (height % RETARGETING_PERIOD == 0) {
-      for {
-        parent <- blockchain.getHeader(height - 1) orElse dataDb.getHeader(height - 1)
-        previous <- blockchain.getHeader(height - 2016) orElse dataDb.getHeader(height - 2016)
-      } yield BlockHeader.calculateNextWorkRequired(parent, previous.time)
-    } else {
-      val hot = blockchain.getHeader(height - 1)
-      val cold = dataDb.getHeader(height - 1)
-      hot.orElse(cold).map(_.bits)
+  def getDifficulty(blockchain: Blockchain, height: Int, dataDb: SQLiteData): Option[Long] = {
+    def headerAt(header: Int): Option[BlockHeader] = blockchain.getHeader(header).orElse(dataDb getHeader header)
+
+    if (height % blockchain.retargetPeriod != 0) headerAt(height - 1).map(_.bits) else {
+      checkpointNextBits(blockchain, height).orElse {
+        val oneOff = if (blockchain.retargetPeriod == ECX_RETARGETING_PERIOD) 1 else 0
+        val referenceHeight = height - blockchain.retargetPeriod - oneOff
+
+        for {
+          parent <- headerAt(height - 1)
+          reference <- headerAt(referenceHeight)
+        } yield BlockHeader.calculateNextWorkRequired(parent, reference.time, blockchain.retargetPeriod)
+      }
     }
+  }
 }

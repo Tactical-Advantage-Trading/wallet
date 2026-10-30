@@ -68,17 +68,12 @@ object BlockHeader extends BtcSerializer[BlockHeader] {
     validTarget && new BigInteger(1, header.blockId.toArray).compareTo(target) <= 0
   }
 
-  def calculateNextWorkRequired(lastHeader: BlockHeader, lastRetargetTime: Long): Long = {
-    var actualTimespan = lastHeader.time - lastRetargetTime
-    val targetTimespan = 14 * 24 * 60 * 60 // two weeks
-    if (actualTimespan < targetTimespan / 4) actualTimespan = targetTimespan / 4
-    if (actualTimespan > targetTimespan * 4) actualTimespan = targetTimespan * 4
-
-    var (target, false, false) = decodeCompact(lastHeader.bits)
-    target = target.multiply(BigInteger.valueOf(actualTimespan))
-    target = target.divide(BigInteger.valueOf(targetTimespan))
-
-    target = target.min(PowLimit)
+  def calculateNextWorkRequired(lastHeader: BlockHeader, lastRetargetTime: Long, retargetPeriod: Int): Long = {
+    val t = retargetPeriod.toLong * 600
+    val (oldTarget, false, false) = decodeCompact(lastHeader.bits)
+    val elapsed = (lastHeader.time - lastRetargetTime).max(t / 4).min(t * 4)
+    val (numerator, denominator) = if (retargetPeriod == 288) (6 * t + elapsed, 7 * t) else (elapsed, t)
+    val target = oldTarget.multiply(BigInteger valueOf numerator).divide(BigInteger valueOf denominator).min(PowLimit)
     encodeCompact(target)
   }
 }
