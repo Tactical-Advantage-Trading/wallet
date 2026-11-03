@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId = "trading.tacticaladvantage"
         versionName = "4.1"
-        versionCode = 23
+        versionCode = 24
         targetSdk = 36
         minSdk = 28
 
@@ -23,7 +23,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
 
             proguardFiles(

@@ -15,18 +15,18 @@ object Denomination {
 
 trait Denomination {
   def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
-  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String
   def fromMsat(amount: MilliSatoshi): BigDecimal = BigDecimal(amount.toLong) / factor
+
+  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
+    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
 
   def directedTT(incoming: MilliSatoshi, outgoing: MilliSatoshi,
                inColor: String, outColor: String, zeroColor: String,
-               isIncoming: Boolean): String = {
-
+               isIncoming: Boolean): String =
     if (isIncoming && incoming == 0L.msat) parsedTT(incoming, inColor, zeroColor)
-    else if (isIncoming) "+&#160;" + parsedTT(incoming, inColor, zeroColor)
+    else if (isIncoming) "<tt>+</tt>&#160;" + parsedTT(incoming, inColor, zeroColor)
     else if (outgoing == 0L.msat) parsedTT(outgoing, outColor, zeroColor)
-    else "-&#160;" + parsedTT(outgoing, outColor, zeroColor)
-  }
+    else "<tt>-</tt>&#160;" + parsedTT(outgoing, outColor, zeroColor)
 
   val fmt: DecimalFormat
   val factor: Long
@@ -36,9 +36,6 @@ object CoinDenom extends Denomination { me =>
   val fmt: DecimalFormat = new DecimalFormat("##0.00000000")
   fmt.setDecimalFormatSymbols(Denomination.symbols)
   val factor = 100000000000L
-
-  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
 
   def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String = {
     // Alpha channel does not work on Android when set as HTML attribute
@@ -60,9 +57,6 @@ object CoinDenom extends Denomination { me =>
 object TokenDenom extends Denomination {
   val fmt: DecimalFormat = new DecimalFormat("#,##0.00", Denomination.symbols)
   val factor = 100000000000L
-
-  def parsedTT(msat: MilliSatoshi, mainColor: String, zeroColor: String): String =
-    if (0L == msat.toLong) "<tt>0</tt>" else "<tt>" + parsed(msat, mainColor, zeroColor) + "</tt>"
 
   def parsed(msat: MilliSatoshi, mainColor: String, zeroColor: String): String = {
     val basicFormatted: String = fmt.format(fromMsat(amount = msat).bigDecimal)

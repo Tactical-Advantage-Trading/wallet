@@ -82,17 +82,17 @@
                         android:id="@+id/amount"
                         android:layout_centerVertical="true"
                         android:layout_alignParentStart="true"
+                        android:layout_toStartOf="@id/meta"
                         style="@style/BoundedView"/>
 
                     <TextView
                         android:maxLines="1"
                         android:id="@+id/meta"
                         android:gravity="center"
-                        android:layout_width="match_parent"
-                        android:layout_toEndOf="@id/amount"
+                        style="@style/BoundedView"
+                        android:layout_width="140dp"
                         android:layout_toStartOf="@id/statusIcon"
-                        android:layout_centerVertical="true"
-                        style="@style/BoundedView"/>
+                        android:layout_centerVertical="true"/>
 
                     <ImageView
                         style="@style/BoundedView"
